@@ -15,9 +15,15 @@
     <canvas id="game" width="400" height="700"></canvas>
 
     <div class="hud">
-      <div class="horde-badge">
-        <span style="font-size:18px;">&#128008;</span>
-        <span class="count" id="hordeCount">1</span>
+      <div class="hud-left">
+        <div class="horde-badge">
+          <span style="font-size:18px;">&#128008;</span>
+          <span class="count" id="hordeCount">1</span>
+        </div>
+        <div class="hp-badge">
+          <span style="font-size:15px;">&#10084;&#65039;</span>
+          <div class="hp-bar-track"><div class="hp-bar-fill" id="hpBarFill"></div></div>
+        </div>
       </div>
       <div class="progress-wrap" id="progressLabel">Porte 0 / 8</div>
     </div>

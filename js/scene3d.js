@@ -34,6 +34,15 @@ function createIconTexture(kind){
       cx.ellipse(off[0], off[1], 9, 7, 0.3, 0, Math.PI*2);
       cx.fill();
     });
+  } else if(kind === 'heart'){
+    cx.fillStyle = '#E0607A';
+    cx.beginPath();
+    cx.moveTo(0, -4);
+    cx.bezierCurveTo(-2, -10, -14, -10, -14, -2);
+    cx.bezierCurveTo(-14, 6, -6, 10, 0, 16);
+    cx.bezierCurveTo(6, 10, 14, 6, 14, -2);
+    cx.bezierCurveTo(14, -10, 2, -10, 0, -4);
+    cx.fill();
   } else {
     cx.fillStyle = '#5B8FBF';
     cx.beginPath();
@@ -212,9 +221,11 @@ function buildBossGroup(){
   return g;
 }
 
-function buildDoorPanel(good){
+const DOOR_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
+
+function buildDoorPanel(kind){
   const g = new THREE.Group();
-  const color = good ? 0x6B8F71 : 0x5B8FBF;
+  const color = DOOR_COLORS[kind];
   const width = 1.5, height = 1.6;
 
   // panneau translucide (la porte elle-même)
@@ -235,8 +246,7 @@ function buildDoorPanel(good){
   edges.position.y = height/2;
   g.add(edges);
 
-  const iconTex = good ? iconTextures.croquette : iconTextures.water;
-  const spriteMat = new THREE.SpriteMaterial({ map: iconTex, transparent:true });
+  const spriteMat = new THREE.SpriteMaterial({ map: iconTextures[kind], transparent:true });
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.position.set(0, height/2, 0.02); // légèrement devant, évite le z-fighting
@@ -245,10 +255,11 @@ function buildDoorPanel(good){
   return g;
 }
 
-function buildGateVisual(goodLane){
+function buildGateVisual(goodLane, goodKind){
   const group = new THREE.Group();
   [0,1].forEach(i=>{
-    const door = buildDoorPanel(i === goodLane);
+    const kind = i === goodLane ? goodKind : 'water';
+    const door = buildDoorPanel(kind);
     door.position.x = LANES[i];
     group.add(door);
   });
@@ -415,6 +426,7 @@ function initScene(){
 
   iconTextures.croquette = createIconTexture('croquette');
   iconTextures.water = createIconTexture('water');
+  iconTextures.heart = createIconTexture('heart');
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
 
   // sol

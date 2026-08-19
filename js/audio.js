@@ -77,6 +77,18 @@ const sfx = {
   lane(){
     if(!audioCtx) return;
     tone(440, audioCtx.currentTime, 0.05, 'sine', 0.05);
+  },
+  heart(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    tone(523, t, 0.14, 'sine', 0.15);
+    tone(784, t+0.07, 0.2, 'sine', 0.15);
+  },
+  hurt(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    tone(160, t, 0.16, 'square', 0.12);
+    noiseBurst(t, 0.2, 0.14, 700);
   }
 };
 

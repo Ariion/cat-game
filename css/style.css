@@ -46,6 +46,9 @@ canvas{
   pointer-events:none;
   font-family:'Fredoka', sans-serif;
 }
+.hud-left{
+  display:flex; flex-direction:column; gap:8px;
+}
 .horde-badge{
   background: rgba(255,255,255,0.85);
   border-radius: 999px;
@@ -55,6 +58,26 @@ canvas{
 }
 .horde-badge .count{
   font-size: 20px; font-weight:600; color: var(--ink);
+}
+.hp-badge{
+  background: rgba(255,255,255,0.85);
+  border-radius: 999px;
+  padding: 6px 12px 6px 10px;
+  display:flex; align-items:center; gap:7px;
+  box-shadow: 0 2px 8px rgba(59,50,38,0.15);
+}
+.hp-bar-track{
+  width: 64px; height: 8px;
+  background: rgba(59,50,38,0.14);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.hp-bar-fill{
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #E0607A, #C94868);
+  border-radius: 999px;
+  transition: width 0.25s ease;
 }
 .progress-wrap{
   background: rgba(255,255,255,0.85);

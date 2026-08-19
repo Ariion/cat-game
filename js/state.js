@@ -4,6 +4,8 @@ try{ bestHorde = parseInt(localStorage.getItem('hordeDeChatsBest') || '0', 10) |
 
 let state = 'start'; // start | playing | encounter | win | lose
 let hordeCount = 1;
+let hp = HP_MAX;
+let hpMax = HP_MAX;
 let lane = 0;
 let playerX = LANES[0]; // position latérale affichée (lissée vers LANES[lane])
 let gates = [];
@@ -22,6 +24,7 @@ let frame = 0;
 function resetGame(){
   state = 'playing';
   hordeCount = 1;
+  hp = hpMax;
   lane = 0;
   playerX = LANES[0];
   gates = [];
@@ -50,6 +53,8 @@ function startGame(){
 
 function updateHud(){
   document.getElementById('hordeCount').textContent = hordeCount;
+  const hpFill = document.getElementById('hpBarFill');
+  if(hpFill) hpFill.style.width = Math.max(0, Math.min(100, (hp/hpMax)*100)) + '%';
   const shown = Math.min(gatesCleared, GATES_TO_CLEAR);
   let label = `Porte ${shown} / ${GATES_TO_CLEAR}`;
   if(state === 'encounter' && encounter){

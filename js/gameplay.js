@@ -3,9 +3,10 @@
 // Crée/détruit les visuels 3D correspondants (le rendu par frame est dans render3d.js).
 function spawnGate(){
   const goodLane = Math.random() < 0.5 ? 0 : 1;
-  const gate = { z: GATE_START_Z, goodLane, resolved:false, visual:null };
+  const goodKind = Math.random() < GATE_HEART_CHANCE ? 'heart' : 'croquette';
+  const gate = { z: GATE_START_Z, goodLane, goodKind, resolved:false, visual:null };
   if(webglSupported){
-    gate.visual = buildGateVisual(goodLane);
+    gate.visual = buildGateVisual(goodLane, goodKind);
     gate.visual.position.z = gate.z;
     scene.add(gate.visual);
   }
@@ -25,6 +26,14 @@ function growHorde(amount){
     shakeTimer = 12;
     shakeIntensity = 0.16;
   }
+}
+
+function growHp(amount){
+  hp = Math.max(0, Math.min(hpMax, hp + amount));
+  spawnBurst(playerX, 0.6, PLAYER_Z, 0xE0607A);
+  sfx.heart();
+  vibrate(15);
+  updateHud();
 }
 
 function spawnBurst(x,y,z,color){
@@ -75,7 +84,8 @@ function update(){
       if(!g.resolved && g.z > PLAYER_Z-GATE_RESOLVE_RANGE && g.z < PLAYER_Z+GATE_RESOLVE_RANGE){
         g.resolved = true;
         const good = (lane === g.goodLane);
-        if(good){ growHorde(Math.round(hordeCount*0.4)+2); }
+        if(good && g.goodKind === 'heart'){ growHp(HEART_GAIN); }
+        else if(good){ growHorde(Math.round(hordeCount*0.4)+2); }
         else { growHorde(-Math.round(hordeCount*0.35)-1); }
         gatesCleared++;
         gateSpeed = 0.35 + gatesCleared*0.018;
@@ -126,7 +136,7 @@ function triggerEncounter(kind, config){
   encounter = {
     kind, x:0, z: GATE_START_Z, vz: config.vz,
     resolved:false, outcome:null, outcomeTimer:0,
-    threshold: config.threshold, baseScale: config.scale
+    threshold: config.threshold, baseScale: config.scale, damage: config.damage
   };
   bossVisualScale = config.scale;
   if(webglSupported) bossMaterial.color.setHex(config.tint);
@@ -136,17 +146,21 @@ function triggerEncounter(kind, config){
 }
 
 function resolveEncounter(){
-  if(encounter.kind === 'boss'){
-    if(encounter.outcome === 'win'){ showWin(); } else { showLose(); }
-    return;
-  }
-  // chien intermédiaire : la partie continue, juste un coup dur ou un petit bonus
   if(encounter.outcome === 'win'){
+    if(encounter.kind === 'boss'){ showWin(); return; }
+    // chien intermédiaire vaincu : petit bonus, la partie continue
     hordeCount = Math.max(1, hordeCount + 2);
+    rebuildHordeVisual();
   } else {
-    hordeCount = Math.max(1, Math.round(hordeCount * 0.7));
+    // le chien est passé : il entame la vie, pas le nombre de chats
+    const dmg = encounter.kind === 'boss' ? hpMax : encounter.damage;
+    hp = Math.max(0, hp - dmg);
+    updateHud();
+    if(hp <= 0){
+      showLose(encounter.kind === 'boss' ? 'boss' : 'mob');
+      return;
+    }
   }
-  rebuildHordeVisual();
   encounter = null;
   state = 'playing';
   document.getElementById('hint').classList.remove('hidden');
@@ -161,9 +175,10 @@ function showWin(){
   document.getElementById('screenWin').classList.remove('hidden');
 }
 
-function showLose(){
+function showLose(reason){
   state = 'lose';
-  document.getElementById('loseText').textContent =
-    `${hordeCount} chats, ce n'était pas assez face au chien.`;
+  document.getElementById('loseText').textContent = reason === 'mob'
+    ? `Un chien t'a mordu au passage — ta horde de ${hordeCount} chats n'a pas survécu.`
+    : `${hordeCount} chats, ce n'était pas assez pour repousser le chien du quartier.`;
   document.getElementById('screenLose').classList.remove('hidden');
 }
