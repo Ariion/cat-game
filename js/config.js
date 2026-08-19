@@ -58,29 +58,36 @@ const ENEMY_SPAWN_INTERVAL_RAMP_ITEMS = 22; // nombre d'objets ramassés pour at
 const ENEMIES_PER_WAVE_BASE = 1;
 const ENEMIES_PER_WAVE_PER_ITEM = 0.4;
 const ENEMIES_PER_WAVE_MAX = 5;
-const ENEMY_HP_BASE = 9;
-const ENEMY_HP_PER_ITEM = 2.6;
-const ENEMY_HP_CAP = 190;         // les dégâts sont adoucis (voir ATTACK_POWER_*), le plafond peut rester haut
 const ENEMY_SPEED_CAP = 0.105;
 const ENEMY_DAMAGE_TO_PLAYER = 10; // vie perdue si un ennemi atteint le joueur
 const ENEMY_TINT = 0xC9A385;
 
 // Un seul projectile par tir. Les dégâts sont une fonction ADOUCIE (racine)
 // de la taille de la horde plutôt que la taille brute — sinon une horde qui
-// grossit de façon exponentielle finit par one-shot n'importe quel ennemi
-// (voire le boss), ce qui rendait le jeu trivial passé les 2 premières
-// minutes. Le facteur est calibré pour qu'une horde toute petite (1-3
-// chats) fasse encore des dégâts crédibles — sinon impossible de passer
-// la première minute, l'autre extrême. Voir attackDamage() dans gameplay.js.
+// grossit de façon exponentielle finit par one-shot n'importe quel ennemi.
+// Voir attackDamage() dans gameplay.js.
 const ATTACK_POWER_EXPONENT = 0.62;
 const ATTACK_POWER_FACTOR = 2.6;
 const ATTACK_INTERVAL_FRAMES = 18;    // cadence de tir de la horde (~3.3 tirs/s)
 const PROJECTILE_SPEED = 0.7;
 const PROJECTILE_HIT_RADIUS_X = 0.48; // tolérance latérale pour toucher (pas de visée auto, mais pas punitif)
 
-const BOSS_HP = 220;
-const BOSS_HP_GROWTH = 70;   // + par apparition (plafonné, voir BOSS_HP_GROWTH_CAP_COUNT)
-const BOSS_HP_GROWTH_CAP_COUNT = 20;
+// PV des ennemis/boss = un nombre de TIRS à encaisser (attackDamage() × ce
+// nombre), PAS une valeur de PV fixe. Avec une valeur fixe, la horde finit
+// toujours par one-shot tout une fois assez grosse (repéré : au-delà de
+// 5-10 000 chats, tout meurt en un coup) — même adoucis, les dégâts finissent
+// par dépasser n'importe quel plafond de PV fixe. En indexant les PV sur les
+// dégâts ACTUELS du joueur, le nombre de tirs nécessaires reste stable à
+// l'infini, horde de 10 ou de 500 000. Voir shotsToKillEnemy()/shotsToKillBoss()
+// dans gameplay.js.
+const SHOTS_TO_KILL_ENEMY_BASE = 2;
+const SHOTS_TO_KILL_ENEMY_GROWTH = 0.15; // par objet ramassé
+const SHOTS_TO_KILL_ENEMY_CAP = 6;
+
+const SHOTS_TO_KILL_BOSS_BASE = 14;
+const SHOTS_TO_KILL_BOSS_GROWTH = 1.5; // par boss déjà vaincu
+const SHOTS_TO_KILL_BOSS_CAP = 30;
+
 const BOSS_REWARD_BASE = 8;  // bonus de horde offert à chaque boss vaincu
 const BOSS_REWARD_GROWTH = 2;
 const BOSS_SPEED = 0.05;

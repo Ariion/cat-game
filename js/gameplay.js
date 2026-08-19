@@ -145,6 +145,12 @@ function enemySpawnInterval(){
   return Math.round(ENEMY_SPAWN_INTERVAL_START + (ENEMY_SPAWN_INTERVAL_MIN - ENEMY_SPAWN_INTERVAL_START) * t);
 }
 
+// PV = un nombre de tirs à encaisser au régime de dégâts ACTUEL du joueur,
+// pas une valeur fixe — voir le commentaire dans config.js.
+function shotsToKillEnemy(){
+  return Math.min(SHOTS_TO_KILL_ENEMY_CAP, SHOTS_TO_KILL_ENEMY_BASE + pickupsCleared*SHOTS_TO_KILL_ENEMY_GROWTH);
+}
+
 function spawnWave(){
   const count = Math.min(
     ENEMIES_PER_WAVE_MAX,
@@ -155,7 +161,7 @@ function spawnWave(){
     const e = enemyPool[i];
     if(e.active) continue;
     e.active = true;
-    e.maxHp = e.hp = Math.min(ENEMY_HP_CAP, Math.round(ENEMY_HP_BASE + pickupsCleared*ENEMY_HP_PER_ITEM));
+    e.maxHp = e.hp = Math.max(1, Math.round(attackDamage() * shotsToKillEnemy()));
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
     e.speed = Math.min(ENEMY_SPEED_CAP, ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM);
@@ -178,9 +184,12 @@ function updateEnemies(){
 
 // --- boss ---------------------------------------------------------------
 
+function shotsToKillBoss(){
+  return Math.min(SHOTS_TO_KILL_BOSS_CAP, SHOTS_TO_KILL_BOSS_BASE + bossesDefeated*SHOTS_TO_KILL_BOSS_GROWTH);
+}
+
 function spawnBoss(){
-  const growthSteps = Math.min(bossesDefeated, BOSS_HP_GROWTH_CAP_COUNT);
-  const maxHp = BOSS_HP + growthSteps*BOSS_HP_GROWTH;
+  const maxHp = Math.max(1, Math.round(attackDamage() * shotsToKillBoss()));
   boss = { x:0, z:PICKUP_START_Z, hp:maxHp, maxHp, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
   if(webglSupported){ bossGroup.visible = true; bossGroup.position.z = boss.z; }
   sfx.bossAppear();
