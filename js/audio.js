@@ -74,10 +74,6 @@ const sfx = {
     const t = audioCtx.currentTime;
     [392, 349, 294, 220].forEach((f,i)=> tone(f, t + i*0.13, 0.28, 'sawtooth', 0.13));
   },
-  lane(){
-    if(!audioCtx) return;
-    tone(440, audioCtx.currentTime, 0.05, 'sine', 0.05);
-  },
   heart(){
     if(!audioCtx) return;
     const t = audioCtx.currentTime;
@@ -89,6 +85,16 @@ const sfx = {
     const t = audioCtx.currentTime;
     tone(160, t, 0.16, 'square', 0.12);
     noiseBurst(t, 0.2, 0.14, 700);
+  },
+  hit(){
+    if(!audioCtx) return;
+    tone(700, audioCtx.currentTime, 0.06, 'square', 0.06);
+  },
+  enemyDown(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    tone(500, t, 0.08, 'triangle', 0.12);
+    tone(750, t+0.05, 0.1, 'triangle', 0.12);
   }
 };
 

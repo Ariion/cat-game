@@ -1,12 +1,15 @@
 // Synchronise les objets Three.js avec l'état de la partie, à chaque frame,
 // puis fait le rendu final. La logique de jeu ne touche jamais à Three.js
-// directement (sauf création/suppression des visuels de porte/particules).
+// directement (sauf création/suppression des visuels de porte/particules/
+// projectiles, où mélanger logique et visuel évite un état parallèle inutile).
 
 function syncLeader(){
   leaderGroup.position.x = playerX;
   leaderGroup.position.z = PLAYER_Z;
-  leaderGroup.position.y = Math.sin(frame*0.08) * 0.03;
-  const targetLean = Math.max(-0.28, Math.min(0.28, (LANES[lane]-playerX) * 0.5));
+  let bob = Math.sin(frame*0.08) * 0.03;
+  if(attackPulse > 0){ bob += (attackPulse/8) * 0.12; } // petit sursaut au tir
+  leaderGroup.position.y = bob;
+  const targetLean = Math.max(-0.3, Math.min(0.3, (playerTargetX-playerX) * 0.6));
   leaderGroup.rotation.z += (targetLean - leaderGroup.rotation.z) * 0.2;
 }
 
@@ -52,13 +55,22 @@ function syncGates(){
   gates.forEach(g=>{ g.visual.position.z = g.z; });
 }
 
+function syncEnemies(){
+  for(let i=0;i<enemyPool.length;i++){
+    const e = enemyPool[i];
+    const v = enemyVisuals[i];
+    v.visible = e.active;
+    if(!e.active) continue;
+    v.position.set(e.x, Math.sin((frame+i*7)*0.09)*0.03, e.z);
+  }
+}
+
 function syncBoss(){
-  if(encounter){
+  if(boss){
     bossGroup.visible = true;
-    bossGroup.position.x = encounter.x;
-    bossGroup.position.z = encounter.z;
+    bossGroup.position.x = boss.x;
+    bossGroup.position.z = boss.z;
     bossGroup.position.y = Math.sin(frame*0.06) * 0.04;
-    bossGroup.scale.setScalar(bossVisualScale);
   } else {
     bossGroup.visible = false;
   }
@@ -90,6 +102,7 @@ function render(){
   syncLeader();
   syncFollowers();
   syncGates();
+  syncEnemies();
   syncBoss();
   syncLight();
   syncCamera();

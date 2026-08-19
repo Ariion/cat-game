@@ -14,11 +14,12 @@ const webglSupported = checkWebGL();
 
 let scene, camera, renderer, sunLight;
 let leaderGroup, bossGroup;
+let enemyVisuals = []; // pool de groupes 3D réutilisés, index-aligné avec enemyPool (state.js)
 let followerBodyInst, followerHeadInst, followerShadowInst;
 let iconTextures = {};
 let doorGlowTexture;
-let catMaterial, followerMaterial, bossMaterial, shadowMaterial;
-let particleGeometry;
+let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
+let particleGeometry, projectileGeometry;
 const dummy3D = webglSupported ? new THREE.Object3D() : null;
 
 function createIconTexture(kind){
@@ -197,25 +198,25 @@ function buildCatGroup(colorHex, detailed){
   return g;
 }
 
-function buildBossGroup(){
+function buildBossGroup(mat){
   const g = new THREE.Group();
 
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 12, 10), bossMaterial);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 12, 10), mat);
   body.scale.set(1.05, 0.85, 1.3);
   body.position.y = 0.68;
   g.add(body);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), bossMaterial);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), mat);
   head.position.set(0, 1.15, -0.55);
   g.add(head);
 
-  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), bossMaterial);
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), mat);
   muzzle.scale.set(1, 0.8, 1.3);
   muzzle.position.set(0, 1.03, -0.88);
   g.add(muzzle);
 
   const earGeo = new THREE.ConeGeometry(0.16, 0.3, 4);
-  const earL = new THREE.Mesh(earGeo, bossMaterial);
+  const earL = new THREE.Mesh(earGeo, mat);
   earL.position.set(-0.28, 1.42, -0.5);
   earL.rotation.z = -0.4;
   g.add(earL);
@@ -241,7 +242,7 @@ const DOOR_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
 function buildDoorPanel(kind){
   const g = new THREE.Group();
   const color = DOOR_COLORS[kind];
-  const width = 1.5, height = 1.6;
+  const width = 1.9, height = 1.6;
 
   // panneau translucide (la porte elle-même)
   const panelGeo = new THREE.PlaneGeometry(width, height);
@@ -482,7 +483,8 @@ function initScene(){
   // matériaux partagés
   catMaterial = new THREE.MeshStandardMaterial({ color: 0xC97B4F, flatShading:true, roughness:0.8 });
   followerMaterial = new THREE.MeshStandardMaterial({ color: 0xD9A066, flatShading:true, roughness:0.8 });
-  bossMaterial = new THREE.MeshStandardMaterial({ color: 0x8A7361, flatShading:true, roughness:0.8 });
+  bossMaterial = new THREE.MeshStandardMaterial({ color: BOSS_TINT, flatShading:true, roughness:0.8 });
+  enemyMaterial = new THREE.MeshStandardMaterial({ color: ENEMY_TINT, flatShading:true, roughness:0.8 });
   shadowMaterial = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.18 });
 
   iconTextures.croquette = createIconTexture('croquette');
@@ -490,6 +492,7 @@ function initScene(){
   iconTextures.heart = createIconTexture('heart');
   doorGlowTexture = createGlowTexture();
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
+  projectileGeometry = new THREE.SphereGeometry(0.11, 8, 6);
 
   // sol
   const groundGeo = new THREE.PlaneGeometry(12, 90);
@@ -508,11 +511,26 @@ function initScene(){
   leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
 
-  // boss / chiens intermédiaires (même groupe réutilisé)
-  bossGroup = buildBossGroup();
+  // boss (unique, apparaît en fin de parcours)
+  bossGroup = buildBossGroup(bossMaterial);
   bossGroup.visible = false;
+  bossGroup.scale.setScalar(1);
   bossGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(bossGroup);
+
+  // ennemis réguliers : pool de visuels réutilisés (perf), plus léger que le
+  // boss (pas d'ombre portée — trop d'ennemis simultanés pour que ça vaille
+  // le coup), index-alignés avec le tableau de données enemyPool (state.js)
+  enemyVisuals = [];
+  enemyPool = [];
+  for(let i=0;i<MAX_ENEMIES;i++){
+    const g = buildBossGroup(enemyMaterial);
+    g.scale.setScalar(0.6);
+    g.visible = false;
+    scene.add(g);
+    enemyVisuals.push(g);
+    enemyPool.push({ active:false, hp:0, maxHp:0, x:0, z:0, speed:0 });
+  }
 
   // suiveurs de la horde, en instanced mesh pour rester léger sur mobile
   const followerBodyGeo = new THREE.SphereGeometry(0.32, 8, 6);
