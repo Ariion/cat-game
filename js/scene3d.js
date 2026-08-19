@@ -364,6 +364,129 @@ function buildBossGroup(mat){
   return g;
 }
 
+// --- chiens en vrais modèles 3D (CC0, Quaternius) --------------------
+// Chargés en ARRIÈRE-PLAN au démarrage — le jeu reste jouable immédiatement
+// avec les chiens procéduraux (buildBossGroup ci-dessus) le temps que ça
+// charge, puis chaque emplacement du pool est "mis à niveau" une fois le
+// modèle prêt (voir upgradeDogsToRealModels). Si le chargement échoue
+// (réseau, hébergement qui ne sert pas les .glb...), le jeu continue
+// simplement avec les chiens procéduraux — jamais bloquant.
+let dogModels = { husky: null, shiba: null }; // { scene, animations, naturalHeight } une fois chargés
+const DOG_MODEL_URLS = { husky: 'assets/models/dog-husky.glb', shiba: 'assets/models/dog-shiba.glb' };
+
+function loadDogModels(){
+  if(!webglSupported || typeof THREE.GLTFLoader !== 'function') return;
+  const loader = new THREE.GLTFLoader();
+  let pending = 2;
+  function settle(){ pending--; if(pending === 0) upgradeDogsToRealModels(); }
+  ['husky','shiba'].forEach(kind=>{
+    loader.load(DOG_MODEL_URLS[kind], gltf=>{
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      gltf.naturalHeight = Math.max(0.01, box.max.y - box.min.y);
+      gltf.scene.traverse(o=>{
+        if(o.isMesh){
+          // PAS d'ombre portée ici (contrairement au chat meneur/boss) :
+          // jusqu'à MAX_ENEMIES clones simultanés, ça ne vaudrait pas le
+          // coût. buildRealDogGroup() l'active explicitement pour le boss.
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          mats.forEach(m=>{
+            if(!m) return;
+            m.flatShading = true;
+            // Le glTF encode ses couleurs en espace LINÉAIRE ; notre renderer
+            // n'a pas d'encodage de sortie sRGB (retiré plus tôt — ça
+            // délavait notre propre palette pastel codée en dur). Sans
+            // conversion manuelle ici, ces modèles ressortent bien trop
+            // sombres (couleur brute ~0x10 au lieu de ~0x48 une fois
+            // corrigée) alors que nos propres matériaux restent inchangés.
+            if(m.color) m.color.convertLinearToSRGB();
+            if(m.emissive) m.emissive.convertLinearToSRGB();
+            m.needsUpdate = true;
+          });
+        }
+      });
+      dogModels[kind] = gltf;
+      settle();
+    }, undefined, err=>{
+      console.warn('Modèle 3D "' + kind + '" indisponible, chien procédural conservé.', err);
+      settle();
+    });
+  });
+}
+
+function pickDogGltf(index){
+  const preferHusky = index % 2 === 0;
+  if(preferHusky && dogModels.husky) return dogModels.husky;
+  if(!preferHusky && dogModels.shiba) return dogModels.shiba;
+  return dogModels.husky || dogModels.shiba || null;
+}
+
+function buildRealDogGroup(gltf, targetHeight, withShadow){
+  const root = THREE.SkeletonUtils.clone(gltf.scene);
+  const scale = targetHeight / gltf.naturalHeight;
+  root.scale.setScalar(scale);
+  if(withShadow) root.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  const mixer = new THREE.AnimationMixer(root);
+  const actions = {};
+  gltf.animations.forEach(clip=>{ actions[clip.name] = mixer.clipAction(clip); });
+  const run = actions['Gallop'] || actions['Walk'];
+  if(run) run.play();
+
+  const g = new THREE.Group();
+  g.add(root);
+  g.userData.mixer = mixer;
+  g.userData.actions = actions;
+  g.userData.isRealModel = true;
+  return g;
+}
+
+function disposeProceduralGroup(g){
+  g.traverse(o=>{ if(o.isMesh && o.geometry) o.geometry.dispose(); });
+}
+
+// Remplace les chiens procéduraux par les vrais modèles, une fois chargés —
+// appelé une seule fois (voir settle() dans loadDogModels), jamais pendant
+// une partie en cours normalement (le chargement démarre à initScene(),
+// bien avant que le joueur ait cliqué "Jouer"), mais on préserve quand
+// même position/visibilité par sécurité si jamais ça arrive plus tard.
+function upgradeDogsToRealModels(){
+  if(!dogModels.husky && !dogModels.shiba) return; // rien n'a chargé : on garde le procédural
+
+  const bossGltf = dogModels.husky || dogModels.shiba; // le husky, plus imposant, pour le boss
+  const bossVisible = bossGroup.visible, bossPos = bossGroup.position.clone();
+  scene.remove(bossGroup);
+  disposeProceduralGroup(bossGroup);
+  bossGroup = buildRealDogGroup(bossGltf, 1.05, true);
+  bossGroup.position.copy(bossPos);
+  bossGroup.visible = bossVisible;
+  scene.add(bossGroup);
+
+  for(let i=0;i<enemyVisuals.length;i++){
+    const gltf = pickDogGltf(i);
+    if(!gltf) continue;
+    const old = enemyVisuals[i];
+    const wasVisible = old.visible, pos = old.position.clone();
+    scene.remove(old);
+    disposeProceduralGroup(old);
+    const g = buildRealDogGroup(gltf, 0.62);
+    g.position.copy(pos);
+    g.visible = wasVisible;
+    scene.add(g);
+    enemyVisuals[i] = g;
+  }
+}
+
+// Fait avancer l'animation (mixer) de chaque chien réel — pas fixe, comme
+// tout le reste du décor (voir updateDecor()), sinon l'animation irait trop
+// vite sur les écrans à haut taux de rafraîchissement.
+function updateDogAnimations(){
+  if(!webglSupported) return;
+  if(bossGroup.userData.mixer) bossGroup.userData.mixer.update(1/60);
+  for(let i=0;i<enemyVisuals.length;i++){
+    const v = enemyVisuals[i];
+    if(v.userData.mixer && v.visible) v.userData.mixer.update(1/60);
+  }
+}
+
 const PICKUP_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
 
 // Portes DROITES (pas d'arche, pas de rotation continue) en faible opacité
@@ -873,6 +996,11 @@ function initScene(){
     enemyVisuals.push(g);
     enemyPool.push({ active:false, hp:0, maxHp:0, x:0, z:0, speed:0 });
   }
+
+  // lance en arrière-plan le chargement des vrais modèles 3D de chien —
+  // n'empêche jamais de jouer : les chiens procéduraux ci-dessus restent en
+  // place jusqu'à ce que ça charge (voir upgradeDogsToRealModels)
+  loadDogModels();
 
   // suiveurs de la horde, en instanced mesh pour rester léger sur mobile
   const followerBodyGeo = new THREE.SphereGeometry(0.32, 8, 6);

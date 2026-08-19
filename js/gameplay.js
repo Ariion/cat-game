@@ -368,6 +368,7 @@ function update(){
     updateBoss();
     updateAttacks();
     updateDecor(); // défilement du décor + fondu de biome — pas fixe, comme tout le reste
+    updateDogAnimations(); // anime les vrais modèles 3D de chien (une fois chargés)
   }
 }
 
