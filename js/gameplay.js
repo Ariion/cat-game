@@ -1,4 +1,5 @@
-// Logique de jeu : portes, croissance de la horde, boucle d'update, boss.
+// Logique de jeu : portes, croissance de la horde, boucle d'update,
+// chiens intermédiaires + boss final.
 // Crée/détruit les visuels 3D correspondants (le rendu par frame est dans render3d.js).
 function spawnGate(){
   const goodLane = Math.random() < 0.5 ? 0 : 1;
@@ -79,8 +80,12 @@ function update(){
         gatesCleared++;
         gateSpeed = 0.35 + gatesCleared*0.018;
         updateHud();
-        if(gatesCleared>=GATES_TO_CLEAR){
-          triggerBoss();
+
+        const mobConfig = MOB_ENCOUNTERS.find(m => m.atGate === gatesCleared);
+        if(mobConfig){
+          triggerEncounter('mob', mobConfig);
+        } else if(gatesCleared >= GATES_TO_CLEAR){
+          triggerEncounter('boss', { threshold: BOSS_THRESHOLD, scale:1, vz:0.17, tint:0x8A7361 });
         }
       }
     });
@@ -89,39 +94,63 @@ function update(){
     gates = gates.filter(g=>g.z < GATE_REMOVE_Z);
   }
 
-  if(state==='boss' && boss){
-    if(!boss.resolved){
-      boss.z += boss.vz;
-      boss.x += (playerX - boss.x) * 0.025; // le chien vise la horde
-      if(boss.z > BOSS_BATTLE_Z){
-        boss.resolved = true;
-        boss.outcome = hordeCount >= BOSS_THRESHOLD ? 'win' : 'lose';
-        boss.outcomeTimer = 45;
-        if(boss.outcome === 'win'){ sfx.win(); vibrate(60); }
+  if(state==='encounter' && encounter){
+    if(!encounter.resolved){
+      encounter.z += encounter.vz;
+      encounter.x += (playerX - encounter.x) * 0.025; // le chien vise la horde
+      if(encounter.z > BOSS_BATTLE_Z){
+        encounter.resolved = true;
+        encounter.outcome = hordeCount >= encounter.threshold ? 'win' : 'lose';
+        encounter.outcomeTimer = 45;
+        if(encounter.outcome === 'win'){ sfx.win(); vibrate(60); }
         else { sfx.lose(); vibrate([40,30,40,30,80]); shakeTimer = 20; shakeIntensity = 0.22; }
       }
     } else {
-      boss.outcomeTimer--;
-      if(boss.outcome === 'lose'){
-        boss.z += 0.22; // le chien charge
+      encounter.outcomeTimer--;
+      if(encounter.outcome === 'lose'){
+        encounter.z += 0.22; // le chien charge
       } else {
-        boss.z -= 0.1; // le chien recule, impressionné
-        bossVisualScale = Math.max(0.35, bossVisualScale - 0.02);
+        encounter.z -= 0.1; // le chien recule, impressionné
+        bossVisualScale = Math.max(encounter.baseScale*0.3, bossVisualScale - 0.02);
       }
-      if(boss.outcomeTimer <= 0){
-        if(boss.outcome === 'win'){ showWin(); } else { showLose(); }
+      if(encounter.outcomeTimer <= 0){
+        resolveEncounter();
       }
     }
   }
 }
 
-function triggerBoss(){
-  state = 'boss';
+function triggerEncounter(kind, config){
+  state = 'encounter';
   document.getElementById('hint').classList.add('hidden');
-  boss = { x:0, z: GATE_START_Z, vz: 0.17, resolved:false, outcome:null, outcomeTimer:0 };
-  bossVisualScale = 1;
+  encounter = {
+    kind, x:0, z: GATE_START_Z, vz: config.vz,
+    resolved:false, outcome:null, outcomeTimer:0,
+    threshold: config.threshold, baseScale: config.scale
+  };
+  bossVisualScale = config.scale;
+  if(webglSupported) bossMaterial.color.setHex(config.tint);
   sfx.bossAppear();
-  vibrate([30,20,30]);
+  vibrate(kind === 'boss' ? [30,20,30] : [20,15,20]);
+  updateHud();
+}
+
+function resolveEncounter(){
+  if(encounter.kind === 'boss'){
+    if(encounter.outcome === 'win'){ showWin(); } else { showLose(); }
+    return;
+  }
+  // chien intermédiaire : la partie continue, juste un coup dur ou un petit bonus
+  if(encounter.outcome === 'win'){
+    hordeCount = Math.max(1, hordeCount + 2);
+  } else {
+    hordeCount = Math.max(1, Math.round(hordeCount * 0.7));
+  }
+  rebuildHordeVisual();
+  encounter = null;
+  state = 'playing';
+  document.getElementById('hint').classList.remove('hidden');
+  spawnTimer = 0;
   updateHud();
 }
 

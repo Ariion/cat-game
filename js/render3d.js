@@ -53,10 +53,10 @@ function syncGates(){
 }
 
 function syncBoss(){
-  if(boss){
+  if(encounter){
     bossGroup.visible = true;
-    bossGroup.position.x = boss.x;
-    bossGroup.position.z = boss.z;
+    bossGroup.position.x = encounter.x;
+    bossGroup.position.z = encounter.z;
     bossGroup.position.y = Math.sin(frame*0.06) * 0.04;
     bossGroup.scale.setScalar(bossVisualScale);
   } else {

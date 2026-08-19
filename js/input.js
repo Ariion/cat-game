@@ -1,6 +1,6 @@
 // Contrôles : flèches clavier + tap/clic gauche-droite sur le canvas.
 function moveLane(dir){
-  if(state!=='playing' && state!=='boss') return;
+  if(state!=='playing' && state!=='encounter') return;
   const next = dir < 0 ? 0 : 1;
   if(next !== lane){ sfx.lane(); }
   lane = next;

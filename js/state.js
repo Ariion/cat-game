@@ -2,7 +2,7 @@
 let bestHorde = 0;
 try{ bestHorde = parseInt(localStorage.getItem('hordeDeChatsBest') || '0', 10) || 0; }catch(e){}
 
-let state = 'start'; // start | playing | boss | win | lose
+let state = 'start'; // start | playing | encounter | win | lose
 let hordeCount = 1;
 let lane = 0;
 let playerX = LANES[0]; // position latérale affichée (lissée vers LANES[lane])
@@ -13,7 +13,7 @@ let spawnTimer = 0;
 let spawnInterval = 78;
 let cats = []; // membres de la horde (suiveurs) {angle, radius, bob, size}
 let particles = [];
-let boss = null;
+let encounter = null; // le combat en cours (mob intermédiaire ou boss final)
 let bossVisualScale = 1;
 let shakeTimer = 0;
 let shakeIntensity = 0;
@@ -31,7 +31,7 @@ function resetGame(){
   spawnInterval = 78;
   cats = [];
   particles = [];
-  boss = null;
+  encounter = null;
   bossVisualScale = 1;
   shakeTimer = 0;
   shakeIntensity = 0;
@@ -51,8 +51,11 @@ function startGame(){
 function updateHud(){
   document.getElementById('hordeCount').textContent = hordeCount;
   const shown = Math.min(gatesCleared, GATES_TO_CLEAR);
-  document.getElementById('progressLabel').textContent =
-    state === 'boss' ? 'Le chien approche' : `Porte ${shown} / ${GATES_TO_CLEAR}`;
+  let label = `Porte ${shown} / ${GATES_TO_CLEAR}`;
+  if(state === 'encounter' && encounter){
+    label = encounter.kind === 'boss' ? 'Le chien du quartier approche !' : 'Un chien surgit !';
+  }
+  document.getElementById('progressLabel').textContent = label;
   if(hordeCount > bestHorde){
     bestHorde = hordeCount;
     try{ localStorage.setItem('hordeDeChatsBest', String(bestHorde)); }catch(e){}
