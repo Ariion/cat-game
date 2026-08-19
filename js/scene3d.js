@@ -407,6 +407,34 @@ function buildProps(){
     clump.rotation.y = Math.random()*Math.PI*2;
     scene.add(clump);
   }
+
+  buildGrass();
+}
+
+function buildGrass(){
+  // brins d'herbe en premier plan, en instanced mesh (un seul draw call)
+  // pour donner de la texture au sol près du joueur, comme sur les refs
+  const bladeGeo = new THREE.ConeGeometry(0.022, 0.24, 3);
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x6F9A52, flatShading:true, roughness:0.9 });
+  const cap = 240;
+  const grassInst = new THREE.InstancedMesh(bladeGeo, bladeMat, cap);
+  const dummy = new THREE.Object3D();
+  let gi = 0;
+  for(let z=-16; z<9 && gi<cap; z+=0.55){
+    for(let k=0; k<2 && gi<cap; k++){
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const x = side * (1.85 + Math.random()*1.5);
+      dummy.position.set(x, 0.1, z + (Math.random()-0.5)*0.5);
+      dummy.rotation.y = Math.random()*Math.PI;
+      dummy.rotation.z = (Math.random()-0.5)*0.35;
+      dummy.scale.setScalar(0.7 + Math.random()*0.6);
+      dummy.updateMatrix();
+      grassInst.setMatrixAt(gi++, dummy.matrix);
+    }
+  }
+  grassInst.count = gi;
+  grassInst.instanceMatrix.needsUpdate = true;
+  scene.add(grassInst);
 }
 
 function initScene(){

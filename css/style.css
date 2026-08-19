@@ -39,6 +39,14 @@ canvas{
   width:100%; height:100%;
   touch-action:none;
 }
+.vignette{
+  position:absolute; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 50% 8%, rgba(255,235,190,0.30), rgba(255,235,190,0) 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(50,35,20,0.22) 100%);
+  mix-blend-mode: soft-light;
+}
 .hud{
   position:absolute; top:0; left:0; right:0;
   padding: 14px 16px 0;
