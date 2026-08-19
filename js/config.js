@@ -46,19 +46,28 @@ const HP_MAX = 100;
 // c'est au joueur de s'aligner avec la cible. Les ennemis dérivent lentement
 // vers le joueur (ils vous traquent), ce qui rend le tir jouable sans viser.
 const MAX_ENEMIES = 14;                 // pool d'ennemis simultanés (perf, réutilisés)
-const ENEMY_START_Z = -38;              // plus proche que les bonus : action rapprochée
+const ENEMY_START_Z = -44;              // un peu plus loin qu'avant : laisse le temps de tirer avant l'impact
 const ENEMY_SPEED_BASE = 0.045;
 const ENEMY_SPEED_PER_ITEM = 0.0055;    // accélère avec la progression (difficulté)
 const ENEMY_DRIFT_SPEED = 0.0048;       // dérive latérale vers le joueur (assez pour rester atteignable)
 // La fréquence des vagues démarre lente et se resserre avec la progression
 // (voir enemySpawnInterval() dans gameplay.js) — la toute première minute
 // doit laisser le temps de monter en puissance avant que ça devienne dense.
+// IMPORTANT : le DÉBIT d'arrivée des ennemis (nombre par vague ÷ intervalle)
+// doit rester sous le débit d'élimination possible (voir shotsToKillEnemy()
+// et ATTACK_INTERVAL_FRAMES) — sinon les vagues s'empilent plus vite qu'on
+// ne peut les vider, et ça finit en avalanche de dégâts imparable (repéré
+// via simulation : jusqu'à 8 ennemis actifs en même temps vers le palier 4-5,
+// ~30 PV perdus en 1 seconde). Vu que shotsToKillEnemy() augmente avec la
+// progression (dégâts fixes du joueur = shots à encaisser), le débit
+// d'ennemis par vague doit lui rester MODESTE pour ne pas dépasser la
+// capacité d'élimination une fois la difficulté montée.
 const ENEMY_SPAWN_INTERVAL_START = 210; // ~3.5s entre vagues au tout début
-const ENEMY_SPAWN_INTERVAL_MIN = 95;    // plancher une fois la difficulté montée
-const ENEMY_SPAWN_INTERVAL_RAMP_ITEMS = 22; // nombre d'objets ramassés pour atteindre le plancher
+const ENEMY_SPAWN_INTERVAL_MIN = 160;   // plancher une fois la difficulté montée (était 95 : trop dense)
+const ENEMY_SPAWN_INTERVAL_RAMP_ITEMS = 26; // nombre d'objets ramassés pour atteindre le plancher
 const ENEMIES_PER_WAVE_BASE = 1;
-const ENEMIES_PER_WAVE_PER_ITEM = 0.4;
-const ENEMIES_PER_WAVE_MAX = 5;
+const ENEMIES_PER_WAVE_PER_ITEM = 0.2;  // était 0.4 : la taille des vagues montait bcp trop vite
+const ENEMIES_PER_WAVE_MAX = 4;         // était 5 : trop d'ennemis simultanés pour un tir non-visé
 const ENEMY_SPEED_CAP = 0.105;
 const ENEMY_DAMAGE_TO_PLAYER = 10; // vie perdue si un ennemi atteint le joueur
 const ENEMY_TINT = 0xC9A385;
@@ -69,7 +78,7 @@ const ENEMY_TINT = 0xC9A385;
 // Voir attackDamage() dans gameplay.js.
 const ATTACK_POWER_EXPONENT = 0.62;
 const ATTACK_POWER_FACTOR = 2.6;
-const ATTACK_INTERVAL_FRAMES = 18;    // cadence de tir de la horde (~3.3 tirs/s)
+const ATTACK_INTERVAL_FRAMES = 15;    // cadence de tir de la horde (~4 tirs/s, était 18)
 const PROJECTILE_SPEED = 0.7;
 const PROJECTILE_HIT_RADIUS_X = 0.48; // tolérance latérale pour toucher (pas de visée auto, mais pas punitif)
 
@@ -82,8 +91,9 @@ const PROJECTILE_HIT_RADIUS_X = 0.48; // tolérance latérale pour toucher (pas 
 // l'infini, horde de 10 ou de 500 000. Voir shotsToKillEnemy()/shotsToKillBoss()
 // dans gameplay.js.
 const SHOTS_TO_KILL_ENEMY_BASE = 2;
-const SHOTS_TO_KILL_ENEMY_GROWTH = 0.15; // par objet ramassé
-const SHOTS_TO_KILL_ENEMY_CAP = 6;
+const SHOTS_TO_KILL_ENEMY_GROWTH = 0.05; // par objet ramassé (était 0.15 : le temps pour tuer un ennemi
+                                          // grossissait plus vite que le débit de tir ne pouvait suivre)
+const SHOTS_TO_KILL_ENEMY_CAP = 3;       // était 6
 
 const SHOTS_TO_KILL_BOSS_BASE = 14;
 const SHOTS_TO_KILL_BOSS_GROWTH = 1.5; // par boss déjà vaincu
