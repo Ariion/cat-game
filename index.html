@@ -6,7 +6,18 @@
 <title>Horde de Chats — prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<!--
+  Cache-busting : chaque fichier local est chargé avec ?v=XXX. Sans ça, les
+  navigateurs mobiles (et certains hébergeurs statiques) gardent en cache
+  les anciens fichiers JS/CSS même après un nouveau push, et les
+  changements n'apparaissent jamais tant qu'on ne vide pas le cache à la
+  main. En cas de doute ("je ne vois aucun changement"), c'est presque
+  toujours ça — pas un problème de code.
+  IMPORTANT : incrémenter CACHE_VERSION ci-dessous à chaque push qui
+  touche un fichier local (css/ ou js/, sauf vendor/three.min.js qui ne
+  change jamais).
+-->
+<link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -55,13 +66,13 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/state.js"></script>
-<script src="js/scene3d.js"></script>
-<script src="js/render3d.js"></script>
-<script src="js/gameplay.js"></script>
-<script src="js/input.js"></script>
-<script src="js/main.js"></script>
+<script src="js/config.js?v=7"></script>
+<script src="js/audio.js?v=7"></script>
+<script src="js/state.js?v=7"></script>
+<script src="js/scene3d.js?v=7"></script>
+<script src="js/render3d.js?v=7"></script>
+<script src="js/gameplay.js?v=7"></script>
+<script src="js/input.js?v=7"></script>
+<script src="js/main.js?v=7"></script>
 </body>
 </html>
