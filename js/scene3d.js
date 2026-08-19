@@ -71,6 +71,62 @@ function createGroundTexture(){
   return tex;
 }
 
+function createSkyTexture(){
+  const w = 300, h = 600;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const cx = c.getContext('2d');
+  const grad = cx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#7FB2E0');
+  grad.addColorStop(0.42, '#BEE0EC');
+  grad.addColorStop(0.72, '#F3E3C4');
+  grad.addColorStop(1, '#F6E9CF');
+  cx.fillStyle = grad;
+  cx.fillRect(0, 0, w, h);
+
+  cx.fillStyle = 'rgba(255,255,255,0.8)';
+  const clouds = [[0.18,0.14],[0.68,0.10],[0.42,0.24],[0.85,0.27],[0.1,0.32],[0.55,0.33]];
+  clouds.forEach(([cxr,cyr])=>{
+    const px = cxr*w, py = cyr*h;
+    for(let i=0;i<4;i++){
+      cx.beginPath();
+      cx.ellipse(px + (Math.random()-0.5)*36, py + (Math.random()-0.5)*8, 20+Math.random()*12, 11+Math.random()*5, 0, 0, Math.PI*2);
+      cx.fill();
+    }
+  });
+
+  return new THREE.CanvasTexture(c);
+}
+
+function createSunGlowTexture(){
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const cx = c.getContext('2d');
+  const grad = cx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0, 'rgba(255,250,230,0.9)');
+  grad.addColorStop(0.4, 'rgba(255,244,214,0.35)');
+  grad.addColorStop(1, 'rgba(255,244,214,0)');
+  cx.fillStyle = grad;
+  cx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+function buildMountainRange(){
+  const matFar = new THREE.MeshStandardMaterial({ color: 0x7E9C9C, flatShading:true, roughness:1 });
+  const matNear = new THREE.MeshStandardMaterial({ color: 0x5F8778, flatShading:true, roughness:1 });
+  for(let i=0;i<9;i++){
+    const x = -34 + i*8.5 + (Math.random()-0.5)*3;
+    const height = 9 + Math.random()*7;
+    const radius = 7 + Math.random()*4;
+    const geo = new THREE.ConeGeometry(radius, height, 5);
+    const mesh = new THREE.Mesh(geo, i % 2 === 0 ? matFar : matNear);
+    mesh.position.set(x, height/2 - 0.6, -40 - Math.random()*10);
+    mesh.rotation.y = Math.random()*Math.PI;
+    scene.add(mesh);
+  }
+}
+
 function buildCatGroup(colorHex, detailed){
   const g = new THREE.Group();
   const mat = detailed ? catMaterial : followerMaterial;
@@ -221,6 +277,13 @@ function buildProps(){
   const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x6B8F71, flatShading:true, roughness:0.85 });
   const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x7FA372, flatShading:true, roughness:0.85 });
   const bushGeo = new THREE.SphereGeometry(0.32, 7, 6);
+  const canopyGeo = new THREE.IcosahedronGeometry(0.55, 0);
+  const rockGeo = new THREE.IcosahedronGeometry(0.32, 0);
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x9B9186, flatShading:true, roughness:0.95 });
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4F7A4A, flatShading:true, roughness:0.9 });
+  const petalGeo = new THREE.SphereGeometry(0.045, 5, 4);
+  const petalMats = [0xffffff, 0xE8A6C1, 0xC9A3E0].map(c=>
+    new THREE.MeshStandardMaterial({ color:c, flatShading:true, roughness:0.7 }));
 
   function buildTree(){
     const g = new THREE.Group();
@@ -238,6 +301,20 @@ function buildProps(){
     return g;
   }
 
+  function buildRoundTree(){
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.scale.y = 1.3;
+    trunk.position.y = 0.32;
+    g.add(trunk);
+    const mat = Math.random() < 0.5 ? foliageMatA : foliageMatB;
+    const canopy = new THREE.Mesh(canopyGeo, mat);
+    canopy.position.y = 1.05;
+    canopy.scale.y = 0.85;
+    g.add(canopy);
+    return g;
+  }
+
   function buildBush(){
     const g = new THREE.Group();
     const mat = Math.random() < 0.5 ? foliageMatA : foliageMatB;
@@ -250,14 +327,53 @@ function buildProps(){
     return g;
   }
 
+  function buildRock(){
+    const rock = new THREE.Mesh(rockGeo, rockMat);
+    rock.scale.set(0.7 + Math.random()*0.6, 0.5 + Math.random()*0.4, 0.7 + Math.random()*0.6);
+    rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    return rock;
+  }
+
+  function buildFlowerClump(){
+    const g = new THREE.Group();
+    for(let i=0;i<4;i++){
+      const ang = Math.random()*Math.PI*2, r = Math.random()*0.14;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.015,0.16,4), stemMat);
+      stem.position.set(Math.cos(ang)*r, 0.08, Math.sin(ang)*r);
+      g.add(stem);
+      const bloom = new THREE.Mesh(petalGeo, petalMats[Math.floor(Math.random()*petalMats.length)]);
+      bloom.position.set(stem.position.x, 0.17, stem.position.z);
+      g.add(bloom);
+    }
+    return g;
+  }
+
+  function randomProp(){
+    const r = Math.random();
+    if(r < 0.26) return buildTree();
+    if(r < 0.44) return buildRoundTree();
+    if(r < 0.62) return buildBush();
+    if(r < 0.8) return buildRock();
+    return buildFlowerClump();
+  }
+
   for(let z = -78; z < 8; z += 5.5){
     [-1, 1].forEach(side=>{
       const x = side * (3.6 + Math.random()*2.2);
-      const prop = Math.random() < 0.55 ? buildTree() : buildBush();
+      const prop = randomProp();
       prop.position.set(x + (Math.random()-0.5)*0.8, 0, z + (Math.random()-0.5)*2);
       prop.rotation.y = Math.random()*Math.PI*2;
       scene.add(prop);
     });
+  }
+
+  // touffes de fleurs en premier plan, près du chemin
+  for(let i=0;i<10;i++){
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const clump = buildFlowerClump();
+    clump.position.set(side*(2.0 + Math.random()*0.8), 0, -6 + Math.random()*12);
+    clump.rotation.y = Math.random()*Math.PI*2;
+    scene.add(clump);
   }
 }
 
@@ -266,8 +382,8 @@ function initScene(){
 
   scene = new THREE.Scene();
   const skyColor = 0xF6E9CF;
-  scene.background = new THREE.Color(skyColor);
-  scene.fog = new THREE.Fog(skyColor, 18, 60);
+  scene.background = createSkyTexture();
+  scene.fog = new THREE.Fog(skyColor, 24, 66);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
   camera.position.set(0, 4.1, 7.2);
@@ -276,11 +392,20 @@ function initScene(){
   renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-  const hemi = new THREE.HemisphereLight(0xfff3df, 0x6b8f71, 0.9);
+  const hemi = new THREE.HemisphereLight(0xfff6e0, 0x74926f, 1.0);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  const sun = new THREE.DirectionalLight(0xfff1d8, 1.0);
   sun.position.set(4, 8, 4);
   scene.add(sun);
+
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: createSunGlowTexture(), transparent:true, depthWrite:false, fog:false
+  }));
+  sunGlow.scale.set(20, 20, 1);
+  sunGlow.position.set(9, 11, -55);
+  scene.add(sunGlow);
+
+  buildMountainRange();
 
   // matériaux partagés
   catMaterial = new THREE.MeshStandardMaterial({ color: 0xC97B4F, flatShading:true, roughness:0.8 });
