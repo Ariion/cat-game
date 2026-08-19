@@ -55,9 +55,10 @@ function syncFollowers(){
 }
 
 function syncPickups(){
+  // portes DROITES posées au sol (pas d'arche, pas de rotation) : seul un
+  // très léger flottement vertical reste, pour ne pas paraître figées
   pickups.forEach(p=>{
-    p.visual.position.set(p.x, 0.9 + Math.sin((frame+p.x*10)*0.08)*0.08, p.z);
-    p.visual.rotation.y += 0.02; // petite rotation, lisible comme "objet à ramasser"
+    p.visual.position.set(p.x, Math.sin((frame+p.x*10)*0.08)*0.04, p.z);
   });
 }
 

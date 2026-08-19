@@ -64,7 +64,7 @@ function resetGame(){
   projectiles = [];
   boss = null;
   bossesDefeated = 0;
-  if(webglSupported) bossGroup.visible = false;
+  if(webglSupported){ bossGroup.visible = false; applyBiomeInstant(0); }
   document.getElementById('hint').classList.remove('hidden');
   updateHud();
 }
@@ -234,6 +234,10 @@ function loadGame(){
   pickupsCleared = save.pickupsCleared || 0;
   pickupSpeed = save.pickupSpeed || PICKUP_SPEED_BASE;
   rebuildHordeVisual();
+  // resetGame() a remis le biome à 0 (Prairie) — il faut le rattraper
+  // instantanément au palier correspondant à la progression restaurée,
+  // sans le fondu (qui n'a de sens que pour une transition vécue en jeu)
+  if(webglSupported) applyBiomeInstant(targetBiomeIndex());
   updateHud();
 }
 

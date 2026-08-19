@@ -37,8 +37,10 @@ function spawnDilemma(){
   // deux objets rapprochés, difficile de prendre/éviter les deux — un vrai
   // choix ("mieux vaut perdre 1 que 5"). Le plus souvent 2 malus de tailles
   // très différentes, parfois 2 bonus (choisir le meilleur).
+  // Écart mesuré centre à centre : les portes font 1.5 de large, il faut
+  // donc au moins ~1.5 pour qu'elles ne se chevauchent pas visuellement.
   const bothMalus = Math.random() < 0.65;
-  const gap = 1.1 + Math.random()*0.7;
+  const gap = 1.5 + Math.random()*0.9;
   const center = (Math.random()-0.5) * 1.5;
   const xA = center - gap/2;
   const xB = center + gap/2;
@@ -339,7 +341,12 @@ function update(){
         pickupSpeed = Math.min(PICKUP_SPEED_MAX, PICKUP_SPEED_BASE + pickupsCleared*PICKUP_SPEED_PER_ITEM);
         updateHud();
         if(currentPalier() > palierBefore){
-          showToast(t('palier_toast', {n: currentPalier()}));
+          let toastMsg = t('palier_toast', {n: currentPalier()});
+          if(webglSupported && targetBiomeIndex() !== biomeIndex){
+            startBiomeTransition(targetBiomeIndex());
+            toastMsg += ' · ' + t('biome_toast');
+          }
+          showToast(toastMsg);
         }
         if(pickupsCleared % BOSS_INTERVAL_PICKUPS === 0 && !boss){
           spawnBoss();
@@ -360,6 +367,7 @@ function update(){
     updateEnemies();
     updateBoss();
     updateAttacks();
+    updateDecor(); // défilement du décor + fondu de biome — pas fixe, comme tout le reste
   }
 }
 
@@ -368,6 +376,12 @@ function update(){
 // combat contre le boss (qui revient tous les BOSS_INTERVAL_PICKUPS).
 function currentPalier(){
   return Math.floor(pickupsCleared / PALIER_ITEMS) + 1;
+}
+
+// Biome ciblé pour la progression actuelle : change tous les
+// BIOME_PALIER_SPAN paliers, en boucle sur la liste des biomes disponibles.
+function targetBiomeIndex(){
+  return Math.floor((currentPalier() - 1) / BIOME_PALIER_SPAN) % BIOMES.length;
 }
 
 function showLose(reason){

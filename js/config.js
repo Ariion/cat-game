@@ -21,6 +21,13 @@ const PICKUP_REMOVE_Z = 9;        // distance après laquelle un objet franchi e
 const PICKUP_RADIUS = 0.85;       // tolérance latérale pour "toucher" un bonus/malus
 const BOSS_INTERVAL_PICKUPS = 15; // le boss revient tous les N objets — jeu infini, pas de fin sur victoire
 const PALIER_ITEMS = 5;           // un palier de progression (HUD + toast) tous les N objets ramassés
+
+// Le décor défile (le joueur reste visuellement sur place, comme un tapis
+// roulant) et change de "biome" (palette de couleurs) tous les N paliers,
+// avec un fondu progressif plutôt qu'un changement brutal. Voir biomes.js
+// et updateDecor()/startBiomeTransition() dans scene3d.js.
+const BIOME_PALIER_SPAN = 5;         // nombre de paliers avant de changer de biome
+const BIOME_TRANSITION_SECONDS = 3.5; // durée du fondu entre deux biomes
 const PICKUP_SPEED_BASE = 0.16;
 const PICKUP_SPEED_PER_ITEM = 0.009;
 const PICKUP_SPEED_MAX = 0.32;

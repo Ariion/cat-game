@@ -1,6 +1,15 @@
 // Mise en place de la scène Three.js + construction des modèles 3D
-// (chats, chien, arches de porte) à partir de primitives low-poly.
+// (chats, chien, portes de bonus/malus) à partir de primitives low-poly.
 // Tout est généré par code : aucune bibliothèque de modèles externe.
+//
+// Illusion de mouvement : le joueur reste fixe en Z (voir PLAYER_Z), c'est
+// le DÉCOR qui défile vers la caméra — sol (défilement de texture), props
+// (arbres/rochers/fleurs), montagnes et herbe sont recyclés en boucle
+// (repositionnés loin derrière une fois passés), exactement comme les
+// bonus/malus et les ennemis. Voir updateDecor(), appelée à chaque tick
+// fixe depuis update() (gameplay.js) — jamais depuis render(), sinon le
+// défilement irait trop vite sur les écrans à haut taux de rafraîchissement
+// (même piège que le bug de vitesse déjà corrigé sur le reste du jeu).
 
 function checkWebGL(){
   try{
@@ -12,7 +21,7 @@ function checkWebGL(){
 
 const webglSupported = checkWebGL();
 
-let scene, camera, renderer, sunLight;
+let scene, camera, renderer, sunLight, hemiLight;
 let leaderGroup, bossGroup;
 let enemyVisuals = []; // pool de groupes 3D réutilisés, index-aligné avec enemyPool (state.js)
 let followerBodyInst, followerHeadInst, followerShadowInst;
@@ -20,6 +29,25 @@ let doorGlowTexture;
 let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
 let particleGeometry, projectileGeometry;
 const dummy3D = webglSupported ? new THREE.Object3D() : null;
+
+// --- décor recyclable (défilement façon tapis roulant) --------------------
+let groundMat, groundRepeatV = 22, groundLengthZ = 90;
+let mountainMatFar, mountainMatNear;
+let foliageMatA, foliageMatB, grassMat;
+let decorProps = [];     // {mesh, respawnMinZ, respawnMaxZ, xBase}
+let decorMountains = []; // {mesh, parallax}
+let grassInst = null;
+let grassData = [];      // {x, z, rotY, rotZ, scale}
+const decorDummy = webglSupported ? new THREE.Object3D() : null;
+
+// --- ciel : redessiné (pas remplacé) pour permettre un fondu de biome -----
+let skyCanvas, skyCtx, skyTexture, skyClouds = [];
+
+// --- fondu entre deux biomes ------------------------------------------
+let biomeIndex = 0;
+let biomeAnimT = 0;
+let biomeAnimFrom = null; // snapshot de couleurs au départ du fondu
+let biomeAnimTo = null;   // BIOMES[i] ciblé
 
 function drawPickupIcon(cx, kind){
   if(kind === 'croquette'){
@@ -48,47 +76,49 @@ function drawPickupIcon(cx, kind){
   }
 }
 
-// Icône + montant ("+3", "+22", "-4") sur une même texture, générée à la
-// volée pour chaque bonus/malus (le montant varie à chaque apparition,
-// donc pas de cache partagé possible ici — à disposer avec le pickup).
+// Icône + montant ("+3", "+22", "-4") en GRAS, bien visible — c'est
+// l'information principale de la porte, le reste n'est que décor.
 function createPickupTexture(kind, amount){
-  const size = 160;
+  const w = 200, h = 340;
   const c = document.createElement('canvas');
-  c.width = size; c.height = size;
+  c.width = w; c.height = h;
   const cx = c.getContext('2d');
 
   cx.save();
-  cx.translate(size/2, size*0.36);
-  cx.scale(2.15, 2.15);
+  cx.translate(w/2, h*0.2);
+  cx.scale(1.9, 1.9);
   drawPickupIcon(cx, kind);
   cx.restore();
 
   const label = (amount >= 0 ? '+' : '') + amount;
-  cx.font = '700 46px Fredoka, sans-serif';
+  cx.font = '800 92px Fredoka, sans-serif';
   cx.textAlign = 'center';
   cx.textBaseline = 'middle';
-  cx.lineWidth = 9;
-  cx.strokeStyle = 'rgba(59,50,38,0.85)';
-  cx.strokeText(label, size/2, size*0.76);
+  cx.lineWidth = 14;
+  cx.strokeStyle = 'rgba(59,50,38,0.9)';
+  cx.strokeText(label, w/2, h*0.62);
   cx.fillStyle = '#ffffff';
-  cx.fillText(label, size/2, size*0.76);
+  cx.fillText(label, w/2, h*0.62);
 
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
   return tex;
 }
 
+// Texture de sol NEUTRE (nuances de gris) : la couleur vient uniquement du
+// matériau (groundMat.color), ce qui permet de changer de biome en douceur
+// par un simple fondu de couleur, sans jamais régénérer cette texture.
 function createGroundTexture(){
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
   const cx = c.getContext('2d');
-  cx.fillStyle = '#8FAE6B';
+  cx.fillStyle = '#c9c9c9';
   cx.fillRect(0,0,256,256);
   // allée centrale plus claire
-  cx.fillStyle = '#A9C486';
+  cx.fillStyle = '#eeeeee';
   cx.fillRect(96, 0, 64, 256);
-  // touffes d'herbe décoratives
-  cx.fillStyle = 'rgba(90,120,70,0.35)';
+  // touffes décoratives, plus sombres
+  cx.fillStyle = 'rgba(40,40,40,0.28)';
   for(let i=0;i<40;i++){
     const x = Math.random()*256, y = Math.random()*256;
     cx.beginPath();
@@ -98,35 +128,62 @@ function createGroundTexture(){
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1, 22);
+  tex.repeat.set(1, groundRepeatV);
   return tex;
 }
 
-function createSkyTexture(){
-  const w = 300, h = 600;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const cx = c.getContext('2d');
-  const grad = cx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, '#7FB2E0');
-  grad.addColorStop(0.42, '#BEE0EC');
-  grad.addColorStop(0.72, '#F3E3C4');
-  grad.addColorStop(1, '#F6E9CF');
-  cx.fillStyle = grad;
-  cx.fillRect(0, 0, w, h);
-
-  cx.fillStyle = 'rgba(255,255,255,0.8)';
-  const clouds = [[0.18,0.14],[0.68,0.10],[0.42,0.24],[0.85,0.27],[0.1,0.32],[0.55,0.33]];
-  clouds.forEach(([cxr,cyr])=>{
+// Nuages générés une seule fois (position stable) puis réutilisés à chaque
+// redessin du ciel — sinon ils "sauteraient" à chaque fondu de biome.
+function buildSkyClouds(w, h){
+  const layout = [[0.18,0.14],[0.68,0.10],[0.42,0.24],[0.85,0.27],[0.1,0.32],[0.55,0.33]];
+  return layout.map(([cxr,cyr])=>{
     const px = cxr*w, py = cyr*h;
+    const puffs = [];
     for(let i=0;i<4;i++){
-      cx.beginPath();
-      cx.ellipse(px + (Math.random()-0.5)*36, py + (Math.random()-0.5)*8, 20+Math.random()*12, 11+Math.random()*5, 0, 0, Math.PI*2);
-      cx.fill();
+      puffs.push({
+        x: px + (Math.random()-0.5)*36,
+        y: py + (Math.random()-0.5)*8,
+        rx: 20+Math.random()*12,
+        ry: 11+Math.random()*5
+      });
     }
+    return puffs;
   });
+}
 
-  return new THREE.CanvasTexture(c);
+// Redessine le ciel avec les couleurs fournies (4 arrêts de dégradé), sur le
+// MÊME canvas/texture — appelé une fois au départ puis, à débit réduit,
+// pendant un fondu de biome (les nuages, eux, ne bougent pas).
+function redrawSky(stepsHex){
+  const w = skyCanvas.width, h = skyCanvas.height;
+  const grad = skyCtx.createLinearGradient(0, 0, 0, h);
+  const stops = [0, 0.42, 0.72, 1];
+  stepsHex.forEach((hex, i)=>{
+    grad.addColorStop(stops[i], '#' + hex.toString(16).padStart(6,'0'));
+  });
+  skyCtx.fillStyle = grad;
+  skyCtx.fillRect(0, 0, w, h);
+
+  skyCtx.fillStyle = 'rgba(255,255,255,0.8)';
+  skyClouds.forEach(puffs=>{
+    puffs.forEach(p=>{
+      skyCtx.beginPath();
+      skyCtx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, Math.PI*2);
+      skyCtx.fill();
+    });
+  });
+  skyTexture.needsUpdate = true;
+}
+
+function createSkyTexture(stepsHex){
+  const w = 300, h = 600;
+  skyCanvas = document.createElement('canvas');
+  skyCanvas.width = w; skyCanvas.height = h;
+  skyCtx = skyCanvas.getContext('2d');
+  skyClouds = buildSkyClouds(w, h);
+  skyTexture = new THREE.CanvasTexture(skyCanvas);
+  redrawSky(stepsHex);
+  return skyTexture;
 }
 
 function createGlowTexture(){
@@ -157,18 +214,23 @@ function createSunGlowTexture(){
   return new THREE.CanvasTexture(c);
 }
 
+// --- montagnes, recyclées comme le reste du décor (avec parallaxe : elles
+// défilent plus lentement que le premier plan, pour donner de la profondeur)
 function buildMountainRange(){
-  const matFar = new THREE.MeshStandardMaterial({ color: 0x7E9C9C, flatShading:true, roughness:1 });
-  const matNear = new THREE.MeshStandardMaterial({ color: 0x5F8778, flatShading:true, roughness:1 });
+  mountainMatFar = new THREE.MeshStandardMaterial({ color: 0x7E9C9C, flatShading:true, roughness:1 });
+  mountainMatNear = new THREE.MeshStandardMaterial({ color: 0x5F8778, flatShading:true, roughness:1 });
+  decorMountains = [];
   for(let i=0;i<9;i++){
     const x = -34 + i*8.5 + (Math.random()-0.5)*3;
     const height = 9 + Math.random()*7;
     const radius = 7 + Math.random()*4;
+    const near = i % 2 !== 0;
     const geo = new THREE.ConeGeometry(radius, height, 5);
-    const mesh = new THREE.Mesh(geo, i % 2 === 0 ? matFar : matNear);
+    const mesh = new THREE.Mesh(geo, near ? mountainMatNear : mountainMatFar);
     mesh.position.set(x, height/2 - 0.6, -40 - Math.random()*10);
     mesh.rotation.y = Math.random()*Math.PI;
     scene.add(mesh);
+    decorMountains.push({ mesh, parallax: 0.4 });
   }
 }
 
@@ -259,44 +321,56 @@ function buildBossGroup(mat){
 
 const PICKUP_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
 
+// Portes DROITES (pas d'arche, pas de rotation continue) en faible opacité
+// et colorées, avec le montant en gros et en gras — le joueur doit pouvoir
+// lire "+12" ou "-6" d'un coup d'œil en approchant.
 function buildPickupVisual(kind, amount){
   const g = new THREE.Group();
   const color = PICKUP_COLORS[kind];
-  const size = 1.05;
+  const width = 1.5, height = 2.3;
 
-  // jeton translucide flottant
-  const panelGeo = new THREE.PlaneGeometry(size, size);
+  const panelGeo = new THREE.PlaneGeometry(width, height);
   const panelMat = new THREE.MeshStandardMaterial({
-    color, transparent:true, opacity:0.32, side: THREE.DoubleSide,
+    color, transparent:true, opacity:0.28, side: THREE.DoubleSide,
     roughness:0.4, depthWrite:false
   });
   const panel = new THREE.Mesh(panelGeo, panelMat);
+  panel.position.y = height/2;
   g.add(panel);
 
-  // contour plein pour rester lisible malgré la faible opacité
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(panelGeo),
-    new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.95 })
-  );
-  g.add(edges);
+  // cadre plein (montants + linteau) : lit clairement comme une porte,
+  // même à faible opacité sur le panneau
+  const frameMat = new THREE.MeshStandardMaterial({ color, transparent:true, opacity:0.85, roughness:0.5 });
+  const postGeo = new THREE.BoxGeometry(0.08, height, 0.08);
+  const postL = new THREE.Mesh(postGeo, frameMat);
+  postL.position.set(-width/2, height/2, 0);
+  g.add(postL);
+  const postR = postL.clone();
+  postR.position.x = width/2;
+  g.add(postR);
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(width+0.16, 0.08, 0.08), frameMat);
+  lintel.position.set(0, height, 0);
+  g.add(lintel);
 
-  // halo incandescent, pour repérer le bonus/malus de loin
+  // halo, pour repérer la porte de loin
   const haloMat = new THREE.SpriteMaterial({
-    map: doorGlowTexture, color, transparent:true, opacity:0.65,
+    map: doorGlowTexture, color, transparent:true, opacity:0.55,
     blending: THREE.AdditiveBlending, depthWrite:false
   });
   const halo = new THREE.Sprite(haloMat);
-  halo.scale.set(1.15, 1.15, 1);
-  halo.position.z = 0.01;
+  halo.scale.set(width*1.3, height*1.05, 1);
+  halo.position.set(0, height/2, 0.01);
   halo.renderOrder = 1;
   g.add(halo);
 
-  // icône + montant, texture générée pour ce pickup précis (pas partagée)
+  // icône + montant en gras, texture générée pour ce pickup précis
   const tex = createPickupTexture(kind, amount);
   const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent:true });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(0.85, 0.85, 1);
-  sprite.position.z = 0.02; // légèrement devant, évite le z-fighting
+  const aspect = 200/340;
+  const spriteW = width*0.92;
+  sprite.scale.set(spriteW, spriteW/aspect, 1);
+  sprite.position.set(0, height*0.56, 0.02);
   sprite.renderOrder = 2;
   g.add(sprite);
   g.userData.uniqueTexture = tex;
@@ -313,13 +387,14 @@ function disposePickupVisual(group){
 }
 
 function buildProps(){
-  // décor statique (arbres, buissons) le long du chemin pour donner de la
-  // profondeur — géométries partagées, aucun impact perf notable.
+  // décor recyclé (arbres, buissons, rochers, fleurs) le long du chemin —
+  // géométries/matériaux partagés, chaque instance défile puis revient loin
+  // derrière une fois passée (voir updateDecor()).
   const trunkGeo = new THREE.CylinderGeometry(0.07, 0.1, 0.5, 6);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8A6B4A, flatShading:true, roughness:0.9 });
   const foliageGeo = new THREE.ConeGeometry(0.55, 0.95, 7);
-  const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x6B8F71, flatShading:true, roughness:0.85 });
-  const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x7FA372, flatShading:true, roughness:0.85 });
+  foliageMatA = new THREE.MeshStandardMaterial({ color: 0x6B8F71, flatShading:true, roughness:0.85 });
+  foliageMatB = new THREE.MeshStandardMaterial({ color: 0x7FA372, flatShading:true, roughness:0.85 });
   const bushGeo = new THREE.SphereGeometry(0.32, 7, 6);
   const canopyGeo = new THREE.IcosahedronGeometry(0.55, 0);
   const rockGeo = new THREE.IcosahedronGeometry(0.32, 0);
@@ -401,61 +476,209 @@ function buildProps(){
     return buildFlowerClump();
   }
 
+  decorProps = [];
   for(let z = -78; z < 8; z += 5.5){
     [-1, 1].forEach(side=>{
-      const x = side * (3.6 + Math.random()*2.2);
+      const xBase = side * (3.6 + Math.random()*2.2);
       const prop = randomProp();
-      prop.position.set(x + (Math.random()-0.5)*0.8, 0, z + (Math.random()-0.5)*2);
+      prop.position.set(xBase + (Math.random()-0.5)*0.8, 0, z + (Math.random()-0.5)*2);
       prop.rotation.y = Math.random()*Math.PI*2;
       scene.add(prop);
+      decorProps.push({ mesh: prop, xBase });
     });
   }
 
   // touffes de fleurs en premier plan, près du chemin
   for(let i=0;i<10;i++){
     const side = Math.random() < 0.5 ? -1 : 1;
+    const xBase = side*(2.0 + Math.random()*0.8);
     const clump = buildFlowerClump();
-    clump.position.set(side*(2.0 + Math.random()*0.8), 0, -6 + Math.random()*12);
+    clump.position.set(xBase, 0, -6 + Math.random()*12);
     clump.rotation.y = Math.random()*Math.PI*2;
     scene.add(clump);
+    decorProps.push({ mesh: clump, xBase });
   }
 
   buildGrass();
 }
 
 function buildGrass(){
-  // brins d'herbe en premier plan, en instanced mesh (un seul draw call)
-  // pour donner de la texture au sol près du joueur, comme sur les refs
+  // brins d'herbe en premier plan, en instanced mesh (un seul draw call) —
+  // recyclés individuellement (voir updateDecor()), donc les transformations
+  // sont gardées côté JS (grassData) et réappliquées à la matrice d'instance
+  // à chaque tick.
   const bladeGeo = new THREE.ConeGeometry(0.022, 0.24, 3);
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x6F9A52, flatShading:true, roughness:0.9 });
+  grassMat = new THREE.MeshStandardMaterial({ color: 0x6F9A52, flatShading:true, roughness:0.9 });
   const cap = 240;
-  const grassInst = new THREE.InstancedMesh(bladeGeo, bladeMat, cap);
-  const dummy = new THREE.Object3D();
+  grassInst = new THREE.InstancedMesh(bladeGeo, grassMat, cap);
+  grassData = [];
   let gi = 0;
   for(let z=-16; z<9 && gi<cap; z+=0.55){
     for(let k=0; k<2 && gi<cap; k++){
       const side = Math.random() < 0.5 ? -1 : 1;
       const x = side * (1.85 + Math.random()*1.5);
-      dummy.position.set(x, 0.1, z + (Math.random()-0.5)*0.5);
-      dummy.rotation.y = Math.random()*Math.PI;
-      dummy.rotation.z = (Math.random()-0.5)*0.35;
-      dummy.scale.setScalar(0.7 + Math.random()*0.6);
-      dummy.updateMatrix();
-      grassInst.setMatrixAt(gi++, dummy.matrix);
+      grassData.push({
+        x, z: z + (Math.random()-0.5)*0.5,
+        rotY: Math.random()*Math.PI,
+        rotZ: (Math.random()-0.5)*0.35,
+        scale: 0.7 + Math.random()*0.6
+      });
+      gi++;
     }
   }
   grassInst.count = gi;
-  grassInst.instanceMatrix.needsUpdate = true;
+  applyGrassMatrices();
   scene.add(grassInst);
+}
+
+function applyGrassMatrices(){
+  for(let i=0;i<grassData.length;i++){
+    const b = grassData[i];
+    decorDummy.position.set(b.x, 0.1, b.z);
+    decorDummy.rotation.set(0, b.rotY, b.rotZ);
+    decorDummy.scale.setScalar(b.scale);
+    decorDummy.updateMatrix();
+    grassInst.setMatrixAt(i, decorDummy.matrix);
+  }
+  grassInst.instanceMatrix.needsUpdate = true;
+}
+
+// --- défilement du décor (appelé à chaque tick fixe depuis update()) ------
+
+function updateDecor(){
+  if(!webglSupported) return;
+  const speed = pickupSpeed;
+
+  // sol : on ne déplace rien, on fait défiler la texture — pas cher, et
+  // marche quelle que soit la longueur du plan
+  groundMat.map.offset.y += speed * (groundRepeatV / groundLengthZ);
+
+  // props (arbres, buissons, rochers, fleurs) : recyclés loin derrière une
+  // fois passés la caméra, avec une nouvelle position/rotation aléatoire
+  for(let i=0;i<decorProps.length;i++){
+    const p = decorProps[i];
+    p.mesh.position.z += speed;
+    if(p.mesh.position.z > PICKUP_REMOVE_Z){
+      p.mesh.position.z = -80 - Math.random()*10;
+      p.mesh.position.x = p.xBase + (Math.random()-0.5)*0.8;
+      p.mesh.rotation.y = Math.random()*Math.PI*2;
+    }
+  }
+
+  // montagnes : défilent plus lentement (parallaxe = profondeur)
+  for(let i=0;i<decorMountains.length;i++){
+    const m = decorMountains[i];
+    m.mesh.position.z += speed * m.parallax;
+    if(m.mesh.position.z > -6){
+      m.mesh.position.z = -50 - Math.random()*10;
+    }
+  }
+
+  // herbe : recyclage individuel des brins (proche du chemin, cycle rapide)
+  for(let i=0;i<grassData.length;i++){
+    const b = grassData[i];
+    b.z += speed;
+    if(b.z > PICKUP_REMOVE_Z){
+      b.z = -16 - Math.random()*2;
+      b.x = (Math.random()<0.5?-1:1) * (1.85 + Math.random()*1.5);
+      b.rotY = Math.random()*Math.PI;
+      b.rotZ = (Math.random()-0.5)*0.35;
+    }
+  }
+  applyGrassMatrices();
+
+  updateBiomeTransition();
+}
+
+// --- fondu entre deux biomes -----------------------------------------
+
+// On ne peut pas relire les 4 arrêts de dégradé depuis la texture déjà
+// dessinée : on les garde donc à part, mis à jour à chaque fondu.
+let currentSkySteps = null;
+
+function applyBiomeInstant(index){
+  const b = BIOMES[index];
+  biomeIndex = index;
+  currentSkySteps = b.skySteps.slice();
+  redrawSky(currentSkySteps);
+  scene.fog.color.setHex(b.fog);
+  groundMat.color.setHex(b.ground);
+  mountainMatFar.color.setHex(b.mountainFar);
+  mountainMatNear.color.setHex(b.mountainNear);
+  foliageMatA.color.setHex(b.foliageA);
+  foliageMatB.color.setHex(b.foliageB);
+  grassMat.color.setHex(b.grass);
+  hemiLight.color.setHex(b.hemiSky);
+  hemiLight.groundColor.setHex(b.hemiGround);
+  sunLight.color.setHex(b.sun);
+  biomeAnimTo = null;
+}
+
+function startBiomeTransition(index){
+  if(!webglSupported || index === biomeIndex) return;
+  biomeAnimFrom = {
+    skySteps: currentSkySteps ? currentSkySteps.slice() : BIOMES[biomeIndex].skySteps.slice(),
+    fog: scene.fog.color.getHex(),
+    ground: groundMat.color.getHex(),
+    mountainFar: mountainMatFar.color.getHex(),
+    mountainNear: mountainMatNear.color.getHex(),
+    foliageA: foliageMatA.color.getHex(),
+    foliageB: foliageMatB.color.getHex(),
+    grass: grassMat.color.getHex(),
+    hemiSky: hemiLight.color.getHex(),
+    hemiGround: hemiLight.groundColor.getHex(),
+    sun: sunLight.color.getHex()
+  };
+  biomeAnimTo = BIOMES[index];
+  biomeAnimT = 0;
+  biomeIndex = index;
+}
+
+const scratchColorA = webglSupported ? new THREE.Color() : null;
+const scratchColorB = webglSupported ? new THREE.Color() : null;
+function lerpHex(fromHex, toHex, t){
+  scratchColorA.setHex(fromHex);
+  scratchColorB.setHex(toHex);
+  scratchColorA.lerp(scratchColorB, t);
+  return scratchColorA.getHex();
+}
+
+let skyRedrawCounter = 0;
+function updateBiomeTransition(){
+  if(!biomeAnimTo) return;
+  biomeAnimT += 1/60; // pas fixe (voir gameplay.js update())
+  const t = Math.min(1, biomeAnimT / BIOME_TRANSITION_SECONDS);
+
+  scene.fog.color.setHex(lerpHex(biomeAnimFrom.fog, biomeAnimTo.fog, t));
+  groundMat.color.setHex(lerpHex(biomeAnimFrom.ground, biomeAnimTo.ground, t));
+  mountainMatFar.color.setHex(lerpHex(biomeAnimFrom.mountainFar, biomeAnimTo.mountainFar, t));
+  mountainMatNear.color.setHex(lerpHex(biomeAnimFrom.mountainNear, biomeAnimTo.mountainNear, t));
+  foliageMatA.color.setHex(lerpHex(biomeAnimFrom.foliageA, biomeAnimTo.foliageA, t));
+  foliageMatB.color.setHex(lerpHex(biomeAnimFrom.foliageB, biomeAnimTo.foliageB, t));
+  grassMat.color.setHex(lerpHex(biomeAnimFrom.grass, biomeAnimTo.grass, t));
+  hemiLight.color.setHex(lerpHex(biomeAnimFrom.hemiSky, biomeAnimTo.hemiSky, t));
+  hemiLight.groundColor.setHex(lerpHex(biomeAnimFrom.hemiGround, biomeAnimTo.hemiGround, t));
+  sunLight.color.setHex(lerpHex(biomeAnimFrom.sun, biomeAnimTo.sun, t));
+
+  currentSkySteps = biomeAnimFrom.skySteps.map((from,i)=>lerpHex(from, biomeAnimTo.skySteps[i], t));
+  // redessiner le ciel (dégradé + nuages figés) coûte un peu plus cher que
+  // les autres couleurs (matériaux) : on le fait à débit réduit, invisible
+  // sur un fondu de plusieurs secondes
+  skyRedrawCounter++;
+  if(skyRedrawCounter % 3 === 0 || t >= 1){
+    redrawSky(currentSkySteps);
+  }
+
+  if(t >= 1) biomeAnimTo = null;
 }
 
 function initScene(){
   if(!webglSupported) return;
 
   scene = new THREE.Scene();
-  const skyColor = 0xF6E9CF;
-  scene.background = createSkyTexture();
-  scene.fog = new THREE.FogExp2(skyColor, 0.026);
+  scene.background = createSkyTexture(BIOMES[0].skySteps);
+  currentSkySteps = BIOMES[0].skySteps.slice();
+  scene.fog = new THREE.FogExp2(BIOMES[0].fog, 0.026);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
   camera.position.set(0, 4.1, 7.2);
@@ -466,9 +689,9 @@ function initScene(){
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  const hemi = new THREE.HemisphereLight(0xfff6e0, 0x74926f, 1.0);
-  scene.add(hemi);
-  sunLight = new THREE.DirectionalLight(0xfff1d8, 1.0);
+  hemiLight = new THREE.HemisphereLight(BIOMES[0].hemiSky, BIOMES[0].hemiGround, 1.0);
+  scene.add(hemiLight);
+  sunLight = new THREE.DirectionalLight(BIOMES[0].sun, 1.0);
   sunLight.position.set(4, 8, 4);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(1024, 1024);
@@ -503,8 +726,8 @@ function initScene(){
   projectileGeometry = new THREE.SphereGeometry(0.11, 8, 6);
 
   // sol
-  const groundGeo = new THREE.PlaneGeometry(12, 90);
-  const groundMat = new THREE.MeshStandardMaterial({ map: createGroundTexture(), roughness:1 });
+  const groundGeo = new THREE.PlaneGeometry(12, groundLengthZ);
+  groundMat = new THREE.MeshStandardMaterial({ map: createGroundTexture(), color: BIOMES[0].ground, roughness:1 });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -35);
