@@ -156,19 +156,34 @@ function buildBossGroup(){
   return g;
 }
 
-function buildArch(good){
+function buildDoorPanel(good){
   const g = new THREE.Group();
   const color = good ? 0x6B8F71 : 0x5B8FBF;
-  const torusGeo = new THREE.TorusGeometry(0.85, 0.1, 8, 20, Math.PI);
-  const mat = new THREE.MeshStandardMaterial({ color, flatShading:true, roughness:0.7 });
-  const torus = new THREE.Mesh(torusGeo, mat);
-  g.add(torus);
+  const width = 1.5, height = 1.6;
+
+  // panneau translucide (la porte elle-même)
+  const panelGeo = new THREE.PlaneGeometry(width, height);
+  const panelMat = new THREE.MeshStandardMaterial({
+    color, transparent:true, opacity:0.3, side: THREE.DoubleSide,
+    roughness:0.4, depthWrite:false
+  });
+  const panel = new THREE.Mesh(panelGeo, panelMat);
+  panel.position.y = height/2;
+  g.add(panel);
+
+  // contour plein pour garder la porte lisible malgré la faible opacité
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(panelGeo),
+    new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.95 })
+  );
+  edges.position.y = height/2;
+  g.add(edges);
 
   const iconTex = good ? iconTextures.croquette : iconTextures.water;
   const spriteMat = new THREE.SpriteMaterial({ map: iconTex, transparent:true });
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(0.6, 0.6, 1);
-  sprite.position.y = 0.5;
+  sprite.position.set(0, height/2, 0.02); // légèrement devant, évite le z-fighting
   g.add(sprite);
 
   return g;
@@ -177,22 +192,17 @@ function buildArch(good){
 function buildGateVisual(goodLane){
   const group = new THREE.Group();
   [0,1].forEach(i=>{
-    const arch = buildArch(i === goodLane);
-    arch.position.x = LANES[i];
-    group.add(arch);
+    const door = buildDoorPanel(i === goodLane);
+    door.position.x = LANES[i];
+    group.add(door);
   });
   return group;
 }
 
 function disposeGateVisual(group){
   group.traverse(obj=>{
-    if(obj.isMesh){
-      obj.geometry.dispose();
-      obj.material.dispose();
-    }
-    if(obj.isSprite){
-      obj.material.dispose(); // ne dispose pas la texture (partagée)
-    }
+    if(obj.geometry) obj.geometry.dispose();
+    if(obj.material) obj.material.dispose(); // ne dispose pas les textures d'icône (partagées)
   });
 }
 
