@@ -25,18 +25,21 @@
     <div class="overlay" id="screenStart">
       <h1>Horde de chats</h1>
       <p>Glisse à gauche ou à droite pour passer les croquettes et éviter l'eau. Fais grandir ta horde avant le chien du quartier.</p>
+      <p class="record" id="bestScoreStart"></p>
       <button class="btn" onclick="startGame()">Jouer</button>
     </div>
 
     <div class="overlay hidden" id="screenWin">
       <h1>Bien joué !</h1>
       <p id="winText">Ta horde a impressionné le chien du quartier.</p>
+      <p class="record" id="bestScoreWin"></p>
       <button class="btn" onclick="startGame()">Rejouer</button>
     </div>
 
     <div class="overlay hidden" id="screenLose">
       <h1>Trop petite bande...</h1>
       <p id="loseText">Le chien n'a pas eu peur cette fois. Recommence pour agrandir ta horde.</p>
+      <p class="record" id="bestScoreLose"></p>
       <button class="btn retry" onclick="startGame()">Réessayer</button>
     </div>
 

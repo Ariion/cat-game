@@ -78,6 +78,12 @@ canvas{
   font-family:'Nunito', sans-serif;
   font-size: 15px; color: var(--ink-soft); margin: 0 0 26px; line-height:1.5; max-width: 280px;
 }
+.overlay p.record{
+  font-family:'Fredoka', sans-serif;
+  font-size: 13px; font-weight:600; color: var(--gold-deep);
+  margin: -14px 0 20px;
+}
+.overlay p.record:empty{ display:none; }
 .btn{
   font-family:'Fredoka', sans-serif;
   font-size: 17px; font-weight:600;

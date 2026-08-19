@@ -1,4 +1,7 @@
 // État global de la partie + fonctions de (re)initialisation.
+let bestHorde = 0;
+try{ bestHorde = parseInt(localStorage.getItem('hordeDeChatsBest') || '0', 10) || 0; }catch(e){}
+
 let state = 'start'; // start | playing | boss | win | lose
 let hordeCount = 1;
 let lane = 0;
@@ -50,6 +53,19 @@ function updateHud(){
   const shown = Math.min(gatesCleared, GATES_TO_CLEAR);
   document.getElementById('progressLabel').textContent =
     state === 'boss' ? 'Le chien approche' : `Porte ${shown} / ${GATES_TO_CLEAR}`;
+  if(hordeCount > bestHorde){
+    bestHorde = hordeCount;
+    try{ localStorage.setItem('hordeDeChatsBest', String(bestHorde)); }catch(e){}
+  }
+  updateBestScoreDisplays();
+}
+
+function updateBestScoreDisplays(){
+  const text = bestHorde > 0 ? `Record : ${bestHorde} chats` : '';
+  ['bestScoreStart','bestScoreWin','bestScoreLose'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = text;
+  });
 }
 
 function rebuildHordeVisual(){

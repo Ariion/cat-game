@@ -7,6 +7,7 @@ if(!webglSupported){
 }
 
 initScene();
+updateBestScoreDisplays();
 window.addEventListener('resize', onResize);
 
 function loop(){

@@ -67,7 +67,7 @@ function createGroundTexture(){
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(3, 22);
+  tex.repeat.set(1, 22);
   return tex;
 }
 
@@ -202,6 +202,55 @@ function makeBlobShadow(radius){
   return new THREE.Mesh(geo, shadowMaterial);
 }
 
+function buildProps(){
+  // décor statique (arbres, buissons) le long du chemin pour donner de la
+  // profondeur — géométries partagées, aucun impact perf notable.
+  const trunkGeo = new THREE.CylinderGeometry(0.07, 0.1, 0.5, 6);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8A6B4A, flatShading:true, roughness:0.9 });
+  const foliageGeo = new THREE.ConeGeometry(0.55, 0.95, 7);
+  const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x6B8F71, flatShading:true, roughness:0.85 });
+  const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x7FA372, flatShading:true, roughness:0.85 });
+  const bushGeo = new THREE.SphereGeometry(0.32, 7, 6);
+
+  function buildTree(){
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = 0.25;
+    g.add(trunk);
+    const mat = Math.random() < 0.5 ? foliageMatA : foliageMatB;
+    const top1 = new THREE.Mesh(foliageGeo, mat);
+    top1.position.y = 0.85;
+    g.add(top1);
+    const top2 = new THREE.Mesh(foliageGeo, mat);
+    top2.position.y = 1.2;
+    top2.scale.setScalar(0.72);
+    g.add(top2);
+    return g;
+  }
+
+  function buildBush(){
+    const g = new THREE.Group();
+    const mat = Math.random() < 0.5 ? foliageMatA : foliageMatB;
+    for(let i=0;i<3;i++){
+      const s = new THREE.Mesh(bushGeo, mat);
+      s.position.set((Math.random()-0.5)*0.35, 0.2 + Math.random()*0.1, (Math.random()-0.5)*0.35);
+      s.scale.setScalar(0.75 + Math.random()*0.4);
+      g.add(s);
+    }
+    return g;
+  }
+
+  for(let z = -78; z < 8; z += 5.5){
+    [-1, 1].forEach(side=>{
+      const x = side * (3.6 + Math.random()*2.2);
+      const prop = Math.random() < 0.55 ? buildTree() : buildBush();
+      prop.position.set(x + (Math.random()-0.5)*0.8, 0, z + (Math.random()-0.5)*2);
+      prop.rotation.y = Math.random()*Math.PI*2;
+      scene.add(prop);
+    });
+  }
+}
+
 function initScene(){
   if(!webglSupported) return;
 
@@ -240,6 +289,8 @@ function initScene(){
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -35);
   scene.add(ground);
+
+  buildProps();
 
   // leader (le chat du joueur)
   leaderGroup = buildCatGroup(0xC97B4F, true);
