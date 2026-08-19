@@ -23,6 +23,7 @@ let shakeIntensity = 0;
 let frame = 0;
 let runTime = 0;       // secondes survécues cette partie (score principal, jeu infini)
 let invulnTimer = 0;   // brève invulnérabilité après une reprise sur pub
+let paused = false;
 
 // Combat en temps réel : ennemis réguliers (pool réutilisé) + projectiles
 // tirés automatiquement par la horde + le boss (récurrent, revient tous les
@@ -53,6 +54,8 @@ function resetGame(){
   frame = 0;
   runTime = 0;
   invulnTimer = 0;
+  paused = false;
+  document.getElementById('screenPause').classList.add('hidden');
   enemyPool.forEach(e=>{ e.active = false; });
   enemySpawnTimer = 0;
   attackTimer = 0;
@@ -71,6 +74,7 @@ function startGame(){
   document.getElementById('screenStart').classList.add('hidden');
   document.getElementById('screenLose').classList.add('hidden');
   document.getElementById('screenAd').classList.add('hidden');
+  document.getElementById('pauseBtn').classList.remove('hidden');
   resetGame();
 }
 

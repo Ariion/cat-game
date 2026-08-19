@@ -193,6 +193,14 @@ function updateBoss(){
 
 // --- tir automatique de la horde, en ligne droite (sans visée) -----------
 
+// Dégâts adoucis : hordeCount^0.62 plutôt que hordeCount brut, sinon une
+// horde en croissance exponentielle one-shot tout (voir commentaire dans
+// config.js). La horde reste plus forte en grossissant, juste pas de façon
+// démesurée.
+function attackDamage(){
+  return Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
+}
+
 function fireProjectile(){
   if(!webglSupported) return;
   attackPulse = 8;
@@ -200,8 +208,7 @@ function fireProjectile(){
   const mesh = new THREE.Mesh(projectileGeometry, mat);
   mesh.position.set(playerX, 0.55, PLAYER_Z - 0.35);
   scene.add(mesh);
-  // un seul projectile, mais ses dégâts = la taille actuelle de la horde
-  projectiles.push({ mesh, damage: hordeCount, life: 140 });
+  projectiles.push({ mesh, damage: attackDamage(), life: 140 });
 }
 
 function applyEnemyHit(i, damage){
@@ -277,6 +284,7 @@ function updateAttacks(){
 // --- boucle principale ----------------------------------------------------
 
 function update(){
+  if(paused) return;
   frame++;
 
   if(keyLeft) playerTargetX -= PLAYER_KEY_SPEED;
@@ -345,7 +353,21 @@ function showLose(reason){
   document.getElementById('loseText').textContent =
     `${cause} — ${hordeCount} ${catWord()}, ${formatTime(runTime)} de survie, ${bossesDefeated} ${bossWord()}.`;
   document.getElementById('screenLose').classList.remove('hidden');
+  document.getElementById('pauseBtn').classList.add('hidden');
   updateHud(); // met à jour le record de temps si dépassé, avant l'affichage du bouton Record
+}
+
+function pauseGame(){
+  if(state !== 'playing' || paused) return;
+  paused = true;
+  document.getElementById('pauseStats').textContent =
+    `${hordeCount} ${catWord()} · ${formatTime(runTime)}`;
+  document.getElementById('screenPause').classList.remove('hidden');
+}
+
+function resumeGame(){
+  paused = false;
+  document.getElementById('screenPause').classList.add('hidden');
 }
 
 // Reprise sur pub : flux complet (écran de mort -> "pub" -> reprise sur
@@ -368,5 +390,6 @@ function continueRun(){
   invulnTimer = CONTINUE_INVULN_FRAMES;
   state = 'playing';
   document.getElementById('hint').classList.remove('hidden');
+  document.getElementById('pauseBtn').classList.remove('hidden');
   updateHud();
 }

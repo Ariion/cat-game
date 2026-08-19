@@ -17,7 +17,7 @@
   touche un fichier local (css/ ou js/, sauf vendor/three.min.js qui ne
   change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -37,7 +37,10 @@
           <div class="hp-bar-track"><div class="hp-bar-fill" id="hpBarFill"></div></div>
         </div>
       </div>
-      <div class="progress-wrap" id="progressLabel">Bonus 0 / 8</div>
+      <div class="hud-right">
+        <div class="progress-wrap" id="progressLabel">Bonus 0 / 8</div>
+        <button class="pause-btn hidden" id="pauseBtn" onclick="pauseGame()">&#10074;&#10074;</button>
+      </div>
     </div>
 
     <div class="overlay" id="screenStart">
@@ -63,18 +66,25 @@
       <p>Reprise dans un instant…</p>
     </div>
 
+    <div class="overlay hidden" id="screenPause">
+      <h1>Pause</h1>
+      <p id="pauseStats">42 chats · 1:02</p>
+      <button class="btn" onclick="resumeGame()">Reprendre</button>
+      <button class="btn retry small" onclick="startGame()">Recommencer</button>
+    </div>
+
     <div class="hint" id="hint">&larr; glisse ou utilise les flèches &rarr;</div>
   </div>
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/config.js?v=8"></script>
-<script src="js/audio.js?v=8"></script>
-<script src="js/state.js?v=8"></script>
-<script src="js/scene3d.js?v=8"></script>
-<script src="js/render3d.js?v=8"></script>
-<script src="js/gameplay.js?v=8"></script>
-<script src="js/input.js?v=8"></script>
-<script src="js/main.js?v=8"></script>
+<script src="js/config.js?v=9"></script>
+<script src="js/audio.js?v=9"></script>
+<script src="js/state.js?v=9"></script>
+<script src="js/scene3d.js?v=9"></script>
+<script src="js/render3d.js?v=9"></script>
+<script src="js/gameplay.js?v=9"></script>
+<script src="js/input.js?v=9"></script>
+<script src="js/main.js?v=9"></script>
 </body>
 </html>

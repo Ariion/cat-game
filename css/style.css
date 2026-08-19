@@ -94,6 +94,23 @@ canvas{
   box-shadow: 0 2px 8px rgba(59,50,38,0.15);
   font-size: 13px; font-weight:600; color: var(--ink-soft);
 }
+.hud-right{
+  display:flex; align-items:center; gap:8px;
+}
+.pause-btn{
+  pointer-events:auto;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border:none;
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 2px 8px rgba(59,50,38,0.15);
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.pause-btn:active{ transform: scale(0.92); }
 .overlay{
   position:absolute; inset:0;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -136,6 +153,13 @@ canvas{
   font-size: 15px;
 }
 .btn.continue:active{ box-shadow: 0 1px 0 var(--gold-deep); }
+.btn.small{
+  font-size: 13px;
+  padding: 9px 22px;
+  margin-top: 14px;
+  box-shadow: 0 3px 0 #b06767;
+}
+.btn.small:active{ box-shadow: 0 1px 0 #b06767; }
 .choice-row{
   display:flex; flex-direction:column; gap:12px; align-items:center;
 }

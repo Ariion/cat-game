@@ -27,7 +27,7 @@ const PICKUP_SPAWN_INTERVAL_FRAMES = 95; // entre 2 apparitions (simples ou en d
 const DILEMMA_CHANCE = 0.32; // probabilité qu'une apparition soit un choix à 2 objets
 
 const CROQUETTE_BASE = 2;
-const CROQUETTE_RATIO = 0.3;  // + une fraction de la horde actuelle
+const CROQUETTE_RATIO = 0.22; // + une fraction de la horde actuelle (baissé : la horde grossissait trop vite)
 const WATER_BASE = 2;
 const WATER_RATIO = 0.28;
 const HEART_MIN = 12;
@@ -44,35 +44,42 @@ const HP_MAX = 100;
 // SANS visée — le projectile part droit devant depuis la position du chat,
 // c'est au joueur de s'aligner avec la cible. Les ennemis dérivent lentement
 // vers le joueur (ils vous traquent), ce qui rend le tir jouable sans viser.
-const MAX_ENEMIES = 10;                 // pool d'ennemis simultanés (perf, réutilisés)
+const MAX_ENEMIES = 14;                 // pool d'ennemis simultanés (perf, réutilisés) — remonté pour des vagues plus denses
 const ENEMY_START_Z = -38;              // plus proche que les bonus : action rapprochée
 const ENEMY_SPEED_BASE = 0.045;
-const ENEMY_SPEED_PER_ITEM = 0.0045;    // accélère avec la progression (difficulté)
-const ENEMY_DRIFT_SPEED = 0.006;        // dérive latérale lente vers le joueur
-const ENEMY_SPAWN_INTERVAL_FRAMES = 145;
+const ENEMY_SPEED_PER_ITEM = 0.0055;    // accélère avec la progression (difficulté)
+const ENEMY_DRIFT_SPEED = 0.0035;       // dérive latérale FAIBLE : il faut activement s'aligner, pas juste attendre
+const ENEMY_SPAWN_INTERVAL_FRAMES = 120;
 const ENEMIES_PER_WAVE_BASE = 2;
-const ENEMIES_PER_WAVE_PER_ITEM = 0.35;
-const ENEMIES_PER_WAVE_MAX = 6;
-const ENEMY_HP_BASE = 9;
-const ENEMY_HP_PER_ITEM = 2.1;
-const ENEMY_HP_CAP = 70;          // plafond : jeu infini, la difficulté doit rester jouable
-const ENEMY_SPEED_CAP = 0.095;
-const ENEMY_DAMAGE_TO_PLAYER = 14; // vie perdue si un ennemi atteint le joueur
+const ENEMIES_PER_WAVE_PER_ITEM = 0.45;
+const ENEMIES_PER_WAVE_MAX = 8;
+const ENEMY_HP_BASE = 14;
+const ENEMY_HP_PER_ITEM = 3.2;
+const ENEMY_HP_CAP = 220;         // beaucoup plus haut : les dégâts sont maintenant adoucis (voir ATTACK_POWER_*)
+const ENEMY_SPEED_CAP = 0.11;
+const ENEMY_DAMAGE_TO_PLAYER = 16; // vie perdue si un ennemi atteint le joueur
 const ENEMY_TINT = 0xC9A385;
 
-// Un seul projectile par tir, mais ses dégâts = la taille actuelle de la horde.
-const ATTACK_INTERVAL_FRAMES = 16;    // cadence de tir de la horde (~3.75 tirs/s)
+// Un seul projectile par tir. Les dégâts sont une fonction ADOUCIE (racine)
+// de la taille de la horde plutôt que la taille brute — sinon une horde qui
+// grossit de façon exponentielle finit par one-shot n'importe quel ennemi
+// (voire le boss), ce qui rendait le jeu trivial passé les 2 premières
+// minutes. Avec l'exposant <1, la horde reste puissante mais ne casse plus
+// la difficulté : il faut voir attackDamage() dans gameplay.js.
+const ATTACK_POWER_EXPONENT = 0.62;
+const ATTACK_POWER_FACTOR = 2.1;
+const ATTACK_INTERVAL_FRAMES = 22;    // cadence de tir de la horde (ralentie : chaque tir compte plus)
 const PROJECTILE_SPEED = 0.7;
-const PROJECTILE_HIT_RADIUS_X = 0.55; // tolérance latérale pour toucher (pas de visée auto)
+const PROJECTILE_HIT_RADIUS_X = 0.42; // tolérance latérale pour toucher (resserrée : viser compte vraiment)
 
-const BOSS_HP = 150;
-const BOSS_HP_GROWTH = 45;   // + par apparition (plafonné, voir BOSS_HP_GROWTH_CAP_COUNT)
-const BOSS_HP_GROWTH_CAP_COUNT = 10;
+const BOSS_HP = 220;
+const BOSS_HP_GROWTH = 70;   // + par apparition (plafonné, voir BOSS_HP_GROWTH_CAP_COUNT)
+const BOSS_HP_GROWTH_CAP_COUNT = 20;
 const BOSS_REWARD_BASE = 8;  // bonus de horde offert à chaque boss vaincu
 const BOSS_REWARD_GROWTH = 2;
 const BOSS_SPEED = 0.05;
-const BOSS_BITE_INTERVAL_FRAMES = 65; // le boss mord à intervalles une fois arrivé
-const BOSS_BITE_DAMAGE = 10;
+const BOSS_BITE_INTERVAL_FRAMES = 55; // le boss mord à intervalles une fois arrivé
+const BOSS_BITE_DAMAGE = 14;
 const BOSS_TINT = 0x8A7361;
 
 // Mort et reprise : à la mort, le joueur choisit de recommencer à zéro ou
