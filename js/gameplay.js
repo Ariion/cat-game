@@ -88,14 +88,14 @@ function update(){
         else if(good){ growHorde(Math.round(hordeCount*0.4)+2); }
         else { growHorde(-Math.round(hordeCount*0.35)-1); }
         gatesCleared++;
-        gateSpeed = 0.35 + gatesCleared*0.018;
+        gateSpeed = Math.min(GATE_SPEED_MAX, GATE_SPEED_BASE + gatesCleared*GATE_SPEED_PER_GATE);
         updateHud();
 
         const mobConfig = MOB_ENCOUNTERS.find(m => m.atGate === gatesCleared);
         if(mobConfig){
           triggerEncounter('mob', mobConfig);
         } else if(gatesCleared >= GATES_TO_CLEAR){
-          triggerEncounter('boss', { threshold: BOSS_THRESHOLD, scale:1, vz:0.17, tint:0x8A7361 });
+          triggerEncounter('boss', { threshold: BOSS_THRESHOLD, scale:1, vz:BOSS_VZ, tint:0x8A7361 });
         }
       }
     });
@@ -111,7 +111,7 @@ function update(){
       if(encounter.z > BOSS_BATTLE_Z){
         encounter.resolved = true;
         encounter.outcome = hordeCount >= encounter.threshold ? 'win' : 'lose';
-        encounter.outcomeTimer = 45;
+        encounter.outcomeTimer = ENCOUNTER_OUTCOME_FRAMES;
         if(encounter.outcome === 'win'){ sfx.win(); vibrate(60); }
         else { sfx.lose(); vibrate([40,30,40,30,80]); shakeTimer = 20; shakeIntensity = 0.22; }
       }

@@ -415,7 +415,7 @@ function initScene(){
   scene = new THREE.Scene();
   const skyColor = 0xF6E9CF;
   scene.background = createSkyTexture();
-  scene.fog = new THREE.FogExp2(skyColor, 0.036);
+  scene.fog = new THREE.FogExp2(skyColor, 0.026);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
   camera.position.set(0, 4.1, 7.2);
