@@ -55,8 +55,10 @@ function syncGates(){
 function syncBoss(){
   if(boss){
     bossGroup.visible = true;
+    bossGroup.position.x = boss.x;
     bossGroup.position.z = boss.z;
     bossGroup.position.y = Math.sin(frame*0.06) * 0.04;
+    bossGroup.scale.setScalar(bossVisualScale);
   } else {
     bossGroup.visible = false;
   }
@@ -66,7 +68,14 @@ function syncCamera(){
   const targetX = playerX * 0.3;
   camera.position.x += (targetX - camera.position.x) * 0.05;
   camera.position.y = 4.1 + Math.sin(frame*0.05) * 0.04;
-  camera.lookAt(camera.position.x * 0.6, 0.9, -10);
+  let lookX = camera.position.x * 0.6;
+  let lookY = 0.9;
+  if(shakeTimer > 0){
+    lookX += (Math.random()-0.5) * shakeIntensity;
+    lookY += (Math.random()-0.5) * shakeIntensity * 0.5;
+    camera.position.y += (Math.random()-0.5) * shakeIntensity * 0.3;
+  }
+  camera.lookAt(lookX, lookY, -10);
 }
 
 function render(){

@@ -11,6 +11,9 @@ let spawnInterval = 78;
 let cats = []; // membres de la horde (suiveurs) {angle, radius, bob, size}
 let particles = [];
 let boss = null;
+let bossVisualScale = 1;
+let shakeTimer = 0;
+let shakeIntensity = 0;
 let frame = 0;
 
 function resetGame(){
@@ -26,12 +29,16 @@ function resetGame(){
   cats = [];
   particles = [];
   boss = null;
+  bossVisualScale = 1;
+  shakeTimer = 0;
+  shakeIntensity = 0;
   frame = 0;
   document.getElementById('hint').classList.remove('hidden');
   updateHud();
 }
 
 function startGame(){
+  initAudio();
   document.getElementById('screenStart').classList.add('hidden');
   document.getElementById('screenWin').classList.add('hidden');
   document.getElementById('screenLose').classList.add('hidden');

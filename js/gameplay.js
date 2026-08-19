@@ -15,6 +15,15 @@ function growHorde(amount){
   hordeCount = Math.max(1, hordeCount + amount);
   rebuildHordeVisual();
   spawnBurst(playerX, 0.6, PLAYER_Z, amount >= 0 ? 0x6B8F71 : 0x5B8FBF);
+  if(amount >= 0){
+    sfx.croquette();
+    vibrate(15);
+  } else {
+    sfx.water();
+    vibrate([20,15,20]);
+    shakeTimer = 12;
+    shakeIntensity = 0.16;
+  }
 }
 
 function spawnBurst(x,y,z,color){
@@ -37,6 +46,7 @@ function spawnBurst(x,y,z,color){
 function update(){
   frame++;
   playerX += (LANES[lane]-playerX)*0.25;
+  if(shakeTimer > 0){ shakeTimer--; shakeIntensity *= 0.88; }
 
   particles.forEach(p=>{
     p.mesh.position.x += p.vx;
@@ -80,11 +90,27 @@ function update(){
   }
 
   if(state==='boss' && boss){
-    boss.z += boss.vz;
-    if(boss.z > BOSS_BATTLE_Z && !boss.resolved){
-      boss.resolved = true;
-      if(hordeCount >= BOSS_THRESHOLD){ showWin(); }
-      else { showLose(); }
+    if(!boss.resolved){
+      boss.z += boss.vz;
+      boss.x += (playerX - boss.x) * 0.025; // le chien vise la horde
+      if(boss.z > BOSS_BATTLE_Z){
+        boss.resolved = true;
+        boss.outcome = hordeCount >= BOSS_THRESHOLD ? 'win' : 'lose';
+        boss.outcomeTimer = 45;
+        if(boss.outcome === 'win'){ sfx.win(); vibrate(60); }
+        else { sfx.lose(); vibrate([40,30,40,30,80]); shakeTimer = 20; shakeIntensity = 0.22; }
+      }
+    } else {
+      boss.outcomeTimer--;
+      if(boss.outcome === 'lose'){
+        boss.z += 0.22; // le chien charge
+      } else {
+        boss.z -= 0.1; // le chien recule, impressionné
+        bossVisualScale = Math.max(0.35, bossVisualScale - 0.02);
+      }
+      if(boss.outcomeTimer <= 0){
+        if(boss.outcome === 'win'){ showWin(); } else { showLose(); }
+      }
     }
   }
 }
@@ -92,7 +118,10 @@ function update(){
 function triggerBoss(){
   state = 'boss';
   document.getElementById('hint').classList.add('hidden');
-  boss = { z: GATE_START_Z, vz: 0.17, resolved:false };
+  boss = { x:0, z: GATE_START_Z, vz: 0.17, resolved:false, outcome:null, outcomeTimer:0 };
+  bossVisualScale = 1;
+  sfx.bossAppear();
+  vibrate([30,20,30]);
   updateHud();
 }
 
