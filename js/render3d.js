@@ -64,6 +64,13 @@ function syncBoss(){
   }
 }
 
+function syncLight(){
+  // la lumière (et son frustum d'ombre) suit le joueur pour rester utile
+  // sur toute la longueur du couloir sans avoir besoin d'un frustum géant
+  sunLight.target.position.set(playerX, 0, PLAYER_Z);
+  sunLight.position.set(playerX + 4, 8, PLAYER_Z + 4);
+}
+
 function syncCamera(){
   const targetX = playerX * 0.3;
   camera.position.x += (targetX - camera.position.x) * 0.05;
@@ -84,6 +91,7 @@ function render(){
   syncFollowers();
   syncGates();
   syncBoss();
+  syncLight();
   syncCamera();
   renderer.render(scene, camera);
 }

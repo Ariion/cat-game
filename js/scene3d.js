@@ -12,10 +12,11 @@ function checkWebGL(){
 
 const webglSupported = checkWebGL();
 
-let scene, camera, renderer;
+let scene, camera, renderer, sunLight;
 let leaderGroup, bossGroup;
 let followerBodyInst, followerHeadInst, followerShadowInst;
 let iconTextures = {};
+let doorGlowTexture;
 let catMaterial, followerMaterial, bossMaterial, shadowMaterial;
 let particleGeometry;
 const dummy3D = webglSupported ? new THREE.Object3D() : null;
@@ -104,6 +105,20 @@ function createSkyTexture(){
     }
   });
 
+  return new THREE.CanvasTexture(c);
+}
+
+function createGlowTexture(){
+  const size = 128;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const cx = c.getContext('2d');
+  const grad = cx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  cx.fillStyle = grad;
+  cx.fillRect(0, 0, size, size);
   return new THREE.CanvasTexture(c);
 }
 
@@ -246,10 +261,22 @@ function buildDoorPanel(kind){
   edges.position.y = height/2;
   g.add(edges);
 
+  // halo incandescent derrière l'icône, pour repérer la bonne porte de loin
+  const haloMat = new THREE.SpriteMaterial({
+    map: doorGlowTexture, color, transparent:true, opacity:0.6,
+    blending: THREE.AdditiveBlending, depthWrite:false
+  });
+  const halo = new THREE.Sprite(haloMat);
+  halo.scale.set(1.05, 1.05, 1);
+  halo.position.set(0, height/2, 0.01);
+  halo.renderOrder = 1;
+  g.add(halo);
+
   const spriteMat = new THREE.SpriteMaterial({ map: iconTextures[kind], transparent:true });
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.position.set(0, height/2, 0.02); // légèrement devant, évite le z-fighting
+  sprite.renderOrder = 2;
   g.add(sprite);
 
   return g;
@@ -271,12 +298,6 @@ function disposeGateVisual(group){
     if(obj.geometry) obj.geometry.dispose();
     if(obj.material) obj.material.dispose(); // ne dispose pas les textures d'icône (partagées)
   });
-}
-
-function makeBlobShadow(radius){
-  const geo = new THREE.CircleGeometry(radius, 12);
-  geo.rotateX(-Math.PI/2);
-  return new THREE.Mesh(geo, shadowMaterial);
 }
 
 function buildProps(){
@@ -394,7 +415,7 @@ function initScene(){
   scene = new THREE.Scene();
   const skyColor = 0xF6E9CF;
   scene.background = createSkyTexture();
-  scene.fog = new THREE.Fog(skyColor, 24, 66);
+  scene.fog = new THREE.FogExp2(skyColor, 0.036);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
   camera.position.set(0, 4.1, 7.2);
@@ -402,12 +423,24 @@ function initScene(){
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const hemi = new THREE.HemisphereLight(0xfff6e0, 0x74926f, 1.0);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1d8, 1.0);
-  sun.position.set(4, 8, 4);
-  scene.add(sun);
+  sunLight = new THREE.DirectionalLight(0xfff1d8, 1.0);
+  sunLight.position.set(4, 8, 4);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(1024, 1024);
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far = 24;
+  sunLight.shadow.camera.left = -8;
+  sunLight.shadow.camera.right = 8;
+  sunLight.shadow.camera.top = 8;
+  sunLight.shadow.camera.bottom = -14;
+  sunLight.shadow.bias = -0.003;
+  scene.add(sunLight);
+  scene.add(sunLight.target); // la cible suit le joueur (voir syncLight)
 
   const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: createSunGlowTexture(), transparent:true, depthWrite:false, fog:false
@@ -427,6 +460,7 @@ function initScene(){
   iconTextures.croquette = createIconTexture('croquette');
   iconTextures.water = createIconTexture('water');
   iconTextures.heart = createIconTexture('heart');
+  doorGlowTexture = createGlowTexture();
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
 
   // sol
@@ -435,24 +469,21 @@ function initScene(){
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -35);
+  ground.receiveShadow = true;
   scene.add(ground);
 
   buildProps();
 
-  // leader (le chat du joueur)
+  // leader (le chat du joueur) — ombre portée dynamique (peu de casters, coût négligeable)
   leaderGroup = buildCatGroup(0xC97B4F, true);
   leaderGroup.scale.setScalar(1.15);
-  const leaderShadow = makeBlobShadow(0.42);
-  leaderShadow.position.y = 0.01;
-  leaderGroup.add(leaderShadow);
+  leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
 
-  // boss (le chien)
+  // boss / chiens intermédiaires (même groupe réutilisé)
   bossGroup = buildBossGroup();
   bossGroup.visible = false;
-  const bossShadow = makeBlobShadow(0.8);
-  bossShadow.position.y = 0.01;
-  bossGroup.add(bossShadow);
+  bossGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(bossGroup);
 
   // suiveurs de la horde, en instanced mesh pour rester léger sur mobile
