@@ -4,12 +4,14 @@
 //
 // Illusion de mouvement : le joueur reste fixe en Z (voir PLAYER_Z), c'est
 // le DÉCOR qui défile vers la caméra — sol (défilement de texture), props
-// (arbres/rochers/fleurs), montagnes et herbe sont recyclés en boucle
-// (repositionnés loin derrière une fois passés), exactement comme les
-// bonus/malus et les ennemis. Voir updateDecor(), appelée à chaque tick
-// fixe depuis update() (gameplay.js) — jamais depuis render(), sinon le
-// défilement irait trop vite sur les écrans à haut taux de rafraîchissement
-// (même piège que le bug de vitesse déjà corrigé sur le reste du jeu).
+// (arbres/rochers/fleurs) et herbe sont recyclés en boucle (repositionnés
+// loin derrière une fois passés), exactement comme les bonus/malus et les
+// ennemis. Les montagnes, elles, restent fixes (voir buildMountainRange) :
+// bien trop grosses pour approcher un peu sans finir par envahir l'écran.
+// Voir updateDecor(), appelée à chaque tick fixe depuis update()
+// (gameplay.js) — jamais depuis render(), sinon le défilement irait trop
+// vite sur les écrans à haut taux de rafraîchissement (même piège que le
+// bug de vitesse déjà corrigé sur le reste du jeu).
 
 function checkWebGL(){
   try{
@@ -35,7 +37,6 @@ let groundMat, groundRepeatV = 22, groundLengthZ = 90;
 let mountainMatFar, mountainMatNear;
 let foliageMatA, foliageMatB, grassMat;
 let decorProps = [];     // {mesh, respawnMinZ, respawnMaxZ, xBase}
-let decorMountains = []; // {mesh, parallax}
 let grassInst = null;
 let grassData = [];      // {x, z, rotY, rotZ, scale}
 const decorDummy = webglSupported ? new THREE.Object3D() : null;
@@ -214,12 +215,12 @@ function createSunGlowTexture(){
   return new THREE.CanvasTexture(c);
 }
 
-// --- montagnes, recyclées comme le reste du décor (avec parallaxe : elles
-// défilent plus lentement que le premier plan, pour donner de la profondeur)
+// --- montagnes : décor de fond FIXE, ne défile jamais (voir updateDecor()) —
+// seuls les matériaux (mountainMatFar/mountainMatNear) suivent le fondu de
+// biome, la géométrie ne bouge plus une fois posée.
 function buildMountainRange(){
   mountainMatFar = new THREE.MeshStandardMaterial({ color: 0x7E9C9C, flatShading:true, roughness:1 });
   mountainMatNear = new THREE.MeshStandardMaterial({ color: 0x5F8778, flatShading:true, roughness:1 });
-  decorMountains = [];
   for(let i=0;i<9;i++){
     const x = -34 + i*8.5 + (Math.random()-0.5)*3;
     const height = 9 + Math.random()*7;
@@ -230,7 +231,6 @@ function buildMountainRange(){
     mesh.position.set(x, height/2 - 0.6, -40 - Math.random()*10);
     mesh.rotation.y = Math.random()*Math.PI;
     scene.add(mesh);
-    decorMountains.push({ mesh, parallax: 0.4 });
   }
 }
 
@@ -565,15 +565,13 @@ function updateDecor(){
     }
   }
 
-  // montagnes : arrière-plan lointain, défilement très ralenti (parallaxe)
-  // et recyclées bien avant d'approcher le joueur (voir MOUNTAIN_RECYCLE_Z)
-  for(let i=0;i<decorMountains.length;i++){
-    const m = decorMountains[i];
-    m.mesh.position.z += speed * m.parallax;
-    if(m.mesh.position.z > MOUNTAIN_RECYCLE_Z){
-      m.mesh.position.z = -70 - Math.random()*15;
-    }
-  }
+  // montagnes : PAS de défilement — elles restent au fond, immobiles.
+  // Elles sont trop grosses pour approcher un tant soit peu sans finir par
+  // envahir l'écran (déjà vu deux fois : d'abord un recyclage trop proche,
+  // puis même une parallaxe très lente finissait par s'en rapprocher sur
+  // une longue partie). L'illusion d'avancer est déjà bien portée par le
+  // sol/les props/l'herbe, qui sont assez proches pour qu'on voie leur
+  // mouvement — les montagnes, elles, jouent juste un décor de fond fixe.
 
   // herbe : recyclage individuel des brins (proche du chemin, cycle rapide)
   for(let i=0;i<grassData.length;i++){

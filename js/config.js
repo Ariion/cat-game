@@ -37,12 +37,10 @@ const BIOME_TRANSITION_SECONDS = 3.5; // durée du fondu entre deux biomes
 // qu'ils n'attaquent pas". Les ennemis doivent toujours gagner du terrain
 // par rapport au décor, à n'importe quelle vitesse d'ennemi.
 const DECOR_SCROLL_SPEED = 0.035;
-// Les montagnes sont énormes et censées rester un arrière-plan lointain :
-// défilement encore ralenti (profondeur/parallaxe) et recyclées bien avant
-// d'approcher le joueur — sinon un cône de rayon 7-11 recyclé trop près
-// remplit tout l'écran d'un aplat de couleur (repéré sur le terrain).
-const MOUNTAIN_PARALLAX = 0.18;
-const MOUNTAIN_RECYCLE_Z = -25;
+// Les montagnes, elles, ne défilent PAS du tout — voir le commentaire dans
+// updateDecor() (scene3d.js) : trop grosses pour s'approcher un tant soit
+// peu sans finir par envahir l'écran, même à vitesse infime sur une longue
+// partie. Elles restent un arrière-plan fixe.
 const PICKUP_SPEED_BASE = 0.16;
 const PICKUP_SPEED_PER_ITEM = 0.009;
 const PICKUP_SPEED_MAX = 0.32;
