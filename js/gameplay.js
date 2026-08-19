@@ -87,6 +87,7 @@ function growHp(amount){
 }
 
 function takeDamage(amount, reason){
+  if(invulnTimer > 0) return; // brève grâce après une reprise sur pub
   hp = Math.max(0, hp - amount);
   spawnBurst(playerX, 0.5, PLAYER_Z, 0x8A2E3B);
   sfx.hurt();
@@ -143,10 +144,10 @@ function spawnWave(){
     const e = enemyPool[i];
     if(e.active) continue;
     e.active = true;
-    e.maxHp = e.hp = Math.round(ENEMY_HP_BASE + pickupsCleared*ENEMY_HP_PER_ITEM);
+    e.maxHp = e.hp = Math.min(ENEMY_HP_CAP, Math.round(ENEMY_HP_BASE + pickupsCleared*ENEMY_HP_PER_ITEM));
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
-    e.speed = ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM;
+    e.speed = Math.min(ENEMY_SPEED_CAP, ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM);
     spawned++;
   }
 }
@@ -167,8 +168,9 @@ function updateEnemies(){
 // --- boss ---------------------------------------------------------------
 
 function spawnBoss(){
-  bossSpawned = true;
-  boss = { x:0, z:PICKUP_START_Z, hp:BOSS_HP, maxHp:BOSS_HP, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
+  const growthSteps = Math.min(bossesDefeated, BOSS_HP_GROWTH_CAP_COUNT);
+  const maxHp = BOSS_HP + growthSteps*BOSS_HP_GROWTH;
+  boss = { x:0, z:PICKUP_START_Z, hp:maxHp, maxHp, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
   if(webglSupported){ bossGroup.visible = true; bossGroup.position.z = boss.z; }
   sfx.bossAppear();
   vibrate([30,20,30]);
@@ -214,18 +216,24 @@ function applyEnemyHit(i, damage){
   }
 }
 
+function defeatBoss(){
+  bossesDefeated++;
+  if(webglSupported) bossGroup.visible = false;
+  boss = null;
+  // le boss vaincu offre une récompense et la partie continue — jeu infini,
+  // il n'y a pas d'écran de victoire qui met fin à la partie
+  growHorde(BOSS_REWARD_BASE + bossesDefeated*BOSS_REWARD_GROWTH);
+  sfx.win();
+  vibrate(60);
+  updateHud();
+}
+
 function applyBossHit(damage){
   sfx.hit();
   boss.hp -= damage;
   spawnBurst(boss.x, 0.9, boss.z, 0xFFD27A);
   updateHud();
-  if(boss.hp <= 0){
-    sfx.win();
-    vibrate(60);
-    if(webglSupported) bossGroup.visible = false;
-    boss = null;
-    showWin();
-  }
+  if(boss.hp <= 0){ defeatBoss(); }
 }
 
 function updateProjectiles(){
@@ -277,16 +285,17 @@ function update(){
   playerX += (playerTargetX - playerX) * PLAYER_MOVE_LERP;
 
   if(shakeTimer > 0){ shakeTimer--; shakeIntensity *= 0.88; }
+  if(invulnTimer > 0) invulnTimer--;
 
   updateParticles();
 
   if(state === 'playing'){
-    if(pickupsCleared < PICKUPS_TO_CLEAR){
-      pickupTimer++;
-      if(pickupTimer >= PICKUP_SPAWN_INTERVAL_FRAMES){
-        pickupTimer = 0;
-        spawnPickupEvent();
-      }
+    runTime += 1/60; // le pas de temps fixe (main.js) garantit ~60 ticks/s réels
+
+    pickupTimer++;
+    if(pickupTimer >= PICKUP_SPAWN_INTERVAL_FRAMES){
+      pickupTimer = 0;
+      spawnPickupEvent();
     }
     pickups.forEach(p=>{
       p.z += pickupSpeed;
@@ -300,7 +309,7 @@ function update(){
         pickupsCleared++;
         pickupSpeed = Math.min(PICKUP_SPEED_MAX, PICKUP_SPEED_BASE + pickupsCleared*PICKUP_SPEED_PER_ITEM);
         updateHud();
-        if(pickupsCleared >= PICKUPS_TO_CLEAR && !bossSpawned){
+        if(pickupsCleared % BOSS_INTERVAL_PICKUPS === 0 && !boss){
           spawnBoss();
         }
       }
@@ -326,18 +335,38 @@ function catWord(){
   return hordeCount > 1 ? 'chats' : 'chat';
 }
 
-function showWin(){
-  state = 'win';
-  document.getElementById('winText').textContent =
-    `Ta horde de ${hordeCount} ${catWord()} a fait fuir le chien !`;
-  document.getElementById('screenWin').classList.remove('hidden');
+function bossWord(){
+  return bossesDefeated > 1 ? 'chiens du quartier vaincus' : 'chien du quartier vaincu';
 }
 
 function showLose(reason){
   state = 'lose';
-  const text = reason === 'boss'
-    ? `${hordeCount} ${catWord()}, ce n'était pas assez pour repousser le chien du quartier.`
-    : `Un chien t'a rattrapé — ta horde de ${hordeCount} ${catWord()} n'a pas survécu.`;
-  document.getElementById('loseText').textContent = text;
+  const cause = reason === 'boss' ? "Le chien du quartier t'a eu" : "Un chien t'a rattrapé";
+  document.getElementById('loseText').textContent =
+    `${cause} — ${hordeCount} ${catWord()}, ${formatTime(runTime)} de survie, ${bossesDefeated} ${bossWord()}.`;
   document.getElementById('screenLose').classList.remove('hidden');
+  updateHud(); // met à jour le record de temps si dépassé, avant l'affichage du bouton Record
+}
+
+// Reprise sur pub : flux complet (écran de mort -> "pub" -> reprise sur
+// place), mais la pub elle-même est simulée (délai fixe). Pour une vraie
+// pub récompensée, il faut empaqueter le jeu en app (Capacitor/Cordova) et
+// intégrer un SDK (AdMob, Unity Ads...) — c'est ICI qu'il faudrait appeler
+// le SDK, puis n'appeler continueRun() que si la pub a bien été regardée
+// jusqu'au bout (callback "reward").
+function watchAdAndContinue(){
+  document.getElementById('screenLose').classList.add('hidden');
+  document.getElementById('screenAd').classList.remove('hidden');
+  setTimeout(()=>{
+    document.getElementById('screenAd').classList.add('hidden');
+    continueRun();
+  }, AD_SIMULATION_MS);
+}
+
+function continueRun(){
+  hp = CONTINUE_HP_RESTORE;
+  invulnTimer = CONTINUE_INVULN_FRAMES;
+  state = 'playing';
+  document.getElementById('hint').classList.remove('hidden');
+  updateHud();
 }

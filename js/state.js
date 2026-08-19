@@ -1,8 +1,12 @@
 // État global de la partie + fonctions de (re)initialisation.
 let bestHorde = 0;
-try{ bestHorde = parseInt(localStorage.getItem('hordeDeChatsBest') || '0', 10) || 0; }catch(e){}
+let bestTime = 0;
+try{
+  bestHorde = parseInt(localStorage.getItem('hordeDeChatsBest') || '0', 10) || 0;
+  bestTime = parseFloat(localStorage.getItem('hordeDeChatsBestTime') || '0') || 0;
+}catch(e){}
 
-let state = 'start'; // start | playing | win | lose (plus de phase bloquante séparée)
+let state = 'start'; // start | playing | lose (jeu infini : pas d'état "win" qui termine la partie)
 let hordeCount = 1;
 let hp = HP_MAX;
 let hpMax = HP_MAX;
@@ -17,16 +21,19 @@ let particles = [];
 let shakeTimer = 0;
 let shakeIntensity = 0;
 let frame = 0;
+let runTime = 0;       // secondes survécues cette partie (score principal, jeu infini)
+let invulnTimer = 0;   // brève invulnérabilité après une reprise sur pub
 
 // Combat en temps réel : ennemis réguliers (pool réutilisé) + projectiles
-// tirés automatiquement par la horde + le boss (unique, en fin de parcours).
+// tirés automatiquement par la horde + le boss (récurrent, revient tous les
+// BOSS_INTERVAL_PICKUPS objets — jeu infini, il ne met jamais fin à la partie).
 let enemyPool = [];       // {active, hp, maxHp, x, z, speed}
 let enemySpawnTimer = 0;
 let attackTimer = 0;
 let attackPulse = 0;      // petite animation du meneur quand il tire
-let projectiles = [];     // {mesh, kind:'enemy'|'boss', idx, damage, life}
-let boss = null;          // {x, z, hp, maxHp, biteTimer} une fois apparu
-let bossSpawned = false;
+let projectiles = [];     // {mesh, damage, life}
+let boss = null;          // {x, z, hp, maxHp, biteTimer} le temps de son apparition
+let bossesDefeated = 0;
 
 function resetGame(){
   state = 'playing';
@@ -44,6 +51,8 @@ function resetGame(){
   shakeTimer = 0;
   shakeIntensity = 0;
   frame = 0;
+  runTime = 0;
+  invulnTimer = 0;
   enemyPool.forEach(e=>{ e.active = false; });
   enemySpawnTimer = 0;
   attackTimer = 0;
@@ -51,7 +60,7 @@ function resetGame(){
   projectiles.forEach(p=>{ if(webglSupported){ scene.remove(p.mesh); p.mesh.material.dispose(); } });
   projectiles = [];
   boss = null;
-  bossSpawned = false;
+  bossesDefeated = 0;
   if(webglSupported) bossGroup.visible = false;
   document.getElementById('hint').classList.remove('hidden');
   updateHud();
@@ -60,30 +69,42 @@ function resetGame(){
 function startGame(){
   initAudio();
   document.getElementById('screenStart').classList.add('hidden');
-  document.getElementById('screenWin').classList.add('hidden');
   document.getElementById('screenLose').classList.add('hidden');
+  document.getElementById('screenAd').classList.add('hidden');
   resetGame();
+}
+
+function formatTime(t){
+  const m = Math.floor(t/60);
+  const s = Math.floor(t%60);
+  return `${m}:${String(s).padStart(2,'0')}`;
 }
 
 function updateHud(){
   document.getElementById('hordeCount').textContent = hordeCount;
   const hpFill = document.getElementById('hpBarFill');
   if(hpFill) hpFill.style.width = Math.max(0, Math.min(100, (hp/hpMax)*100)) + '%';
-  const shown = Math.min(pickupsCleared, PICKUPS_TO_CLEAR);
   const label = boss
     ? `Chien du quartier : ${Math.max(0, boss.hp)} / ${boss.maxHp} PV`
-    : `Bonus ${shown} / ${PICKUPS_TO_CLEAR}`;
+    : formatTime(runTime);
   document.getElementById('progressLabel').textContent = label;
   if(hordeCount > bestHorde){
     bestHorde = hordeCount;
     try{ localStorage.setItem('hordeDeChatsBest', String(bestHorde)); }catch(e){}
   }
+  if(runTime > bestTime){
+    bestTime = runTime;
+    try{ localStorage.setItem('hordeDeChatsBestTime', String(bestTime)); }catch(e){}
+  }
   updateBestScoreDisplays();
 }
 
 function updateBestScoreDisplays(){
-  const text = bestHorde > 0 ? `Record : ${bestHorde} chats` : '';
-  ['bestScoreStart','bestScoreWin','bestScoreLose'].forEach(id=>{
+  const parts = [];
+  if(bestHorde > 0) parts.push(`${bestHorde} chats`);
+  if(bestTime > 0) parts.push(formatTime(bestTime));
+  const text = parts.length ? `Record : ${parts.join(' · ')}` : '';
+  ['bestScoreStart','bestScoreLose'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.textContent = text;
   });

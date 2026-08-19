@@ -17,7 +17,7 @@
   touche un fichier local (css/ ou js/, sauf vendor/three.min.js qui ne
   change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -42,23 +42,25 @@
 
     <div class="overlay" id="screenStart">
       <h1>Horde de chats</h1>
-      <p>Glisse pour te déplacer : fonce sur les croquettes et les cœurs, évite l'eau. Ta horde tire tout droit sur les chiens — vise bien !</p>
+      <p>Glisse pour te déplacer : fonce sur les croquettes et les cœurs, évite l'eau. Ta horde tire tout droit sur les chiens — survis le plus longtemps possible !</p>
       <p class="record" id="bestScoreStart"></p>
       <button class="btn" onclick="startGame()">Jouer</button>
-    </div>
-
-    <div class="overlay hidden" id="screenWin">
-      <h1>Bien joué !</h1>
-      <p id="winText">Ta horde a impressionné le chien du quartier.</p>
-      <p class="record" id="bestScoreWin"></p>
-      <button class="btn" onclick="startGame()">Rejouer</button>
     </div>
 
     <div class="overlay hidden" id="screenLose">
       <h1>Trop petite bande...</h1>
       <p id="loseText">Le chien n'a pas eu peur cette fois. Recommence pour agrandir ta horde.</p>
       <p class="record" id="bestScoreLose"></p>
-      <button class="btn retry" onclick="startGame()">Réessayer</button>
+      <div class="choice-row">
+        <button class="btn retry" onclick="startGame()">Recommencer</button>
+        <button class="btn continue" onclick="watchAdAndContinue()">&#9658; Continuer (pub)</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="screenAd">
+      <h1>Publicité</h1>
+      <div class="ad-spinner"></div>
+      <p>Reprise dans un instant…</p>
     </div>
 
     <div class="hint" id="hint">&larr; glisse ou utilise les flèches &rarr;</div>
@@ -66,13 +68,13 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/config.js?v=7"></script>
-<script src="js/audio.js?v=7"></script>
-<script src="js/state.js?v=7"></script>
-<script src="js/scene3d.js?v=7"></script>
-<script src="js/render3d.js?v=7"></script>
-<script src="js/gameplay.js?v=7"></script>
-<script src="js/input.js?v=7"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/config.js?v=8"></script>
+<script src="js/audio.js?v=8"></script>
+<script src="js/state.js?v=8"></script>
+<script src="js/scene3d.js?v=8"></script>
+<script src="js/render3d.js?v=8"></script>
+<script src="js/gameplay.js?v=8"></script>
+<script src="js/input.js?v=8"></script>
+<script src="js/main.js?v=8"></script>
 </body>
 </html>

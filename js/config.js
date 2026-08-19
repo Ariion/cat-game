@@ -19,7 +19,7 @@ const PICKUP_START_Z = -70;
 const PICKUP_RESOLVE_RANGE = 1.4; // marge autour de PLAYER_Z pour déclencher la résolution
 const PICKUP_REMOVE_Z = 9;        // distance après laquelle un objet franchi est retiré
 const PICKUP_RADIUS = 0.85;       // tolérance latérale pour "toucher" un bonus/malus
-const PICKUPS_TO_CLEAR = 8;       // nombre d'apparitions avant le boss
+const BOSS_INTERVAL_PICKUPS = 15; // le boss revient tous les N objets — jeu infini, pas de fin sur victoire
 const PICKUP_SPEED_BASE = 0.16;
 const PICKUP_SPEED_PER_ITEM = 0.009;
 const PICKUP_SPEED_MAX = 0.32;
@@ -55,6 +55,8 @@ const ENEMIES_PER_WAVE_PER_ITEM = 0.35;
 const ENEMIES_PER_WAVE_MAX = 6;
 const ENEMY_HP_BASE = 9;
 const ENEMY_HP_PER_ITEM = 2.1;
+const ENEMY_HP_CAP = 70;          // plafond : jeu infini, la difficulté doit rester jouable
+const ENEMY_SPEED_CAP = 0.095;
 const ENEMY_DAMAGE_TO_PLAYER = 14; // vie perdue si un ennemi atteint le joueur
 const ENEMY_TINT = 0xC9A385;
 
@@ -64,7 +66,19 @@ const PROJECTILE_SPEED = 0.7;
 const PROJECTILE_HIT_RADIUS_X = 0.55; // tolérance latérale pour toucher (pas de visée auto)
 
 const BOSS_HP = 150;
+const BOSS_HP_GROWTH = 45;   // + par apparition (plafonné, voir BOSS_HP_GROWTH_CAP_COUNT)
+const BOSS_HP_GROWTH_CAP_COUNT = 10;
+const BOSS_REWARD_BASE = 8;  // bonus de horde offert à chaque boss vaincu
+const BOSS_REWARD_GROWTH = 2;
 const BOSS_SPEED = 0.05;
 const BOSS_BITE_INTERVAL_FRAMES = 65; // le boss mord à intervalles une fois arrivé
 const BOSS_BITE_DAMAGE = 10;
 const BOSS_TINT = 0x8A7361;
+
+// Mort et reprise : à la mort, le joueur choisit de recommencer à zéro ou
+// de "regarder une pub" (simulée ici — nécessite un vrai SDK de pub une
+// fois packagé en app, voir watchAdAndContinue() dans gameplay.js) pour
+// reprendre sur place avec un peu de vie et une brève invulnérabilité.
+const CONTINUE_HP_RESTORE = 55;
+const CONTINUE_INVULN_FRAMES = 90;
+const AD_SIMULATION_MS = 1800;

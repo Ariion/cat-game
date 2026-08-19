@@ -130,6 +130,24 @@ canvas{
 .btn:active{ transform: translateY(3px); box-shadow: 0 1px 0 var(--good-deep); }
 .btn.retry{ background: var(--rose); box-shadow: 0 4px 0 #b06767; }
 .btn.retry:active{ box-shadow: 0 1px 0 #b06767; }
+.btn.continue{
+  background: var(--gold);
+  box-shadow: 0 4px 0 var(--gold-deep);
+  font-size: 15px;
+}
+.btn.continue:active{ box-shadow: 0 1px 0 var(--gold-deep); }
+.choice-row{
+  display:flex; flex-direction:column; gap:12px; align-items:center;
+}
+.ad-spinner{
+  width: 40px; height: 40px;
+  margin: 4px 0 22px;
+  border-radius: 50%;
+  border: 5px solid var(--cream-deep);
+  border-top-color: var(--gold);
+  animation: ad-spin 0.8s linear infinite;
+}
+@keyframes ad-spin{ to{ transform: rotate(360deg); } }
 .hint{
   position:absolute; bottom:18px; left:0; right:0;
   text-align:center;
