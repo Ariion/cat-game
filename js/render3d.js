@@ -51,8 +51,11 @@ function syncFollowers(){
   }
 }
 
-function syncGates(){
-  gates.forEach(g=>{ g.visual.position.z = g.z; });
+function syncPickups(){
+  pickups.forEach(p=>{
+    p.visual.position.set(p.x, 0.9 + Math.sin((frame+p.x*10)*0.08)*0.08, p.z);
+    p.visual.rotation.y += 0.02; // petite rotation, lisible comme "objet à ramasser"
+  });
 }
 
 function syncEnemies(){
@@ -101,7 +104,7 @@ function render(){
   if(!webglSupported) return;
   syncLeader();
   syncFollowers();
-  syncGates();
+  syncPickups();
   syncEnemies();
   syncBoss();
   syncLight();

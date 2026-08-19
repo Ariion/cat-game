@@ -16,19 +16,12 @@ let scene, camera, renderer, sunLight;
 let leaderGroup, bossGroup;
 let enemyVisuals = []; // pool de groupes 3D réutilisés, index-aligné avec enemyPool (state.js)
 let followerBodyInst, followerHeadInst, followerShadowInst;
-let iconTextures = {};
 let doorGlowTexture;
 let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
 let particleGeometry, projectileGeometry;
 const dummy3D = webglSupported ? new THREE.Object3D() : null;
 
-function createIconTexture(kind){
-  const size = 128;
-  const c = document.createElement('canvas');
-  c.width = size; c.height = size;
-  const cx = c.getContext('2d');
-  cx.translate(size/2, size/2);
-  cx.scale(2.6, 2.6);
+function drawPickupIcon(cx, kind){
   if(kind === 'croquette'){
     cx.fillStyle = '#E3A857';
     [[-8,4],[8,4],[0,-6]].forEach(off=>{
@@ -53,6 +46,33 @@ function createIconTexture(kind){
     cx.quadraticCurveTo(-14,6,0,-14);
     cx.fill();
   }
+}
+
+// Icône + montant ("+3", "+22", "-4") sur une même texture, générée à la
+// volée pour chaque bonus/malus (le montant varie à chaque apparition,
+// donc pas de cache partagé possible ici — à disposer avec le pickup).
+function createPickupTexture(kind, amount){
+  const size = 160;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const cx = c.getContext('2d');
+
+  cx.save();
+  cx.translate(size/2, size*0.36);
+  cx.scale(2.15, 2.15);
+  drawPickupIcon(cx, kind);
+  cx.restore();
+
+  const label = (amount >= 0 ? '+' : '') + amount;
+  cx.font = '700 46px Fredoka, sans-serif';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.lineWidth = 9;
+  cx.strokeStyle = 'rgba(59,50,38,0.85)';
+  cx.strokeText(label, size/2, size*0.76);
+  cx.fillStyle = '#ffffff';
+  cx.fillText(label, size/2, size*0.76);
+
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
   return tex;
@@ -237,67 +257,58 @@ function buildBossGroup(mat){
   return g;
 }
 
-const DOOR_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
+const PICKUP_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
 
-function buildDoorPanel(kind){
+function buildPickupVisual(kind, amount){
   const g = new THREE.Group();
-  const color = DOOR_COLORS[kind];
-  const width = 1.9, height = 1.6;
+  const color = PICKUP_COLORS[kind];
+  const size = 1.05;
 
-  // panneau translucide (la porte elle-même)
-  const panelGeo = new THREE.PlaneGeometry(width, height);
+  // jeton translucide flottant
+  const panelGeo = new THREE.PlaneGeometry(size, size);
   const panelMat = new THREE.MeshStandardMaterial({
-    color, transparent:true, opacity:0.3, side: THREE.DoubleSide,
+    color, transparent:true, opacity:0.32, side: THREE.DoubleSide,
     roughness:0.4, depthWrite:false
   });
   const panel = new THREE.Mesh(panelGeo, panelMat);
-  panel.position.y = height/2;
   g.add(panel);
 
-  // contour plein pour garder la porte lisible malgré la faible opacité
+  // contour plein pour rester lisible malgré la faible opacité
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(panelGeo),
     new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.95 })
   );
-  edges.position.y = height/2;
   g.add(edges);
 
-  // halo incandescent derrière l'icône, pour repérer la bonne porte de loin
+  // halo incandescent, pour repérer le bonus/malus de loin
   const haloMat = new THREE.SpriteMaterial({
-    map: doorGlowTexture, color, transparent:true, opacity:0.6,
+    map: doorGlowTexture, color, transparent:true, opacity:0.65,
     blending: THREE.AdditiveBlending, depthWrite:false
   });
   const halo = new THREE.Sprite(haloMat);
-  halo.scale.set(1.05, 1.05, 1);
-  halo.position.set(0, height/2, 0.01);
+  halo.scale.set(1.15, 1.15, 1);
+  halo.position.z = 0.01;
   halo.renderOrder = 1;
   g.add(halo);
 
-  const spriteMat = new THREE.SpriteMaterial({ map: iconTextures[kind], transparent:true });
+  // icône + montant, texture générée pour ce pickup précis (pas partagée)
+  const tex = createPickupTexture(kind, amount);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent:true });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(0.6, 0.6, 1);
-  sprite.position.set(0, height/2, 0.02); // légèrement devant, évite le z-fighting
+  sprite.scale.set(0.85, 0.85, 1);
+  sprite.position.z = 0.02; // légèrement devant, évite le z-fighting
   sprite.renderOrder = 2;
   g.add(sprite);
+  g.userData.uniqueTexture = tex;
 
   return g;
 }
 
-function buildGateVisual(goodLane, goodKind){
-  const group = new THREE.Group();
-  [0,1].forEach(i=>{
-    const kind = i === goodLane ? goodKind : 'water';
-    const door = buildDoorPanel(kind);
-    door.position.x = LANES[i];
-    group.add(door);
-  });
-  return group;
-}
-
-function disposeGateVisual(group){
+function disposePickupVisual(group){
+  if(group.userData.uniqueTexture) group.userData.uniqueTexture.dispose();
   group.traverse(obj=>{
     if(obj.geometry) obj.geometry.dispose();
-    if(obj.material) obj.material.dispose(); // ne dispose pas les textures d'icône (partagées)
+    if(obj.material) obj.material.dispose();
   });
 }
 
@@ -487,9 +498,6 @@ function initScene(){
   enemyMaterial = new THREE.MeshStandardMaterial({ color: ENEMY_TINT, flatShading:true, roughness:0.8 });
   shadowMaterial = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.18 });
 
-  iconTextures.croquette = createIconTexture('croquette');
-  iconTextures.water = createIconTexture('water');
-  iconTextures.heart = createIconTexture('heart');
   doorGlowTexture = createGlowTexture();
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
   projectileGeometry = new THREE.SphereGeometry(0.11, 8, 6);

@@ -1,17 +1,66 @@
-// Logique de jeu : déplacement continu, portes, combat en temps réel
-// (ennemis en vagues + tir automatique de la horde + boss final).
+// Logique de jeu : déplacement continu, bonus/malus flottants (avec parfois
+// un dilemme à 2 objets), combat en temps réel (vagues d'ennemis + tir
+// automatique en ligne droite, sans visée) + boss final.
 // Aucune phase bloquante : tout se passe en même temps pendant que le
 // joueur avance et se déplace.
-function spawnGate(){
-  const goodLane = Math.random() < 0.5 ? 0 : 1;
-  const goodKind = Math.random() < GATE_HEART_CHANCE ? 'heart' : 'croquette';
-  const gate = { z: GATE_START_Z, goodLane, goodKind, resolved:false, visual:null };
-  if(webglSupported){
-    gate.visual = buildGateVisual(goodLane, goodKind);
-    gate.visual.position.z = gate.z;
-    scene.add(gate.visual);
+
+// --- bonus / malus flottants ----------------------------------------------
+
+function pickPickupKindAndAmount(){
+  if(Math.random() < PICKUP_WATER_CHANCE){
+    const amount = -(WATER_BASE + Math.round(hordeCount*WATER_RATIO) + Math.floor(Math.random()*3));
+    return { kind:'water', amount };
   }
-  gates.push(gate);
+  if(Math.random() < PICKUP_HEART_CHANCE){
+    const amount = HEART_MIN + Math.floor(Math.random()*(HEART_MAX-HEART_MIN+1));
+    return { kind:'heart', amount };
+  }
+  const amount = CROQUETTE_BASE + Math.round(hordeCount*CROQUETTE_RATIO) + Math.floor(Math.random()*3);
+  return { kind:'croquette', amount };
+}
+
+function spawnPickupAt(x, kind, amount){
+  if(kind === undefined){
+    const picked = pickPickupKindAndAmount();
+    kind = picked.kind; amount = picked.amount;
+  }
+  const pickup = { kind, amount, x, z: PICKUP_START_Z, resolved:false, visual:null };
+  if(webglSupported){
+    pickup.visual = buildPickupVisual(kind, amount);
+    pickup.visual.position.set(x, 0.9, pickup.z);
+    scene.add(pickup.visual);
+  }
+  pickups.push(pickup);
+}
+
+function spawnDilemma(){
+  // deux objets rapprochés, difficile de prendre/éviter les deux — un vrai
+  // choix ("mieux vaut perdre 1 que 5"). Le plus souvent 2 malus de tailles
+  // très différentes, parfois 2 bonus (choisir le meilleur).
+  const bothMalus = Math.random() < 0.65;
+  const gap = 1.1 + Math.random()*0.7;
+  const center = (Math.random()-0.5) * 1.5;
+  const xA = center - gap/2;
+  const xB = center + gap/2;
+  if(bothMalus){
+    const small = -(WATER_BASE + Math.floor(Math.random()*2));
+    const big = -(WATER_BASE + Math.round(hordeCount*WATER_RATIO) + 3 + Math.floor(Math.random()*3));
+    spawnPickupAt(xA, 'water', small);
+    spawnPickupAt(xB, 'water', big);
+  } else {
+    const small = CROQUETTE_BASE + Math.floor(Math.random()*2);
+    const big = CROQUETTE_BASE + Math.round(hordeCount*CROQUETTE_RATIO) + 4 + Math.floor(Math.random()*3);
+    spawnPickupAt(xA, 'croquette', small);
+    spawnPickupAt(xB, 'croquette', big);
+  }
+}
+
+function spawnPickupEvent(){
+  if(Math.random() < DILEMMA_CHANCE){
+    spawnDilemma();
+  } else {
+    spawnPickupAt(PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX-PLAYER_X_MIN));
+  }
 }
 
 function growHorde(amount){
@@ -87,17 +136,17 @@ function updateParticles(){
 function spawnWave(){
   const count = Math.min(
     ENEMIES_PER_WAVE_MAX,
-    Math.round(ENEMIES_PER_WAVE_BASE + gatesCleared*ENEMIES_PER_WAVE_PER_GATES)
+    Math.round(ENEMIES_PER_WAVE_BASE + pickupsCleared*ENEMIES_PER_WAVE_PER_ITEM)
   );
   let spawned = 0;
   for(let i=0; i<enemyPool.length && spawned<count; i++){
     const e = enemyPool[i];
     if(e.active) continue;
     e.active = true;
-    e.maxHp = e.hp = Math.round(ENEMY_HP_BASE + gatesCleared*ENEMY_HP_PER_GATE);
+    e.maxHp = e.hp = Math.round(ENEMY_HP_BASE + pickupsCleared*ENEMY_HP_PER_ITEM);
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
-    e.speed = ENEMY_SPEED_BASE + gatesCleared*ENEMY_SPEED_PER_WAVE;
+    e.speed = ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM;
     spawned++;
   }
 }
@@ -106,7 +155,9 @@ function updateEnemies(){
   enemyPool.forEach(e=>{
     if(!e.active) return;
     e.z += e.speed;
-    if(e.z >= PLAYER_Z - GATE_RESOLVE_RANGE){
+    e.x += (playerX - e.x) * ENEMY_DRIFT_SPEED; // dérive lente : ils vous traquent
+    e.x = Math.max(PLAYER_X_MIN, Math.min(PLAYER_X_MAX, e.x));
+    if(e.z >= PLAYER_Z - PICKUP_RESOLVE_RANGE){
       e.active = false;
       takeDamage(ENEMY_DAMAGE_TO_PLAYER, 'enemy');
     }
@@ -117,7 +168,7 @@ function updateEnemies(){
 
 function spawnBoss(){
   bossSpawned = true;
-  boss = { x:0, z:GATE_START_Z, hp:BOSS_HP, maxHp:BOSS_HP, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
+  boss = { x:0, z:PICKUP_START_Z, hp:BOSS_HP, maxHp:BOSS_HP, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
   if(webglSupported){ bossGroup.visible = true; bossGroup.position.z = boss.z; }
   sfx.bossAppear();
   vibrate([30,20,30]);
@@ -138,31 +189,9 @@ function updateBoss(){
   }
 }
 
-// --- tir automatique de la horde -----------------------------------------
+// --- tir automatique de la horde, en ligne droite (sans visée) -----------
 
-function pickAttackTarget(){
-  let best = null, bestDist = Infinity;
-  enemyPool.forEach((e,i)=>{
-    if(!e.active) return;
-    const d = Math.hypot(e.x-playerX, e.z-PLAYER_Z);
-    if(d < bestDist){ bestDist = d; best = { kind:'enemy', idx:i }; }
-  });
-  if(boss){
-    const d = Math.hypot(boss.x-playerX, boss.z-PLAYER_Z);
-    if(d < bestDist){ bestDist = d; best = { kind:'boss' }; }
-  }
-  return (best && bestDist <= ATTACK_RANGE) ? best : null;
-}
-
-function targetPosition(t){
-  if(t.kind === 'enemy'){
-    const e = enemyPool[t.idx];
-    return (e && e.active) ? { x:e.x, z:e.z } : null;
-  }
-  return boss ? { x:boss.x, z:boss.z } : null;
-}
-
-function fireProjectile(target){
+function fireProjectile(){
   if(!webglSupported) return;
   attackPulse = 8;
   const mat = new THREE.MeshBasicMaterial({ color:0xFFD27A, fog:false });
@@ -170,50 +199,57 @@ function fireProjectile(target){
   mesh.position.set(playerX, 0.55, PLAYER_Z - 0.35);
   scene.add(mesh);
   // un seul projectile, mais ses dégâts = la taille actuelle de la horde
-  projectiles.push({ mesh, kind: target.kind, idx: target.idx, damage: hordeCount, life: 180 });
+  projectiles.push({ mesh, damage: hordeCount, life: 140 });
 }
 
-function applyProjectileDamage(p){
+function applyEnemyHit(i, damage){
   sfx.hit();
-  if(p.kind === 'enemy'){
-    const e = enemyPool[p.idx];
-    if(!e || !e.active) return;
-    e.hp -= p.damage;
-    spawnBurst(e.x, 0.5, e.z, 0xFFD27A);
-    if(e.hp <= 0){
-      e.active = false;
-      spawnBurst(e.x, 0.6, e.z, 0xE0607A);
-      sfx.enemyDown();
-    }
-  } else if(boss){
-    boss.hp -= p.damage;
-    spawnBurst(boss.x, 0.9, boss.z, 0xFFD27A);
-    updateHud();
-    if(boss.hp <= 0){
-      sfx.win();
-      vibrate(60);
-      if(webglSupported) bossGroup.visible = false;
-      boss = null;
-      showWin();
-    }
+  const e = enemyPool[i];
+  e.hp -= damage;
+  spawnBurst(e.x, 0.5, e.z, 0xFFD27A);
+  if(e.hp <= 0){
+    e.active = false;
+    spawnBurst(e.x, 0.6, e.z, 0xE0607A);
+    sfx.enemyDown();
+  }
+}
+
+function applyBossHit(damage){
+  sfx.hit();
+  boss.hp -= damage;
+  spawnBurst(boss.x, 0.9, boss.z, 0xFFD27A);
+  updateHud();
+  if(boss.hp <= 0){
+    sfx.win();
+    vibrate(60);
+    if(webglSupported) bossGroup.visible = false;
+    boss = null;
+    showWin();
   }
 }
 
 function updateProjectiles(){
   projectiles.forEach(p=>{
-    const tp = targetPosition(p);
-    if(!tp){ p.life = 0; return; }
-    const dx = tp.x - p.mesh.position.x;
-    const dz = tp.z - p.mesh.position.z;
-    const dist = Math.hypot(dx, dz);
-    if(dist < 0.4){
-      applyProjectileDamage(p);
-      p.life = 0;
-      return;
-    }
-    p.mesh.position.x += (dx/dist) * PROJECTILE_SPEED;
-    p.mesh.position.z += (dz/dist) * PROJECTILE_SPEED;
+    if(p.life <= 0) return;
+    p.mesh.position.z -= PROJECTILE_SPEED;
     p.life--;
+    const px = p.mesh.position.x, pz = p.mesh.position.z;
+
+    for(let i=0;i<enemyPool.length;i++){
+      const e = enemyPool[i];
+      if(!e.active) continue;
+      if(Math.abs(e.x-px) < PROJECTILE_HIT_RADIUS_X && Math.abs(e.z-pz) < 0.5){
+        applyEnemyHit(i, p.damage);
+        p.life = 0;
+        break;
+      }
+    }
+    if(p.life > 0 && boss){
+      if(Math.abs(boss.x-px) < PROJECTILE_HIT_RADIUS_X+0.3 && Math.abs(boss.z-pz) < 0.6){
+        applyBossHit(p.damage);
+        p.life = 0;
+      }
+    }
   });
   const dead = projectiles.filter(p=>p.life<=0);
   dead.forEach(p=>{ scene.remove(p.mesh); p.mesh.material.dispose(); });
@@ -225,8 +261,7 @@ function updateAttacks(){
   attackTimer++;
   if(attackTimer >= ATTACK_INTERVAL_FRAMES){
     attackTimer = 0;
-    const target = pickAttackTarget();
-    if(target) fireProjectile(target);
+    fireProjectile();
   }
   updateProjectiles();
 }
@@ -246,33 +281,33 @@ function update(){
   updateParticles();
 
   if(state === 'playing'){
-    if(gatesCleared < GATES_TO_CLEAR){
-      spawnTimer++;
-      if(spawnTimer >= spawnInterval){
-        spawnTimer = 0;
-        spawnGate();
+    if(pickupsCleared < PICKUPS_TO_CLEAR){
+      pickupTimer++;
+      if(pickupTimer >= PICKUP_SPAWN_INTERVAL_FRAMES){
+        pickupTimer = 0;
+        spawnPickupEvent();
       }
     }
-    gates.forEach(g=>{
-      g.z += gateSpeed;
-      if(!g.resolved && g.z > PLAYER_Z-GATE_RESOLVE_RANGE && g.z < PLAYER_Z+GATE_RESOLVE_RANGE){
-        g.resolved = true;
-        const playerSide = playerX < 0 ? 0 : 1;
-        const good = playerSide === g.goodLane;
-        if(good && g.goodKind === 'heart'){ growHp(HEART_GAIN); }
-        else if(good){ growHorde(Math.round(hordeCount*0.4)+2); }
-        else { growHorde(-Math.round(hordeCount*0.35)-1); }
-        gatesCleared++;
-        gateSpeed = Math.min(GATE_SPEED_MAX, GATE_SPEED_BASE + gatesCleared*GATE_SPEED_PER_GATE);
+    pickups.forEach(p=>{
+      p.z += pickupSpeed;
+      if(!p.resolved && p.z > PLAYER_Z-PICKUP_RESOLVE_RANGE && p.z < PLAYER_Z+PICKUP_RESOLVE_RANGE){
+        p.resolved = true;
+        const hit = Math.abs(playerX - p.x) < PICKUP_RADIUS;
+        if(hit){
+          if(p.kind === 'heart'){ growHp(p.amount); }
+          else { growHorde(p.amount); }
+        }
+        pickupsCleared++;
+        pickupSpeed = Math.min(PICKUP_SPEED_MAX, PICKUP_SPEED_BASE + pickupsCleared*PICKUP_SPEED_PER_ITEM);
         updateHud();
-        if(gatesCleared >= GATES_TO_CLEAR && !bossSpawned){
+        if(pickupsCleared >= PICKUPS_TO_CLEAR && !bossSpawned){
           spawnBoss();
         }
       }
     });
-    const passed = gates.filter(g=>g.z >= GATE_REMOVE_Z);
-    passed.forEach(g=>{ if(g.visual){ scene.remove(g.visual); disposeGateVisual(g.visual); } });
-    gates = gates.filter(g=>g.z < GATE_REMOVE_Z);
+    const passed = pickups.filter(p=>p.z >= PICKUP_REMOVE_Z);
+    passed.forEach(p=>{ if(p.visual){ scene.remove(p.visual); disposePickupVisual(p.visual); } });
+    pickups = pickups.filter(p=>p.z < PICKUP_REMOVE_Z);
 
     if(!boss){
       enemySpawnTimer++;

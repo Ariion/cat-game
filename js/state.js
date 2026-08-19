@@ -8,11 +8,10 @@ let hp = HP_MAX;
 let hpMax = HP_MAX;
 let playerTargetX = 0;  // position visée (doigt/clavier), déplacement continu, pas de couloirs
 let playerX = 0;        // position affichée, lissée vers playerTargetX
-let gates = [];
-let gatesCleared = 0;
-let gateSpeed = GATE_SPEED_BASE;
-let spawnTimer = 0;
-let spawnInterval = SPAWN_INTERVAL_FRAMES;
+let pickups = [];       // bonus/malus flottants {kind, amount, x, z, resolved, visual}
+let pickupsCleared = 0;
+let pickupSpeed = PICKUP_SPEED_BASE;
+let pickupTimer = 0;
 let cats = []; // membres de la horde (suiveurs) {angle, radius, bob, size}
 let particles = [];
 let shakeTimer = 0;
@@ -35,11 +34,11 @@ function resetGame(){
   hp = hpMax;
   playerTargetX = 0;
   playerX = 0;
-  gates = [];
-  gatesCleared = 0;
-  gateSpeed = GATE_SPEED_BASE;
-  spawnTimer = 0;
-  spawnInterval = SPAWN_INTERVAL_FRAMES;
+  if(webglSupported){ pickups.forEach(p=>{ if(p.visual){ scene.remove(p.visual); disposePickupVisual(p.visual); } }); }
+  pickups = [];
+  pickupsCleared = 0;
+  pickupSpeed = PICKUP_SPEED_BASE;
+  pickupTimer = 0;
   cats = [];
   particles = [];
   shakeTimer = 0;
@@ -70,10 +69,10 @@ function updateHud(){
   document.getElementById('hordeCount').textContent = hordeCount;
   const hpFill = document.getElementById('hpBarFill');
   if(hpFill) hpFill.style.width = Math.max(0, Math.min(100, (hp/hpMax)*100)) + '%';
-  const shown = Math.min(gatesCleared, GATES_TO_CLEAR);
+  const shown = Math.min(pickupsCleared, PICKUPS_TO_CLEAR);
   const label = boss
     ? `Chien du quartier : ${Math.max(0, boss.hp)} / ${boss.maxHp} PV`
-    : `Porte ${shown} / ${GATES_TO_CLEAR}`;
+    : `Bonus ${shown} / ${PICKUPS_TO_CLEAR}`;
   document.getElementById('progressLabel').textContent = label;
   if(hordeCount > bestHorde){
     bestHorde = hordeCount;
