@@ -41,6 +41,11 @@ let grassInst = null;
 let grassData = [];      // {x, z, rotY, rotZ, scale}
 const decorDummy = webglSupported ? new THREE.Object3D() : null;
 
+// --- météo d'ambiance (neige/feuilles/sable selon le biome) ---------------
+let weatherInst = null, weatherMat = null;
+let weatherData = []; // {x, y, z, rot}
+let currentWeather = null; // paramètres interpolés (voir applyBiomeInstant/updateBiomeTransition)
+
 // --- ciel : redessiné (pas remplacé) pour permettre un fondu de biome -----
 let skyCanvas, skyCtx, skyTexture, skyClouds = [];
 
@@ -234,6 +239,24 @@ function buildMountainRange(){
   }
 }
 
+// Une "patte" = un pivot (la hanche) contenant un cylindre légèrement
+// effilé qui pend vers le bas + une petite boule (le coussinet) au bout.
+// Faire tourner pivot.rotation.x fait balancer toute la patte d'avant en
+// arrière, comme une articulation — c'est ce qu'anime animateLegs()
+// (render3d.js) pour donner un vrai cycle de course, là où avant les
+// personnages se contentaient de rebondir sans membres.
+function buildLeg(mat, length, radiusTop, radiusBottom){
+  const pivot = new THREE.Group();
+  const legGeo = new THREE.CylinderGeometry(radiusTop, radiusBottom, length, 5);
+  const mesh = new THREE.Mesh(legGeo, mat);
+  mesh.position.y = -length/2;
+  pivot.add(mesh);
+  const paw = new THREE.Mesh(new THREE.SphereGeometry(radiusBottom*1.2, 5, 4), mat);
+  paw.position.y = -length;
+  pivot.add(paw);
+  return pivot;
+}
+
 function buildCatGroup(colorHex, detailed){
   const g = new THREE.Group();
   const mat = detailed ? catMaterial : followerMaterial;
@@ -248,6 +271,17 @@ function buildCatGroup(colorHex, detailed){
   g.add(head);
 
   if(detailed){
+    const legPositions = [
+      [-0.15, 0.16, -0.2], [0.15, 0.16, -0.2],   // avant gauche/droite
+      [-0.15, 0.16, 0.22], [0.15, 0.16, 0.22]    // arrière gauche/droite
+    ];
+    g.userData.legs = legPositions.map(([x,y,z])=>{
+      const leg = buildLeg(mat, 0.16, 0.04, 0.028);
+      leg.position.set(x, y, z);
+      g.add(leg);
+      return leg;
+    });
+
     const earGeo = new THREE.ConeGeometry(0.09, 0.16, 4);
     const earL = new THREE.Mesh(earGeo, mat);
     earL.position.set(-0.13, 0.78, -0.34);
@@ -315,6 +349,17 @@ function buildBossGroup(mat){
   const eyeR = eyeL.clone();
   eyeR.position.x = 0.15;
   g.add(eyeR);
+
+  const legPositions = [
+    [-0.28, 0.42, -0.35], [0.28, 0.42, -0.35], // avant gauche/droite
+    [-0.28, 0.42, 0.35], [0.28, 0.42, 0.35]    // arrière gauche/droite
+  ];
+  g.userData.legs = legPositions.map(([x,y,z])=>{
+    const leg = buildLeg(mat, 0.42, 0.09, 0.06);
+    leg.position.set(x, y, z);
+    g.add(leg);
+    return leg;
+  });
 
   return g;
 }
@@ -543,6 +588,44 @@ function applyGrassMatrices(){
   grassInst.instanceMatrix.needsUpdate = true;
 }
 
+// Nuage de particules d'ambiance (neige/feuilles/sable selon le biome) —
+// un seul système réutilisé, dont la couleur/opacité/vitesse suivent le
+// fondu de biome comme le reste du décor. Toujours recentré autour du
+// joueur (voir updateDecor()), donc visible quelle que soit la position.
+function buildWeather(){
+  const geo = new THREE.IcosahedronGeometry(1, 0);
+  weatherMat = new THREE.MeshBasicMaterial({
+    color: BIOMES[0].weather.color, transparent:true, opacity: BIOMES[0].weather.opacity,
+    depthWrite:false, fog:false
+  });
+  const cap = 55;
+  weatherInst = new THREE.InstancedMesh(geo, weatherMat, cap);
+  weatherData = [];
+  for(let i=0;i<cap;i++){
+    weatherData.push({
+      x: (Math.random()-0.5)*9,
+      y: Math.random()*5.5,
+      z: PLAYER_Z + (Math.random()-0.5)*9,
+      rot: Math.random()*Math.PI
+    });
+  }
+  weatherInst.count = cap;
+  applyWeatherMatrices(BIOMES[0].weather.size);
+  scene.add(weatherInst);
+}
+
+function applyWeatherMatrices(size){
+  for(let i=0;i<weatherData.length;i++){
+    const p = weatherData[i];
+    decorDummy.position.set(p.x, p.y, p.z);
+    decorDummy.rotation.set(p.rot, p.rot*0.7, 0);
+    decorDummy.scale.setScalar(size);
+    decorDummy.updateMatrix();
+    weatherInst.setMatrixAt(i, decorDummy.matrix);
+  }
+  weatherInst.instanceMatrix.needsUpdate = true;
+}
+
 // --- défilement du décor (appelé à chaque tick fixe depuis update()) ------
 
 function updateDecor(){
@@ -572,6 +655,23 @@ function updateDecor(){
   // une longue partie). L'illusion d'avancer est déjà bien portée par le
   // sol/les props/l'herbe, qui sont assez proches pour qu'on voie leur
   // mouvement — les montagnes, elles, jouent juste un décor de fond fixe.
+
+  // météo d'ambiance : chute + léger vent latéral, recentrée sur le joueur
+  for(let i=0;i<weatherData.length;i++){
+    const p = weatherData[i];
+    p.y -= currentWeather.fallSpeed;
+    p.x += Math.sin(frame*0.01 + i) * currentWeather.driftSpeed * 0.3;
+    p.z += currentWeather.driftSpeed;
+    p.rot += 0.01;
+    if(p.y < -0.2 || p.z > PLAYER_Z + 5){
+      p.y = 5 + Math.random()*1.5;
+      p.x = playerX + (Math.random()-0.5)*9;
+      p.z = PLAYER_Z - 4 - Math.random()*5;
+    }
+  }
+  applyWeatherMatrices(currentWeather.size);
+  weatherMat.opacity = currentWeather.opacity;
+  weatherMat.color.setHex(currentWeather.color);
 
   // herbe : recyclage individuel des brins (proche du chemin, cycle rapide)
   for(let i=0;i<grassData.length;i++){
@@ -610,6 +710,7 @@ function applyBiomeInstant(index){
   hemiLight.color.setHex(b.hemiSky);
   hemiLight.groundColor.setHex(b.hemiGround);
   sunLight.color.setHex(b.sun);
+  currentWeather = Object.assign({}, b.weather);
   biomeAnimTo = null;
 }
 
@@ -626,7 +727,8 @@ function startBiomeTransition(index){
     grass: grassMat.color.getHex(),
     hemiSky: hemiLight.color.getHex(),
     hemiGround: hemiLight.groundColor.getHex(),
-    sun: sunLight.color.getHex()
+    sun: sunLight.color.getHex(),
+    weather: Object.assign({}, currentWeather)
   };
   biomeAnimTo = BIOMES[index];
   biomeAnimT = 0;
@@ -641,6 +743,7 @@ function lerpHex(fromHex, toHex, t){
   scratchColorA.lerp(scratchColorB, t);
   return scratchColorA.getHex();
 }
+function lerpNum(a, b, t){ return a + (b-a)*t; }
 
 let skyRedrawCounter = 0;
 function updateBiomeTransition(){
@@ -658,6 +761,13 @@ function updateBiomeTransition(){
   hemiLight.color.setHex(lerpHex(biomeAnimFrom.hemiSky, biomeAnimTo.hemiSky, t));
   hemiLight.groundColor.setHex(lerpHex(biomeAnimFrom.hemiGround, biomeAnimTo.hemiGround, t));
   sunLight.color.setHex(lerpHex(biomeAnimFrom.sun, biomeAnimTo.sun, t));
+  currentWeather = {
+    color: lerpHex(biomeAnimFrom.weather.color, biomeAnimTo.weather.color, t),
+    opacity: lerpNum(biomeAnimFrom.weather.opacity, biomeAnimTo.weather.opacity, t),
+    fallSpeed: lerpNum(biomeAnimFrom.weather.fallSpeed, biomeAnimTo.weather.fallSpeed, t),
+    driftSpeed: lerpNum(biomeAnimFrom.weather.driftSpeed, biomeAnimTo.weather.driftSpeed, t),
+    size: lerpNum(biomeAnimFrom.weather.size, biomeAnimTo.weather.size, t)
+  };
 
   currentSkySteps = biomeAnimFrom.skySteps.map((from,i)=>lerpHex(from, biomeAnimTo.skySteps[i], t));
   // redessiner le ciel (dégradé + nuages figés) coûte un peu plus cher que
@@ -734,6 +844,8 @@ function initScene(){
   scene.add(ground);
 
   buildProps();
+  buildWeather();
+  applyBiomeInstant(0); // fixe currentWeather (et recale tout le reste sur le biome 0, sans effet ici)
 
   // leader (le chat du joueur) — ombre portée dynamique (peu de casters, coût négligeable)
   leaderGroup = buildCatGroup(0xC97B4F, true);

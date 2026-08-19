@@ -12,7 +12,9 @@ const BIOMES = [
     foliageA: 0x6B8F71, foliageB: 0x7FA372,
     grass: 0x6F9A52,
     hemiSky: 0xfff6e0, hemiGround: 0x74926f,
-    sun: 0xfff1d8
+    sun: 0xfff1d8,
+    // météo d'ambiance : légers pollens flottants, discrets
+    weather: { color: 0xFFF6D8, opacity: 0.3, fallSpeed: 0.005, driftSpeed: 0.004, size: 0.032 }
   },
   { // 1 — Automne
     name: "automne",
@@ -23,7 +25,9 @@ const BIOMES = [
     foliageA: 0xC97B3D, foliageB: 0xB6472F,
     grass: 0xAD7A3E,
     hemiSky: 0xffe8c2, hemiGround: 0x8a6b4a,
-    sun: 0xffdca8
+    sun: 0xffdca8,
+    // feuilles mortes qui tombent
+    weather: { color: 0xC97B3D, opacity: 0.55, fallSpeed: 0.013, driftSpeed: 0.011, size: 0.07 }
   },
   { // 2 — Neige
     name: "neige",
@@ -34,7 +38,9 @@ const BIOMES = [
     foliageA: 0x7FA89B, foliageB: 0xE9F1F2,
     grass: 0xCFE0E2,
     hemiSky: 0xffffff, hemiGround: 0x9fb8c2,
-    sun: 0xf0f8ff
+    sun: 0xf0f8ff,
+    // chute de neige
+    weather: { color: 0xFFFFFF, opacity: 0.7, fallSpeed: 0.02, driftSpeed: 0.006, size: 0.05 }
   },
   { // 3 — Désert
     name: "desert",
@@ -45,6 +51,8 @@ const BIOMES = [
     foliageA: 0x8C9B4A, foliageB: 0xB58A4A,
     grass: 0xC0A25E,
     hemiSky: 0xfff2d0, hemiGround: 0xab8752,
-    sun: 0xffe6b0
+    sun: 0xffe6b0,
+    // poussière portée par le vent, surtout horizontale
+    weather: { color: 0xE8C48A, opacity: 0.4, fallSpeed: 0.003, driftSpeed: 0.022, size: 0.045 }
   }
 ];
