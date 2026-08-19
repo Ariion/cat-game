@@ -7,7 +7,9 @@ if(!webglSupported){
 }
 
 initScene();
+applyTranslations();
 updateBestScoreDisplays();
+updateMenuResumeButton();
 window.addEventListener('resize', onResize);
 
 // Pas de temps fixe : update() tourne toujours à un rythme stable

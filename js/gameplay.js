@@ -334,9 +334,13 @@ function update(){
           if(p.kind === 'heart'){ growHp(p.amount); }
           else { growHorde(p.amount); }
         }
+        const palierBefore = currentPalier();
         pickupsCleared++;
         pickupSpeed = Math.min(PICKUP_SPEED_MAX, PICKUP_SPEED_BASE + pickupsCleared*PICKUP_SPEED_PER_ITEM);
         updateHud();
+        if(currentPalier() > palierBefore){
+          showToast(t('palier_toast', {n: currentPalier()}));
+        }
         if(pickupsCleared % BOSS_INTERVAL_PICKUPS === 0 && !boss){
           spawnBoss();
         }
@@ -359,29 +363,32 @@ function update(){
   }
 }
 
-function catWord(){
-  return hordeCount > 1 ? 'chats' : 'chat';
-}
-
-function bossWord(){
-  return bossesDefeated > 1 ? 'chiens du quartier vaincus' : 'chien du quartier vaincu';
+// Un palier tous les PALIER_ITEMS objets ramassés — simple repère de
+// progression affiché dans le HUD et signalé par un toast, indépendant du
+// combat contre le boss (qui revient tous les BOSS_INTERVAL_PICKUPS).
+function currentPalier(){
+  return Math.floor(pickupsCleared / PALIER_ITEMS) + 1;
 }
 
 function showLose(reason){
   state = 'lose';
-  const cause = reason === 'boss' ? "Le chien du quartier t'a eu" : "Un chien t'a rattrapé";
-  document.getElementById('loseText').textContent =
-    `${cause} — ${hordeCount} ${catWord()}, ${formatTime(runTime)} de survie, ${bossesDefeated} ${bossWord()}.`;
+  const cause = reason === 'boss' ? t('lose_cause_boss') : t('lose_cause_enemy');
+  document.getElementById('loseText').textContent = t('lose_stats', {
+    cause, horde: hordeCount, cat: catWord(), time: formatTime(runTime),
+    bosses: bossesDefeated, boss: bossWord()
+  });
   document.getElementById('screenLose').classList.remove('hidden');
   document.getElementById('pauseBtn').classList.add('hidden');
   updateHud(); // met à jour le record de temps si dépassé, avant l'affichage du bouton Record
+  recordLeaderboardEntry();
 }
 
 function pauseGame(){
   if(state !== 'playing' || paused) return;
   paused = true;
-  document.getElementById('pauseStats').textContent =
-    `${hordeCount} ${catWord()} · ${formatTime(runTime)}`;
+  document.getElementById('pauseStats').textContent = t('pause_stats', {
+    horde: hordeCount, cat: catWord(), palier: currentPalier(), time: formatTime(runTime)
+  });
   document.getElementById('screenPause').classList.remove('hidden');
 }
 

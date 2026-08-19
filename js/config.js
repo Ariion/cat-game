@@ -20,6 +20,7 @@ const PICKUP_RESOLVE_RANGE = 1.4; // marge autour de PLAYER_Z pour déclencher l
 const PICKUP_REMOVE_Z = 9;        // distance après laquelle un objet franchi est retiré
 const PICKUP_RADIUS = 0.85;       // tolérance latérale pour "toucher" un bonus/malus
 const BOSS_INTERVAL_PICKUPS = 15; // le boss revient tous les N objets — jeu infini, pas de fin sur victoire
+const PALIER_ITEMS = 5;           // un palier de progression (HUD + toast) tous les N objets ramassés
 const PICKUP_SPEED_BASE = 0.16;
 const PICKUP_SPEED_PER_ITEM = 0.009;
 const PICKUP_SPEED_MAX = 0.32;
