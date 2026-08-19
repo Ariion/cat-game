@@ -547,7 +547,7 @@ function applyGrassMatrices(){
 
 function updateDecor(){
   if(!webglSupported) return;
-  const speed = pickupSpeed;
+  const speed = DECOR_SCROLL_SPEED;
 
   // sol : on ne déplace rien, on fait défiler la texture — pas cher, et
   // marche quelle que soit la longueur du plan
@@ -565,12 +565,13 @@ function updateDecor(){
     }
   }
 
-  // montagnes : défilent plus lentement (parallaxe = profondeur)
+  // montagnes : arrière-plan lointain, défilement très ralenti (parallaxe)
+  // et recyclées bien avant d'approcher le joueur (voir MOUNTAIN_RECYCLE_Z)
   for(let i=0;i<decorMountains.length;i++){
     const m = decorMountains[i];
     m.mesh.position.z += speed * m.parallax;
-    if(m.mesh.position.z > -6){
-      m.mesh.position.z = -50 - Math.random()*10;
+    if(m.mesh.position.z > MOUNTAIN_RECYCLE_Z){
+      m.mesh.position.z = -70 - Math.random()*15;
     }
   }
 

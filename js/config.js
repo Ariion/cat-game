@@ -28,6 +28,21 @@ const PALIER_ITEMS = 5;           // un palier de progression (HUD + toast) tous
 // et updateDecor()/startBiomeTransition() dans scene3d.js.
 const BIOME_PALIER_SPAN = 5;         // nombre de paliers avant de changer de biome
 const BIOME_TRANSITION_SECONDS = 3.5; // durée du fondu entre deux biomes
+
+// Vitesse de défilement du décor (sol/props/herbe) — VOLONTAIREMENT
+// découplée de pickupSpeed et plus lente que ENEMY_SPEED_BASE (0.045).
+// Sinon le décor défile plus vite que les ennemis n'avancent, et ceux-ci
+// donnent l'impression de reculer par rapport au monde qui défile autour
+// d'eux — repéré : "il faut que les chiens viennent vers nous, on dirait
+// qu'ils n'attaquent pas". Les ennemis doivent toujours gagner du terrain
+// par rapport au décor, à n'importe quelle vitesse d'ennemi.
+const DECOR_SCROLL_SPEED = 0.035;
+// Les montagnes sont énormes et censées rester un arrière-plan lointain :
+// défilement encore ralenti (profondeur/parallaxe) et recyclées bien avant
+// d'approcher le joueur — sinon un cône de rayon 7-11 recyclé trop près
+// remplit tout l'écran d'un aplat de couleur (repéré sur le terrain).
+const MOUNTAIN_PARALLAX = 0.18;
+const MOUNTAIN_RECYCLE_Z = -25;
 const PICKUP_SPEED_BASE = 0.16;
 const PICKUP_SPEED_PER_ITEM = 0.009;
 const PICKUP_SPEED_MAX = 0.32;
