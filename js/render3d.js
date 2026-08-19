@@ -11,6 +11,9 @@ function syncLeader(){
   leaderGroup.position.y = bob;
   const targetLean = Math.max(-0.3, Math.min(0.3, (playerTargetX-playerX) * 0.6));
   leaderGroup.rotation.z += (targetLean - leaderGroup.rotation.z) * 0.2;
+  // clignote pendant la brève invulnérabilité après un coup, sinon rien ne
+  // montre au joueur qu'il vient d'être protégé d'un enchaînement de dégâts
+  leaderGroup.visible = invulnTimer <= 0 || frame % 6 < 3;
 }
 
 function syncFollowers(){

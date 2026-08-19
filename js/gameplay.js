@@ -87,7 +87,7 @@ function growHp(amount){
 }
 
 function takeDamage(amount, reason){
-  if(invulnTimer > 0) return; // brève grâce après une reprise sur pub
+  if(invulnTimer > 0) return; // grâce en cours (juste touché, ou reprise sur pub)
   hp = Math.max(0, hp - amount);
   spawnBurst(playerX, 0.5, PLAYER_Z, 0x8A2E3B);
   sfx.hurt();
@@ -95,7 +95,10 @@ function takeDamage(amount, reason){
   shakeTimer = 14;
   shakeIntensity = 0.18;
   updateHud();
-  if(hp <= 0){ showLose(reason); }
+  if(hp <= 0){ showLose(reason); return; }
+  // brève invulnérabilité après CHAQUE coup, sinon plusieurs ennemis qui
+  // arrivent groupés peuvent tuer d'un coup sans la moindre chance de réagir
+  invulnTimer = HIT_INVULN_FRAMES;
 }
 
 function spawnBurst(x,y,z,color){
@@ -133,6 +136,14 @@ function updateParticles(){
 }
 
 // --- ennemis en vagues -------------------------------------------------
+
+// Démarre lent et se resserre avec la progression — sans ça, la difficulté
+// est déjà à son maximum dès la 1ère seconde et la partie est injouable
+// avant même que la horde ait eu le temps de grossir un minimum.
+function enemySpawnInterval(){
+  const t = Math.min(1, pickupsCleared / ENEMY_SPAWN_INTERVAL_RAMP_ITEMS);
+  return Math.round(ENEMY_SPAWN_INTERVAL_START + (ENEMY_SPAWN_INTERVAL_MIN - ENEMY_SPAWN_INTERVAL_START) * t);
+}
 
 function spawnWave(){
   const count = Math.min(
@@ -328,7 +339,7 @@ function update(){
 
     if(!boss){
       enemySpawnTimer++;
-      if(enemySpawnTimer >= ENEMY_SPAWN_INTERVAL_FRAMES){
+      if(enemySpawnTimer >= enemySpawnInterval()){
         enemySpawnTimer = 0;
         spawnWave();
       }
