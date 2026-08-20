@@ -36,115 +36,6 @@ function syncLeader(){
   }
 }
 
-// Répartition en spirale "tournesol" (angle d'or) plutôt qu'un tirage
-// aléatoire dans un petit disque fixe : la seule façon de faire tenir
-// jusqu'à 200 suiveurs sans qu'ils s'empilent les uns sur les autres est
-// que le rayon occupé grandisse avec leur nombre (racine carrée de
-// l'index, densité ~constante) — une horde de 5 reste compacte, une
-// horde de 150 s'étale largement autour du meneur.
-const GOLDEN_ANGLE = 2.399963;
-const FOLLOWER_SPREAD = 0.34;
-
-// Fait tourner un décalage local (dx,dz) de l'angle donné autour de Y —
-// pour que tête/oreilles/queue suivent l'orientation (faceAngle) de
-// chaque chat au lieu de rester figées dans une direction fixe quelle que
-// soit la façon dont le corps est tourné (ce qui faisait flotter les
-// oreilles n'importe où, décrochées de la tête).
-function rotateOffsetY(dx, dz, angle){
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  return [dx*cos + dz*sin, -dx*sin + dz*cos];
-}
-
-function syncFollowers(){
-  const n = cats.length;
-  // Les chats en périphérie du groupe (derniers index — la spirale remplit
-  // du centre vers le bord) portent une queue ; les autres sont de toute
-  // façon cachés par la masse, inutile de la payer partout.
-  const edgeStart = Math.max(0, n - FOLLOWER_EDGE_TAIL_COUNT);
-  let tailIdx = 0;
-  for(let i=0;i<n;i++){
-    const c = cats[i];
-    const spiralAngle = i * GOLDEN_ANGLE + frame*0.006; // rotation lente d'ensemble
-    const spreadRadius = FOLLOWER_SPREAD * Math.sqrt(i+1);
-    const ox = Math.cos(spiralAngle) * spreadRadius;
-    const oz = Math.sin(spiralAngle) * spreadRadius*0.75 + 0.6;
-    const bob = Math.sin((frame + c.bob) * c.bobSpeed) * c.bobAmp;
-    const x = playerX + ox;
-    const z = PLAYER_Z + oz;
-    const bodyY = bob + 0.34*c.size;
-    const headY = bob + 0.58*c.size;
-    const [headOx, headOz] = rotateOffsetY(0, -0.28*c.size, c.faceAngle);
-    const headX = x + headOx;
-    const headZ = z + headOz;
-
-    dummy3D.rotation.set(0, c.faceAngle, 0);
-
-    dummy3D.position.set(x, bodyY, z);
-    dummy3D.scale.setScalar(c.size);
-    dummy3D.updateMatrix();
-    followerBodyInst.setMatrixAt(i, dummy3D.matrix);
-    dummy3D.scale.setScalar(c.size * FOLLOWER_OUTLINE_SCALE);
-    dummy3D.updateMatrix();
-    followerBodyOutlineInst.setMatrixAt(i, dummy3D.matrix);
-
-    dummy3D.position.set(headX, headY, headZ);
-    dummy3D.scale.setScalar(c.size*0.75);
-    dummy3D.updateMatrix();
-    followerHeadInst.setMatrixAt(i, dummy3D.matrix);
-    dummy3D.scale.setScalar(c.size*0.75 * FOLLOWER_OUTLINE_SCALE);
-    dummy3D.updateMatrix();
-    followerHeadOutlineInst.setMatrixAt(i, dummy3D.matrix);
-
-    // oreilles surdimensionnées, couleur crème contrastante — le signal
-    // n°1 pour lire "chat" en silhouette à cette échelle. Décalage ET
-    // orientation tournent avec faceAngle, pour rester attachées à la
-    // tête quel que soit le sens dans lequel le chat est tourné.
-    const [earLOx, earLOz] = rotateOffsetY(-0.1*c.size, 0, c.faceAngle);
-    dummy3D.rotation.set(0, c.faceAngle, -0.35);
-    dummy3D.position.set(headX + earLOx, headY + 0.16*c.size, headZ + earLOz);
-    dummy3D.scale.setScalar(c.size*0.7);
-    dummy3D.updateMatrix();
-    followerEarInst.setMatrixAt(i*2, dummy3D.matrix);
-    const [earROx, earROz] = rotateOffsetY(0.1*c.size, 0, c.faceAngle);
-    dummy3D.rotation.set(0, c.faceAngle, 0.35);
-    dummy3D.position.set(headX + earROx, headY + 0.16*c.size, headZ + earROz);
-    dummy3D.updateMatrix();
-    followerEarInst.setMatrixAt(i*2+1, dummy3D.matrix);
-
-    if(i >= edgeStart){
-      const [tailOx, tailOz] = rotateOffsetY(0, 0.32*c.size, c.faceAngle);
-      dummy3D.rotation.set(-0.7, c.faceAngle, 0);
-      dummy3D.position.set(x + tailOx, bodyY + 0.12*c.size, z + tailOz);
-      dummy3D.scale.setScalar(c.size);
-      dummy3D.updateMatrix();
-      followerTailInst.setMatrixAt(tailIdx, dummy3D.matrix);
-      tailIdx++;
-    }
-
-    dummy3D.rotation.set(0, 0, 0);
-    dummy3D.position.set(x, 0.01, z);
-    dummy3D.scale.setScalar(c.size);
-    dummy3D.updateMatrix();
-    followerShadowInst.setMatrixAt(i, dummy3D.matrix);
-  }
-  followerBodyInst.count = n;
-  followerHeadInst.count = n;
-  followerBodyOutlineInst.count = n;
-  followerHeadOutlineInst.count = n;
-  followerEarInst.count = n*2;
-  followerTailInst.count = tailIdx;
-  followerShadowInst.count = n;
-  if(n > 0){
-    followerBodyInst.instanceMatrix.needsUpdate = true;
-    followerHeadInst.instanceMatrix.needsUpdate = true;
-    followerBodyOutlineInst.instanceMatrix.needsUpdate = true;
-    followerHeadOutlineInst.instanceMatrix.needsUpdate = true;
-    followerEarInst.instanceMatrix.needsUpdate = true;
-    followerShadowInst.instanceMatrix.needsUpdate = true;
-  }
-  if(tailIdx > 0) followerTailInst.instanceMatrix.needsUpdate = true;
-}
-
 function syncPickups(){
   // portes DROITES posées au sol (pas d'arche, pas de rotation) : seul un
   // très léger flottement vertical reste, pour ne pas paraître figées
@@ -200,7 +91,6 @@ function syncCamera(){
 function render(){
   if(!webglSupported) return;
   syncLeader();
-  syncFollowers();
   syncPickups();
   syncEnemies();
   syncBoss();

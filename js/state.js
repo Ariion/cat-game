@@ -16,7 +16,6 @@ let pickups = [];       // bonus/malus flottants {kind, amount, x, z, resolved, 
 let pickupsCleared = 0;
 let pickupSpeed = PICKUP_SPEED_BASE;
 let pickupTimer = 0;
-let cats = []; // membres de la horde (suiveurs) {angle, radius, bob, size}
 let particles = [];
 let shakeTimer = 0;
 let shakeIntensity = 0;
@@ -50,7 +49,6 @@ function resetGame(){
   pickupsCleared = 0;
   pickupSpeed = PICKUP_SPEED_BASE;
   pickupTimer = 0;
-  cats = [];
   particles = [];
   shakeTimer = 0;
   shakeIntensity = 0;
@@ -239,7 +237,6 @@ function loadGame(){
   bossesDefeated = save.bossesDefeated || 0;
   pickupsCleared = save.pickupsCleared || 0;
   pickupSpeed = save.pickupSpeed || PICKUP_SPEED_BASE;
-  rebuildHordeVisual();
   // resetGame() a remis le biome à 0 (Prairie) — il faut le rattraper
   // instantanément au palier correspondant à la progression restaurée,
   // sans le fondu (qui n'a de sens que pour une transition vécue en jeu)
@@ -269,21 +266,3 @@ function goToMenu(){
   updateBestScoreDisplays();
 }
 
-function rebuildHordeVisual(){
-  const target = Math.min(hordeCount - 1, MAX_INSTANCED_CATS); // -1 : le leader n'est pas un suiveur
-  while(cats.length < target){
-    cats.push({
-      // déphasage sur tout le cycle (pas juste ±10 sur une période de ~63
-      // frames) + vitesse/amplitude propres à chacun — sinon la horde lit
-      // comme une texture qui vibre en bloc plutôt que des individus vivants
-      bob: Math.random()*1000,
-      bobSpeed: 0.08 + Math.random()*0.05,
-      bobAmp: 0.04 + Math.random()*0.025,
-      faceAngle: Math.random()*Math.PI*2, // orientation individuelle, indépendante de la position
-      size: 0.75 + Math.random()*0.5
-    });
-  }
-  while(cats.length > target && cats.length > 0){
-    cats.pop();
-  }
-}

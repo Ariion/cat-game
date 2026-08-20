@@ -9,7 +9,6 @@ const PLAYER_X_MIN = -2.6;
 const PLAYER_X_MAX = 2.6;
 const PLAYER_MOVE_LERP = 0.18;  // lissage du suivi du doigt/clavier
 const PLAYER_KEY_SPEED = 0.09;  // vitesse de déplacement au clavier (par tick)
-const MAX_INSTANCED_CATS = 200; // capacité du buffer d'instances (perf mobile)
 const BOSS_BATTLE_Z = -3;       // position où le chien s'arrête face au joueur
 
 // Bonus/malus : ils flottent n'importe où sur la largeur du chemin (plus de
@@ -145,15 +144,6 @@ const LEADER_SCALE_MIN = 0.8;
 const LEADER_SCALE_MAX = 1.75;
 const LEADER_SCALE_SATURATE_AT = 150;
 
-// Lisibilité de la horde de suiveurs : à cette échelle (petit, en
-// mouvement, vu de dos/dessus), l'œil ne lit jamais chaque chat un par un
-// — il capte des signaux répétés en bordure et extrapole. D'où : oreilles
-// surdimensionnées + contour sombre sur TOUS les suiveurs (les 2 signaux
-// qui lisent "chat" en silhouette), mais la queue seulement sur ceux en
-// périphérie du groupe (les autres sont de toute façon cachés par la
-// masse) — inutile de la payer partout.
-const FOLLOWER_EDGE_TAIL_COUNT = 30;
-const FOLLOWER_OUTLINE_SCALE = 1.05; // fin, pas un contour épais façon autocollant (1.12 rendait "hyper moche")
 const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par biome (voir BIOMES.gameplayMods)
 
 // Brève invulnérabilité après CHAQUE coup encaissé (pas seulement après une

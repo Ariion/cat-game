@@ -76,7 +76,6 @@ function spawnPickupEvent(){
 
 function growHorde(amount){
   hordeCount = Math.max(1, hordeCount + amount);
-  rebuildHordeVisual();
   spawnBurst(playerX, 0.6, PLAYER_Z, amount >= 0 ? 0x6B8F71 : 0x5B8FBF);
   if(amount >= 0){
     sfx.croquette();
@@ -443,6 +442,7 @@ function update(){
     updateAttacks();
     updateDecor(); // défilement du décor + fondu de biome — pas fixe, comme tout le reste
     updateDogAnimations(); // anime les vrais modèles 3D de chien (une fois chargés)
+    if(webglSupported) updateLeaderPowerLabel(attackDamage());
   }
 }
 

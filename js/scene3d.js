@@ -26,14 +26,10 @@ const webglSupported = checkWebGL();
 let scene, camera, renderer, sunLight, hemiLight;
 let leaderGroup, bossGroup;
 let enemyVisuals = []; // pool de groupes 3D réutilisés, index-aligné avec enemyPool (state.js)
-let followerBodyInst, followerHeadInst, followerShadowInst;
-let followerEarInst, followerTailInst, followerBodyOutlineInst, followerHeadOutlineInst;
-let followerEarMaterial, followerOutlineMaterial;
 let doorGlowTexture;
-let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
+let catMaterial, bossMaterial, enemyMaterial;
 let particleGeometry, projectileGeometry;
 let projectileGlowMaterial;
-const dummy3D = webglSupported ? new THREE.Object3D() : null;
 
 // --- décor recyclable (défilement façon tapis roulant) --------------------
 let groundMat, groundRepeatV = 22, groundLengthZ = 90;
@@ -314,78 +310,115 @@ function buildLeg(mat, length, radiusTop, radiusBottom){
   return pivot;
 }
 
-function buildCatGroup(colorHex, detailed){
+// Le chat meneur — désormais le SEUL chat du jeu (plus de horde de
+// suiveurs, voir buildPowerLabel() pour comment sa puissance grandissante
+// se voit à la place). Proportions "chaton" (tête large, grands yeux) pour
+// rester mignon même une fois agrandi par leaderScale().
+function buildCatGroup(){
   const g = new THREE.Group();
-  const mat = detailed ? catMaterial : followerMaterial;
+  const mat = catMaterial;
 
-  // Le meneur (detailed) a une tête bien plus grosse par rapport au corps
-  // que les suiveurs — proportions "chaton" plutôt que chat adulte, pour
-  // rester mignon même une fois agrandi par leaderScale().
-  const bodyRadius = detailed ? 0.29 : 0.32;
-  const headRadius = detailed ? 0.30 : 0.24;
-
-  const body = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 10, 8), mat);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.29, 10, 8), mat);
   body.scale.set(1, 0.82, 1.35);
   body.position.y = 0.34;
   g.add(body);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(headRadius, 10, 8), mat);
-  head.position.set(0, detailed ? 0.56 : 0.58, detailed ? -0.28 : -0.32);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.30, 10, 8), mat);
+  head.position.set(0, 0.56, -0.28);
   g.add(head);
 
-  if(detailed){
-    const legPositions = [
-      [-0.15, 0.16, -0.2], [0.15, 0.16, -0.2],   // avant gauche/droite
-      [-0.15, 0.16, 0.22], [0.15, 0.16, 0.22]    // arrière gauche/droite
-    ];
-    g.userData.legs = legPositions.map(([x,y,z])=>{
-      const leg = buildLeg(mat, 0.16, 0.04, 0.028);
-      leg.position.set(x, y, z);
-      g.add(leg);
-      return leg;
-    });
+  const legPositions = [
+    [-0.15, 0.16, -0.2], [0.15, 0.16, -0.2],   // avant gauche/droite
+    [-0.15, 0.16, 0.22], [0.15, 0.16, 0.22]    // arrière gauche/droite
+  ];
+  g.userData.legs = legPositions.map(([x,y,z])=>{
+    const leg = buildLeg(mat, 0.16, 0.04, 0.028);
+    leg.position.set(x, y, z);
+    g.add(leg);
+    return leg;
+  });
 
-    // oreilles plus grandes, proportionnées à la tête agrandie
-    const earGeo = new THREE.ConeGeometry(0.105, 0.19, 4);
-    const earL = new THREE.Mesh(earGeo, mat);
-    earL.position.set(-0.15, 0.78, -0.3);
-    earL.rotation.z = -0.3;
-    g.add(earL);
-    const earR = earL.clone();
-    earR.position.x = 0.15;
-    earR.rotation.z = 0.3;
-    g.add(earR);
+  // oreilles plus grandes, proportionnées à la tête agrandie
+  const earGeo = new THREE.ConeGeometry(0.105, 0.19, 4);
+  const earL = new THREE.Mesh(earGeo, mat);
+  earL.position.set(-0.15, 0.78, -0.3);
+  earL.rotation.z = -0.3;
+  g.add(earL);
+  const earR = earL.clone();
+  earR.position.x = 0.15;
+  earR.rotation.z = 0.3;
+  g.add(earR);
 
-    const tail1 = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.06,0.5,6), mat);
-    tail1.position.set(0, 0.42, 0.55);
-    tail1.rotation.x = -0.9;
-    g.add(tail1);
-    const tail2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.045,0.35,6), mat);
-    tail2.position.set(0, 0.62, 0.78);
-    tail2.rotation.x = -1.9;
-    g.add(tail2);
+  const tail1 = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.06,0.5,6), mat);
+  tail1.position.set(0, 0.42, 0.55);
+  tail1.rotation.x = -0.9;
+  g.add(tail1);
+  const tail2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.045,0.35,6), mat);
+  tail2.position.set(0, 0.62, 0.78);
+  tail2.rotation.x = -1.9;
+  g.add(tail2);
 
-    // grands yeux ronds, bien espacés — l'essentiel du charme "chaton"
-    const eyeGeo = new THREE.SphereGeometry(0.05, 8, 6);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 });
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.11, 0.58, -0.5);
-    g.add(eyeL);
-    const eyeR = eyeL.clone();
-    eyeR.position.x = 0.11;
-    g.add(eyeR);
-    // petit reflet blanc dans chaque œil, pour un regard vivant
-    const glintGeo = new THREE.SphereGeometry(0.016, 5, 4);
-    const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const glintL = new THREE.Mesh(glintGeo, glintMat);
-    glintL.position.set(-0.085, 0.6, -0.535);
-    g.add(glintL);
-    const glintR = glintL.clone();
-    glintR.position.x = 0.085;
-    g.add(glintR);
-  }
+  // grands yeux ronds, bien espacés — l'essentiel du charme "chaton"
+  const eyeGeo = new THREE.SphereGeometry(0.05, 8, 6);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 });
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.11, 0.58, -0.5);
+  g.add(eyeL);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.11;
+  g.add(eyeR);
+  // petit reflet blanc dans chaque œil, pour un regard vivant
+  const glintGeo = new THREE.SphereGeometry(0.016, 5, 4);
+  const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const glintL = new THREE.Mesh(glintGeo, glintMat);
+  glintL.position.set(-0.085, 0.6, -0.535);
+  g.add(glintL);
+  const glintR = glintL.clone();
+  glintR.position.x = 0.085;
+  g.add(glintR);
 
   return g;
+}
+
+// Étiquette flottante au-dessus du chat, affichant sa puissance (les
+// dégâts de son tir — voir attackDamage() dans gameplay.js) en toutes
+// lettres, mise à jour uniquement quand la valeur affichée change (pas de
+// redessin de canvas à chaque frame). Remplace la horde de suiveurs comme
+// façon de "voir" la puissance grandir.
+let powerLabelCanvas, powerLabelCtx, powerLabelTexture, lastDisplayedPower = -1;
+
+function buildPowerLabel(){
+  powerLabelCanvas = document.createElement('canvas');
+  powerLabelCanvas.width = 220; powerLabelCanvas.height = 90;
+  powerLabelCtx = powerLabelCanvas.getContext('2d');
+  powerLabelTexture = new THREE.CanvasTexture(powerLabelCanvas);
+  const mat = new THREE.SpriteMaterial({ map: powerLabelTexture, transparent:true, depthWrite:false, fog:false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.3, 0.53, 1);
+  sprite.position.set(0, 1.15, 0);
+  sprite.renderOrder = 3;
+  return sprite;
+}
+
+function redrawPowerLabel(value){
+  const c = powerLabelCanvas, cx = powerLabelCtx;
+  cx.clearRect(0, 0, c.width, c.height);
+  cx.font = '800 44px Fredoka, sans-serif';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  const label = '⚡ ' + value;
+  cx.lineWidth = 8;
+  cx.strokeStyle = 'rgba(59,50,38,0.85)';
+  cx.strokeText(label, c.width/2, c.height/2);
+  cx.fillStyle = '#ffffff';
+  cx.fillText(label, c.width/2, c.height/2);
+  powerLabelTexture.needsUpdate = true;
+}
+
+function updateLeaderPowerLabel(value){
+  if(value === lastDisplayedPower) return;
+  lastDisplayedPower = value;
+  redrawPowerLabel(value);
 }
 
 function buildBossGroup(mat){
@@ -1098,10 +1131,8 @@ function initScene(){
 
   // matériaux partagés
   catMaterial = new THREE.MeshStandardMaterial({ color: 0xC97B4F, flatShading:true, roughness:0.8 });
-  followerMaterial = new THREE.MeshStandardMaterial({ color: 0xD9A066, flatShading:true, roughness:0.8 });
   bossMaterial = new THREE.MeshStandardMaterial({ color: BOSS_TINT, flatShading:true, roughness:0.8 });
   enemyMaterial = new THREE.MeshStandardMaterial({ color: ENEMY_TINT, flatShading:true, roughness:0.8 });
-  shadowMaterial = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.18 });
 
   doorGlowTexture = createGlowTexture();
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
@@ -1130,7 +1161,7 @@ function initScene(){
   // (userData.catVisual) — voir upgradeCatToRealModel(), même logique que
   // pour les chiens : procédural tout de suite, vrai modèle une fois chargé.
   leaderGroup = new THREE.Group();
-  const catVisual = buildCatGroup(0xC97B4F, true);
+  const catVisual = buildCatGroup();
   leaderGroup.add(catVisual);
   leaderGroup.userData.catVisual = catVisual;
   leaderGroup.userData.legs = catVisual.userData.legs;
@@ -1177,52 +1208,14 @@ function initScene(){
   loadDogModels();
 
   // Suiveurs de la horde, en instanced mesh pour rester léger sur mobile.
-  // Lisibilité en foule : à cette échelle l'œil ne détaille jamais chaque
-  // chat, il capte 2-3 signaux répétés — d'où des oreilles surdimensionnées
-  // et contrastées (le signal n°1 qui lit "chat" en silhouette) et un
-  // contour sombre sur chacun (les sépare du sol/de la lumière ambiante,
-  // sinon trop proches en teinte). La queue, elle, ne va que sur les chats
-  // en bordure du groupe (voir syncFollowers) : les autres sont cachés par
-  // la masse de toute façon, inutile de la payer partout.
-  const followerBodyGeo = new THREE.SphereGeometry(0.32, 8, 6);
-  followerBodyInst = new THREE.InstancedMesh(followerBodyGeo, followerMaterial, MAX_INSTANCED_CATS);
-  followerBodyInst.count = 0;
-  scene.add(followerBodyInst);
-
-  const followerHeadGeo = new THREE.SphereGeometry(0.22, 8, 6);
-  followerHeadInst = new THREE.InstancedMesh(followerHeadGeo, followerMaterial, MAX_INSTANCED_CATS);
-  followerHeadInst.count = 0;
-  scene.add(followerHeadInst);
-
-  followerEarMaterial = new THREE.MeshStandardMaterial({ color: 0xFCEFD9, flatShading:true, roughness:0.85 });
-  const followerEarGeo = new THREE.ConeGeometry(0.09, 0.2, 4);
-  followerEarInst = new THREE.InstancedMesh(followerEarGeo, followerEarMaterial, MAX_INSTANCED_CATS*2);
-  followerEarInst.count = 0;
-  scene.add(followerEarInst);
-
-  const followerTailGeo = new THREE.CylinderGeometry(0.02, 0.035, 0.36, 5);
-  followerTailInst = new THREE.InstancedMesh(followerTailGeo, followerMaterial, FOLLOWER_EDGE_TAIL_COUNT);
-  followerTailInst.count = 0;
-  scene.add(followerTailInst);
-
-  // contour ("coque inversée" : silhouette agrandie, rendue de l'intérieur
-  // — BackSide — donc seule une fine bordure dépasse de la vraie surface)
-  // brun chaud plutôt que quasi-noir : un vrai noir + un contour épais
-  // donnait un effet "autocollant" trop dur, en rupture avec le rendu
-  // adouci du reste du jeu
-  followerOutlineMaterial = new THREE.MeshBasicMaterial({ color: 0x5A4128, side: THREE.BackSide });
-  followerBodyOutlineInst = new THREE.InstancedMesh(followerBodyGeo, followerOutlineMaterial, MAX_INSTANCED_CATS);
-  followerBodyOutlineInst.count = 0;
-  scene.add(followerBodyOutlineInst);
-  followerHeadOutlineInst = new THREE.InstancedMesh(followerHeadGeo, followerOutlineMaterial, MAX_INSTANCED_CATS);
-  followerHeadOutlineInst.count = 0;
-  scene.add(followerHeadOutlineInst);
-
-  const shadowGeo = new THREE.CircleGeometry(0.3, 8);
-  shadowGeo.rotateX(-Math.PI/2);
-  followerShadowInst = new THREE.InstancedMesh(shadowGeo, shadowMaterial, MAX_INSTANCED_CATS);
-  followerShadowInst.count = 0;
-  scene.add(followerShadowInst);
+  // Un seul chat, pas de horde visuelle (la foule de suiveurs — essayée,
+  // retouchée deux fois — ne convainquait pas). Sa puissance grandissante
+  // s'affiche à la place via une étiquette flottante au-dessus de sa tête
+  // (voir buildPowerLabel()/updateLeaderPowerLabel()) plutôt que par un
+  // nombre de modèles 3D à l'écran.
+  const powerLabel = buildPowerLabel();
+  leaderGroup.add(powerLabel);
+  leaderGroup.userData.powerLabel = powerLabel;
 
   onResize();
 }
