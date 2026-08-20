@@ -3,6 +3,16 @@
 - `dog-husky.glb`, `dog-shiba.glb` — Quaternius, licence CC0 (domaine public,
   aucune attribution requise). https://quaternius.com
 - `grass-1.glb`, `grass-2.glb`, `grass-short.glb` — Quaternius, licence CC0.
+- `cat-kitten.obj` — source/licence INCONNUES. Envoyé directement par
+  l'utilisateur (nommé "Cat.obj"), sans indication d'origine ni de licence.
+  Le fichier contient un 2ᵉ objet sans rapport ("Pattern_decor_design_...
+  download_free_stl_files_3d_mo") qui ressemble à un nom de fichier venant
+  d'un site de partage de STL (type Thingiverse/Printables/Cults3D) — ces
+  sites mélangent des modèles libres et des modèles sous licence plus
+  restrictive (attribution, usage non-commercial...). À vérifier auprès de
+  l'utilisateur avant toute publication/usage commercial du jeu ; on ignore
+  et n'affiche jamais l'objet "Pattern_decor..." (uniquement "Gato" est
+  utilisé).
 
 CC0 ne demande aucune attribution légalement, mais on note la source ici
 par courtoisie et pour se souvenir d'où ça vient si on doit re-télécharger

@@ -578,6 +578,50 @@ function updateDogAnimations(){
   }
 }
 
+// --- chat meneur en vrai modèle 3D (statique — le format .obj ne permet
+// aucun rig/animation, contrairement aux chiens en .glb) ------------------
+// Chargé en arrière-plan comme les chiens : le chat procédural (avec ses
+// pattes animées) reste affiché tant que ça charge, remplacé une fois prêt.
+const CAT_MODEL_URL = 'assets/models/cat-kitten.obj';
+const CAT_MODEL_BASE_HEIGHT = 0.85; // hauteur cible à leaderScale()=1, proche de la taille du modèle procédural
+let catModelMesh = null; // mesh normalisé (centré, pattes à y=0, orienté vers -Z), prêt à cloner
+
+function loadCatModel(){
+  if(!webglSupported || typeof THREE.OBJLoader !== 'function') return;
+  const loader = new THREE.OBJLoader();
+  loader.load(CAT_MODEL_URL, group=>{
+    const gato = group.children.find(c => c.name === 'Gato');
+    if(!gato){ console.warn('Objet "Gato" introuvable dans ' + CAT_MODEL_URL + ', chat procédural conservé.'); return; }
+    const box = new THREE.Box3().setFromObject(gato);
+    const center = box.getCenter(new THREE.Vector3());
+    // recentre la géométrie elle-même (pas juste la position), pattes au
+    // sol — ainsi la rotation ci-dessous (préservée par mesh.clone()) pivote
+    // bien autour du centre du chat, pas d'un coin de sa boîte englobante
+    gato.geometry.translate(-center.x, -box.min.y, -center.z);
+    gato.rotation.y = Math.PI; // le modèle regarde vers +Z, il nous faut -Z
+    gato.material = new THREE.MeshStandardMaterial({ color: 0xC97B4F, roughness: 0.75 });
+    gato.castShadow = true;
+    const naturalHeight = box.max.y - box.min.y;
+    gato.userData.scaleToBaseHeight = CAT_MODEL_BASE_HEIGHT / naturalHeight;
+    catModelMesh = gato;
+    upgradeCatToRealModel();
+  }, undefined, err=>{
+    console.warn('Modèle 3D du chat indisponible, chat procédural conservé.', err);
+  });
+}
+
+function upgradeCatToRealModel(){
+  if(!catModelMesh || !leaderGroup) return;
+  const old = leaderGroup.userData.catVisual;
+  leaderGroup.remove(old);
+  disposeProceduralGroup(old);
+  const mesh = catModelMesh.clone(); // partage géométrie/matériau (une seule instance affichée, pas de pool)
+  mesh.scale.setScalar(catModelMesh.userData.scaleToBaseHeight);
+  leaderGroup.add(mesh);
+  leaderGroup.userData.catVisual = mesh;
+  leaderGroup.userData.legs = null; // pas de rig — animateLegs() ne fait rien sur null, déjà géré
+}
+
 const PICKUP_COLORS = {
   croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A,
   shield: 0xE3A857, multishot: 0x9B6FC9, magnet: 0x4FBEBE
@@ -1073,11 +1117,20 @@ function initScene(){
   buildWeather();
   applyBiomeInstant(0); // fixe currentWeather (et recale tout le reste sur le biome 0, sans effet ici)
 
-  // leader (le chat du joueur) — ombre portée dynamique (peu de casters, coût négligeable)
-  leaderGroup = buildCatGroup(0xC97B4F, true);
+  // leader (le chat du joueur) — ombre portée dynamique (peu de casters, coût négligeable).
+  // leaderGroup est un simple conteneur (position/rotation/échelle globale +
+  // halo bouclier) ; le chat lui-même est un enfant remplaçable
+  // (userData.catVisual) — voir upgradeCatToRealModel(), même logique que
+  // pour les chiens : procédural tout de suite, vrai modèle une fois chargé.
+  leaderGroup = new THREE.Group();
+  const catVisual = buildCatGroup(0xC97B4F, true);
+  leaderGroup.add(catVisual);
+  leaderGroup.userData.catVisual = catVisual;
+  leaderGroup.userData.legs = catVisual.userData.legs;
   leaderGroup.scale.setScalar(leaderScale()); // petit chaton au départ — voir syncLeader() pour la croissance
   leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
+  loadCatModel();
 
   // halo du power-up bouclier — masqué par défaut, affiché/tourné dans
   // syncLeader() (render3d.js) tant que shieldTimer > 0
