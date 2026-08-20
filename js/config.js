@@ -143,6 +143,16 @@ const DOG_HEIGHT_BOSS = 1.3;   // idem pour le boss (était 1.05)
 const LEADER_SCALE_MIN = 0.8;
 const LEADER_SCALE_MAX = 1.75;
 const LEADER_SCALE_SATURATE_AT = 150;
+
+// Lisibilité de la horde de suiveurs : à cette échelle (petit, en
+// mouvement, vu de dos/dessus), l'œil ne lit jamais chaque chat un par un
+// — il capte des signaux répétés en bordure et extrapole. D'où : oreilles
+// surdimensionnées + contour sombre sur TOUS les suiveurs (les 2 signaux
+// qui lisent "chat" en silhouette), mais la queue seulement sur ceux en
+// périphérie du groupe (les autres sont de toute façon cachés par la
+// masse) — inutile de la payer partout.
+const FOLLOWER_EDGE_TAIL_COUNT = 30;
+const FOLLOWER_OUTLINE_SCALE = 1.12;
 const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par biome (voir BIOMES.gameplayMods)
 
 // Brève invulnérabilité après CHAQUE coup encaissé (pas seulement après une

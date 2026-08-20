@@ -47,29 +47,66 @@ const FOLLOWER_SPREAD = 0.34;
 
 function syncFollowers(){
   const n = cats.length;
+  // Les chats en périphérie du groupe (derniers index — la spirale remplit
+  // du centre vers le bord) portent une queue ; les autres sont de toute
+  // façon cachés par la masse, inutile de la payer partout.
+  const edgeStart = Math.max(0, n - FOLLOWER_EDGE_TAIL_COUNT);
+  let tailIdx = 0;
   for(let i=0;i<n;i++){
     const c = cats[i];
     const spiralAngle = i * GOLDEN_ANGLE + frame*0.006; // rotation lente d'ensemble
     const spreadRadius = FOLLOWER_SPREAD * Math.sqrt(i+1);
     const ox = Math.cos(spiralAngle) * spreadRadius;
     const oz = Math.sin(spiralAngle) * spreadRadius*0.75 + 0.6;
-    const bob = Math.sin((frame + c.bob) * 0.1) * 0.05;
+    const bob = Math.sin((frame + c.bob) * c.bobSpeed) * c.bobAmp;
     const x = playerX + ox;
     const z = PLAYER_Z + oz;
+    const bodyY = bob + 0.34*c.size;
+    const headY = bob + 0.58*c.size;
+    const headZ = z - 0.28*c.size;
 
-    dummy3D.rotation.y = c.faceAngle;
+    dummy3D.rotation.set(0, c.faceAngle, 0);
 
-    dummy3D.position.set(x, bob + 0.34*c.size, z);
+    dummy3D.position.set(x, bodyY, z);
     dummy3D.scale.setScalar(c.size);
     dummy3D.updateMatrix();
     followerBodyInst.setMatrixAt(i, dummy3D.matrix);
+    dummy3D.scale.setScalar(c.size * FOLLOWER_OUTLINE_SCALE);
+    dummy3D.updateMatrix();
+    followerBodyOutlineInst.setMatrixAt(i, dummy3D.matrix);
 
-    dummy3D.position.set(x, bob + 0.58*c.size, z - 0.28*c.size);
+    dummy3D.position.set(x, headY, headZ);
     dummy3D.scale.setScalar(c.size*0.75);
     dummy3D.updateMatrix();
     followerHeadInst.setMatrixAt(i, dummy3D.matrix);
+    dummy3D.scale.setScalar(c.size*0.75 * FOLLOWER_OUTLINE_SCALE);
+    dummy3D.updateMatrix();
+    followerHeadOutlineInst.setMatrixAt(i, dummy3D.matrix);
 
-    dummy3D.rotation.y = 0;
+    // oreilles surdimensionnées, couleur crème contrastante — le signal
+    // n°1 pour lire "chat" en silhouette à cette échelle. Pas de
+    // compensation de rotation avec faceAngle (approximation qui reste
+    // lisible ici, et bien moins chère à calculer pour 200 instances).
+    dummy3D.rotation.set(0, 0, -0.35);
+    dummy3D.position.set(x - 0.1*c.size, headY + 0.16*c.size, headZ);
+    dummy3D.scale.setScalar(c.size*0.8);
+    dummy3D.updateMatrix();
+    followerEarInst.setMatrixAt(i*2, dummy3D.matrix);
+    dummy3D.rotation.set(0, 0, 0.35);
+    dummy3D.position.set(x + 0.1*c.size, headY + 0.16*c.size, headZ);
+    dummy3D.updateMatrix();
+    followerEarInst.setMatrixAt(i*2+1, dummy3D.matrix);
+
+    if(i >= edgeStart){
+      dummy3D.rotation.set(-0.7, c.faceAngle, 0);
+      dummy3D.position.set(x, bodyY + 0.12*c.size, z + 0.32*c.size);
+      dummy3D.scale.setScalar(c.size);
+      dummy3D.updateMatrix();
+      followerTailInst.setMatrixAt(tailIdx, dummy3D.matrix);
+      tailIdx++;
+    }
+
+    dummy3D.rotation.set(0, 0, 0);
     dummy3D.position.set(x, 0.01, z);
     dummy3D.scale.setScalar(c.size);
     dummy3D.updateMatrix();
@@ -77,12 +114,20 @@ function syncFollowers(){
   }
   followerBodyInst.count = n;
   followerHeadInst.count = n;
+  followerBodyOutlineInst.count = n;
+  followerHeadOutlineInst.count = n;
+  followerEarInst.count = n*2;
+  followerTailInst.count = tailIdx;
   followerShadowInst.count = n;
   if(n > 0){
     followerBodyInst.instanceMatrix.needsUpdate = true;
     followerHeadInst.instanceMatrix.needsUpdate = true;
+    followerBodyOutlineInst.instanceMatrix.needsUpdate = true;
+    followerHeadOutlineInst.instanceMatrix.needsUpdate = true;
+    followerEarInst.instanceMatrix.needsUpdate = true;
     followerShadowInst.instanceMatrix.needsUpdate = true;
   }
+  if(tailIdx > 0) followerTailInst.instanceMatrix.needsUpdate = true;
 }
 
 function syncPickups(){

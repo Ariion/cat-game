@@ -273,7 +273,12 @@ function rebuildHordeVisual(){
   const target = Math.min(hordeCount - 1, MAX_INSTANCED_CATS); // -1 : le leader n'est pas un suiveur
   while(cats.length < target){
     cats.push({
-      bob: Math.random()*10,
+      // déphasage sur tout le cycle (pas juste ±10 sur une période de ~63
+      // frames) + vitesse/amplitude propres à chacun — sinon la horde lit
+      // comme une texture qui vibre en bloc plutôt que des individus vivants
+      bob: Math.random()*1000,
+      bobSpeed: 0.08 + Math.random()*0.05,
+      bobAmp: 0.04 + Math.random()*0.025,
       faceAngle: Math.random()*Math.PI*2, // orientation individuelle, indépendante de la position
       size: 0.75 + Math.random()*0.5
     });

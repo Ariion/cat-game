@@ -27,6 +27,8 @@ let scene, camera, renderer, sunLight, hemiLight;
 let leaderGroup, bossGroup;
 let enemyVisuals = []; // pool de groupes 3D réutilisés, index-aligné avec enemyPool (state.js)
 let followerBodyInst, followerHeadInst, followerShadowInst;
+let followerEarInst, followerTailInst, followerBodyOutlineInst, followerHeadOutlineInst;
+let followerEarMaterial, followerOutlineMaterial;
 let doorGlowTexture;
 let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
 let particleGeometry, projectileGeometry;
@@ -1169,7 +1171,14 @@ function initScene(){
   // place jusqu'à ce que ça charge (voir upgradeDogsToRealModels)
   loadDogModels();
 
-  // suiveurs de la horde, en instanced mesh pour rester léger sur mobile
+  // Suiveurs de la horde, en instanced mesh pour rester léger sur mobile.
+  // Lisibilité en foule : à cette échelle l'œil ne détaille jamais chaque
+  // chat, il capte 2-3 signaux répétés — d'où des oreilles surdimensionnées
+  // et contrastées (le signal n°1 qui lit "chat" en silhouette) et un
+  // contour sombre sur chacun (les sépare du sol/de la lumière ambiante,
+  // sinon trop proches en teinte). La queue, elle, ne va que sur les chats
+  // en bordure du groupe (voir syncFollowers) : les autres sont cachés par
+  // la masse de toute façon, inutile de la payer partout.
   const followerBodyGeo = new THREE.SphereGeometry(0.32, 8, 6);
   followerBodyInst = new THREE.InstancedMesh(followerBodyGeo, followerMaterial, MAX_INSTANCED_CATS);
   followerBodyInst.count = 0;
@@ -1179,6 +1188,27 @@ function initScene(){
   followerHeadInst = new THREE.InstancedMesh(followerHeadGeo, followerMaterial, MAX_INSTANCED_CATS);
   followerHeadInst.count = 0;
   scene.add(followerHeadInst);
+
+  followerEarMaterial = new THREE.MeshStandardMaterial({ color: 0xFCEFD9, flatShading:true, roughness:0.85 });
+  const followerEarGeo = new THREE.ConeGeometry(0.09, 0.2, 4);
+  followerEarInst = new THREE.InstancedMesh(followerEarGeo, followerEarMaterial, MAX_INSTANCED_CATS*2);
+  followerEarInst.count = 0;
+  scene.add(followerEarInst);
+
+  const followerTailGeo = new THREE.CylinderGeometry(0.02, 0.035, 0.36, 5);
+  followerTailInst = new THREE.InstancedMesh(followerTailGeo, followerMaterial, FOLLOWER_EDGE_TAIL_COUNT);
+  followerTailInst.count = 0;
+  scene.add(followerTailInst);
+
+  // contour ("coque inversée" : silhouette agrandie, rendue de l'intérieur
+  // — BackSide — donc seule une fine bordure dépasse de la vraie surface)
+  followerOutlineMaterial = new THREE.MeshBasicMaterial({ color: 0x2B2115, side: THREE.BackSide });
+  followerBodyOutlineInst = new THREE.InstancedMesh(followerBodyGeo, followerOutlineMaterial, MAX_INSTANCED_CATS);
+  followerBodyOutlineInst.count = 0;
+  scene.add(followerBodyOutlineInst);
+  followerHeadOutlineInst = new THREE.InstancedMesh(followerHeadGeo, followerOutlineMaterial, MAX_INSTANCED_CATS);
+  followerHeadOutlineInst.count = 0;
+  scene.add(followerHeadOutlineInst);
 
   const shadowGeo = new THREE.CircleGeometry(0.3, 8);
   shadowGeo.rotateX(-Math.PI/2);
