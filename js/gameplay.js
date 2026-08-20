@@ -266,10 +266,21 @@ function leaderScale(){
   return LEADER_SCALE_MIN + (LEADER_SCALE_MAX - LEADER_SCALE_MIN) * Math.sqrt(t);
 }
 
+// Couleur "énergie" (citron-vert néon) délibérément hors de la palette de
+// TOUS les biomes (vert prairie, orange-brun automne, blanc neige, sable
+// désert) — le doré d'origine (0xFFD27A) se noyait complètement dans le
+// décor en biome Automne, quasi invisible au tir (repéré : "on voit rien
+// quand on tire"). Halo additif en plus, pour rester lisible même sur un
+// fond clair (neige).
 function spawnOneProjectile(x){
-  const mat = new THREE.MeshBasicMaterial({ color:0xFFD27A, fog:false });
+  const mat = new THREE.MeshBasicMaterial({ color: PROJECTILE_COLOR, fog:false });
   const mesh = new THREE.Mesh(projectileGeometry, mat);
   mesh.position.set(x, 0.55, PLAYER_Z - 0.35);
+  if(projectileGlowMaterial){
+    const glow = new THREE.Sprite(projectileGlowMaterial);
+    glow.scale.set(0.5, 0.5, 1);
+    mesh.add(glow);
+  }
   scene.add(mesh);
   projectiles.push({ mesh, damage: attackDamage(), life: 140 });
 }

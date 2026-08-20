@@ -32,6 +32,7 @@ let followerEarMaterial, followerOutlineMaterial;
 let doorGlowTexture;
 let catMaterial, followerMaterial, bossMaterial, enemyMaterial, shadowMaterial;
 let particleGeometry, projectileGeometry;
+let projectileGlowMaterial;
 const dummy3D = webglSupported ? new THREE.Object3D() : null;
 
 // --- décor recyclable (défilement façon tapis roulant) --------------------
@@ -1105,6 +1106,10 @@ function initScene(){
   doorGlowTexture = createGlowTexture();
   particleGeometry = new THREE.SphereGeometry(0.07, 6, 6);
   projectileGeometry = new THREE.SphereGeometry(0.11, 8, 6);
+  projectileGlowMaterial = new THREE.SpriteMaterial({
+    map: doorGlowTexture, color: PROJECTILE_COLOR, transparent:true, opacity:0.8,
+    blending: THREE.AdditiveBlending, depthWrite:false, fog:false
+  });
 
   // sol
   const groundGeo = new THREE.PlaneGeometry(12, groundLengthZ);
@@ -1202,7 +1207,10 @@ function initScene(){
 
   // contour ("coque inversée" : silhouette agrandie, rendue de l'intérieur
   // — BackSide — donc seule une fine bordure dépasse de la vraie surface)
-  followerOutlineMaterial = new THREE.MeshBasicMaterial({ color: 0x2B2115, side: THREE.BackSide });
+  // brun chaud plutôt que quasi-noir : un vrai noir + un contour épais
+  // donnait un effet "autocollant" trop dur, en rupture avec le rendu
+  // adouci du reste du jeu
+  followerOutlineMaterial = new THREE.MeshBasicMaterial({ color: 0x5A4128, side: THREE.BackSide });
   followerBodyOutlineInst = new THREE.InstancedMesh(followerBodyGeo, followerOutlineMaterial, MAX_INSTANCED_CATS);
   followerBodyOutlineInst.count = 0;
   scene.add(followerBodyOutlineInst);

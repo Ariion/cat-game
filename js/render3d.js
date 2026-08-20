@@ -45,6 +45,16 @@ function syncLeader(){
 const GOLDEN_ANGLE = 2.399963;
 const FOLLOWER_SPREAD = 0.34;
 
+// Fait tourner un décalage local (dx,dz) de l'angle donné autour de Y —
+// pour que tête/oreilles/queue suivent l'orientation (faceAngle) de
+// chaque chat au lieu de rester figées dans une direction fixe quelle que
+// soit la façon dont le corps est tourné (ce qui faisait flotter les
+// oreilles n'importe où, décrochées de la tête).
+function rotateOffsetY(dx, dz, angle){
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  return [dx*cos + dz*sin, -dx*sin + dz*cos];
+}
+
 function syncFollowers(){
   const n = cats.length;
   // Les chats en périphérie du groupe (derniers index — la spirale remplit
@@ -63,7 +73,9 @@ function syncFollowers(){
     const z = PLAYER_Z + oz;
     const bodyY = bob + 0.34*c.size;
     const headY = bob + 0.58*c.size;
-    const headZ = z - 0.28*c.size;
+    const [headOx, headOz] = rotateOffsetY(0, -0.28*c.size, c.faceAngle);
+    const headX = x + headOx;
+    const headZ = z + headOz;
 
     dummy3D.rotation.set(0, c.faceAngle, 0);
 
@@ -75,7 +87,7 @@ function syncFollowers(){
     dummy3D.updateMatrix();
     followerBodyOutlineInst.setMatrixAt(i, dummy3D.matrix);
 
-    dummy3D.position.set(x, headY, headZ);
+    dummy3D.position.set(headX, headY, headZ);
     dummy3D.scale.setScalar(c.size*0.75);
     dummy3D.updateMatrix();
     followerHeadInst.setMatrixAt(i, dummy3D.matrix);
@@ -84,22 +96,25 @@ function syncFollowers(){
     followerHeadOutlineInst.setMatrixAt(i, dummy3D.matrix);
 
     // oreilles surdimensionnées, couleur crème contrastante — le signal
-    // n°1 pour lire "chat" en silhouette à cette échelle. Pas de
-    // compensation de rotation avec faceAngle (approximation qui reste
-    // lisible ici, et bien moins chère à calculer pour 200 instances).
-    dummy3D.rotation.set(0, 0, -0.35);
-    dummy3D.position.set(x - 0.1*c.size, headY + 0.16*c.size, headZ);
-    dummy3D.scale.setScalar(c.size*0.8);
+    // n°1 pour lire "chat" en silhouette à cette échelle. Décalage ET
+    // orientation tournent avec faceAngle, pour rester attachées à la
+    // tête quel que soit le sens dans lequel le chat est tourné.
+    const [earLOx, earLOz] = rotateOffsetY(-0.1*c.size, 0, c.faceAngle);
+    dummy3D.rotation.set(0, c.faceAngle, -0.35);
+    dummy3D.position.set(headX + earLOx, headY + 0.16*c.size, headZ + earLOz);
+    dummy3D.scale.setScalar(c.size*0.7);
     dummy3D.updateMatrix();
     followerEarInst.setMatrixAt(i*2, dummy3D.matrix);
-    dummy3D.rotation.set(0, 0, 0.35);
-    dummy3D.position.set(x + 0.1*c.size, headY + 0.16*c.size, headZ);
+    const [earROx, earROz] = rotateOffsetY(0.1*c.size, 0, c.faceAngle);
+    dummy3D.rotation.set(0, c.faceAngle, 0.35);
+    dummy3D.position.set(headX + earROx, headY + 0.16*c.size, headZ + earROz);
     dummy3D.updateMatrix();
     followerEarInst.setMatrixAt(i*2+1, dummy3D.matrix);
 
     if(i >= edgeStart){
+      const [tailOx, tailOz] = rotateOffsetY(0, 0.32*c.size, c.faceAngle);
       dummy3D.rotation.set(-0.7, c.faceAngle, 0);
-      dummy3D.position.set(x, bodyY + 0.12*c.size, z + 0.32*c.size);
+      dummy3D.position.set(x + tailOx, bodyY + 0.12*c.size, z + tailOz);
       dummy3D.scale.setScalar(c.size);
       dummy3D.updateMatrix();
       followerTailInst.setMatrixAt(tailIdx, dummy3D.matrix);

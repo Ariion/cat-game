@@ -109,6 +109,7 @@ const ATTACK_POWER_FACTOR = 2.6;
 const ATTACK_INTERVAL_FRAMES = 15;    // cadence de tir de la horde (~4 tirs/s, était 18)
 const PROJECTILE_SPEED = 0.7;
 const PROJECTILE_HIT_RADIUS_X = 0.48; // tolérance latérale pour toucher (pas de visée auto, mais pas punitif)
+const PROJECTILE_COLOR = 0xCCFF33; // citron-vert néon, hors de la palette des 4 biomes — voir spawnOneProjectile()
 
 // PV des ennemis/boss = un nombre de TIRS à encaisser (attackDamage() × ce
 // nombre), PAS une valeur de PV fixe. Avec une valeur fixe, la horde finit
@@ -152,7 +153,7 @@ const LEADER_SCALE_SATURATE_AT = 150;
 // périphérie du groupe (les autres sont de toute façon cachés par la
 // masse) — inutile de la payer partout.
 const FOLLOWER_EDGE_TAIL_COUNT = 30;
-const FOLLOWER_OUTLINE_SCALE = 1.12;
+const FOLLOWER_OUTLINE_SCALE = 1.05; // fin, pas un contour épais façon autocollant (1.12 rendait "hyper moche")
 const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par biome (voir BIOMES.gameplayMods)
 
 // Brève invulnérabilité après CHAQUE coup encaissé (pas seulement après une
