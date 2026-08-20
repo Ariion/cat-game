@@ -251,6 +251,18 @@ function updateMenuResumeButton(){
   btn.classList.toggle('hidden', !hasSavedGame());
 }
 
+// Abandonne la partie en cours (sans la sauvegarder — si le joueur voulait
+// la garder, il devait cliquer "Sauvegarder" avant) et retourne au menu.
+function goToMenu(){
+  paused = false;
+  state = 'start';
+  document.getElementById('screenPause').classList.add('hidden');
+  document.getElementById('pauseBtn').classList.add('hidden');
+  document.getElementById('screenStart').classList.remove('hidden');
+  updateMenuResumeButton();
+  updateBestScoreDisplays();
+}
+
 function rebuildHordeVisual(){
   const target = Math.min(hordeCount - 1, MAX_INSTANCED_CATS); // -1 : le leader n'est pas un suiveur
   while(cats.length < target){
