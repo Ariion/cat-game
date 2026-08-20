@@ -160,3 +160,61 @@ const HIT_INVULN_FRAMES = 26; // ~0.43s à 60 ticks/s
 const CONTINUE_HP_RESTORE = 55;
 const CONTINUE_INVULN_FRAMES = 90;
 const AD_SIMULATION_MS = 1800;
+
+// ===========================================================================
+// Mode 2 : "Chatteau Fort" (tower defense) — un second mini-jeu indépendant
+// du mode Bataille ci-dessus, sélectionné depuis l'écran de menu principal.
+// Voir towerState.js/towerGameplay.js/towerScene3d.js/towerRender3d.js : ces
+// fichiers ne touchent JAMAIS aux variables du mode Bataille (state.js/
+// gameplay.js/scene3d.js/render3d.js), seulement aux fonctions/matériaux
+// vraiment communs aux deux (buildCatGroup, buildBossGroup, animateLegs,
+// catMaterial/enemyMaterial, sfx...).
+// ===========================================================================
+
+// Chemin sinueux fixe (points de passage en X/Z), de l'entrée à la gamelle
+// (dernier point). Les emplacements de tourelles sont dérivés de ce chemin
+// (un par segment, alterné à gauche/droite) — voir computeTowerSlotPositions()
+// dans towerScene3d.js : si on retouche le chemin, les emplacements suivent
+// automatiquement, jamais besoin de recaler des coordonnées à la main.
+const TOWER_PATH = [
+  { x: -3.0, z: -11 },
+  { x: -3.0, z: -6.5 },
+  { x:  2.6, z: -6.5 },
+  { x:  2.6, z: -1.5 },
+  { x: -2.6, z: -1.5 },
+  { x: -2.6, z:  3.5 },
+  { x:  1.0, z:  3.5 }  // gamelle (objectif à protéger)
+];
+const TOWER_SLOT_OFFSET = 1.15; // distance perpendiculaire au chemin pour chaque emplacement
+
+const TOWER_LIVES_START = 3;
+const TOWER_FISH_START = 50;
+const TOWER_TURRET_COST_BASE = 30;
+const TOWER_TURRET_COST_INCREMENT = 14; // chaque tourelle posée coûte plus cher que la précédente
+const TOWER_FISH_PER_KILL = 6;
+
+const TOWER_WAVE_COUNT = 5;
+const TOWER_DOGS_PER_WAVE = 6;
+const TOWER_WAVE_HP_GROWTH = 1.3;    // multiplicateur de PV par vague (vague N -> N+1)
+const TOWER_WAVE_SPEED_GROWTH = 1.12; // multiplicateur de vitesse par vague
+const TOWER_DOG_SPAWN_INTERVAL_FRAMES = 45; // délai entre 2 chiens d'une même vague
+const TOWER_WAVE_DELAY_FRAMES = 150;        // pause avant le lancement de la vague suivante
+
+const TOWER_DOG_HP_BASE = 40;
+const TOWER_DOG_SPEED_BASE = 0.028;
+
+// Une seule tourelle ne couvre qu'UN segment du chemin (voir
+// computeTowerSlotPositions() dans towerScene3d.js) — un chien qui la
+// traverse sans mourir continue tranquillement jusqu'à la gamelle sur les
+// segments suivants, non défendus, quel que soit le nombre de PV qu'il lui
+// reste. Avec seulement 50 poissons de départ (une seule tourelle
+// abordable au tout début, voir TOWER_FISH_START), il faut que CETTE
+// tourelle isolée puisse à elle seule achever la plupart des chiens de la
+// vague 1 pendant leur court passage dans sa portée — sinon la partie est
+// perdue dès la vague 1 quoi que fasse le joueur (vérifié par simulation :
+// à 40 ticks/tir et 18 dégâts, une tourelle isolée n'abattait que 2-3 chiens
+// sur 6 avant qu'ils ne sortent de portée). Cadence et dégâts remontés en
+// conséquence.
+const TOWER_TURRET_RANGE = 2.6;
+const TOWER_TURRET_FIRE_INTERVAL = 30; // cadence de tir d'une tourelle (ticks)
+const TOWER_TURRET_DAMAGE = 20;

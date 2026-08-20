@@ -1,16 +1,23 @@
-// Point d'entrée : initialise la scène 3D puis lance la boucle de jeu principale.
+// Point d'entrée : initialise les deux scènes 3D (un mini-jeu chacune) puis
+// lance la boucle de jeu principale, commune aux deux modes (voir modes.js).
 if(!webglSupported){
-  const p = document.querySelector('#screenStart p');
-  if(p) p.textContent = "Ton navigateur ne supporte pas la 3D (WebGL). Essaie un navigateur plus récent.";
-  const btn = document.querySelector('#screenStart .btn');
-  if(btn) btn.setAttribute('disabled', 'true');
+  const msg = "Ton navigateur ne supporte pas la 3D (WebGL). Essaie un navigateur plus récent.";
+  ['#screenStart p', '#screenTowerStart p'].forEach(sel=>{
+    const p = document.querySelector(sel);
+    if(p) p.textContent = msg;
+  });
+  document.querySelectorAll('#screenStart .btn, #screenTowerStart .btn, .mode-card').forEach(btn=>{
+    btn.setAttribute('disabled', 'true');
+  });
 }
 
 initScene();
+initTowerScene();
 applyTranslations();
 updateBestScoreDisplays();
 updateMenuResumeButton();
-window.addEventListener('resize', onResize);
+showMainMenu();
+window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); });
 
 // Pas de temps fixe : update() tourne toujours à un rythme stable
 // (~60 ticks/s) quel que soit le taux de rafraîchissement de l'écran.

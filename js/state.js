@@ -81,6 +81,8 @@ function startGame(){
   document.getElementById('screenLose').classList.add('hidden');
   document.getElementById('screenAd').classList.add('hidden');
   document.getElementById('pauseBtn').classList.remove('hidden');
+  document.getElementById('battleHud').classList.remove('hidden');
+  document.getElementById('towerHud').classList.add('hidden');
   resetGame();
 }
 
@@ -229,6 +231,8 @@ function loadGame(){
   document.getElementById('screenLose').classList.add('hidden');
   document.getElementById('screenAd').classList.add('hidden');
   document.getElementById('pauseBtn').classList.remove('hidden');
+  document.getElementById('battleHud').classList.remove('hidden');
+  document.getElementById('towerHud').classList.add('hidden');
   resetGame();
   hordeCount = save.hordeCount || 1;
   hp = save.hp !== undefined ? save.hp : hpMax;
@@ -254,15 +258,8 @@ function updateMenuResumeButton(){
   btn.classList.toggle('hidden', !hasSavedGame());
 }
 
-// Abandonne la partie en cours (sans la sauvegarder — si le joueur voulait
-// la garder, il devait cliquer "Sauvegarder" avant) et retourne au menu.
-function goToMenu(){
-  paused = false;
-  state = 'start';
-  document.getElementById('screenPause').classList.add('hidden');
-  document.getElementById('pauseBtn').classList.add('hidden');
-  document.getElementById('screenStart').classList.remove('hidden');
-  updateMenuResumeButton();
-  updateBestScoreDisplays();
-}
+// goToMenu() (abandonne la partie en cours, sans la sauvegarder, et revient
+// à l'écran de menu principal) a déménagé dans modes.js : depuis l'ajout du
+// mode Chatteau Fort, ce bouton doit être commun aux deux modes plutôt que
+// de ne connaître que le mode Bataille.
 

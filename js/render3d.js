@@ -88,7 +88,10 @@ function syncCamera(){
   camera.lookAt(lookX, lookY, -10);
 }
 
-function render(){
+// Renommée renderBattle() (au lieu de render()) — voir le commentaire au-
+// dessus d'updateBattle() dans gameplay.js : render() est maintenant un
+// aiguillage dans modes.js.
+function renderBattle(){
   if(!webglSupported) return;
   syncLeader();
   syncPickups();

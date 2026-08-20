@@ -190,6 +190,31 @@ canvas{
 .menu-buttons{
   display:flex; flex-direction:column; gap:10px; align-items:center;
 }
+.mode-grid{
+  display:flex; flex-direction:column; gap:14px;
+  width:100%; max-width:300px;
+}
+.mode-card{
+  display:flex; flex-direction:column; align-items:center;
+  gap:6px;
+  font-family:'Fredoka', sans-serif;
+  background: var(--cream-deep);
+  border: none;
+  border-radius: 18px;
+  padding: 18px 16px;
+  cursor:pointer;
+  box-shadow: 0 4px 0 rgba(59,50,38,0.12);
+  transition: transform 0.08s;
+}
+.mode-card:active{ transform: translateY(3px); box-shadow: 0 1px 0 rgba(59,50,38,0.12); }
+.mode-card:disabled{ opacity:0.5; cursor:default; }
+.mode-card-icon{ font-size:32px; line-height:1; }
+.mode-card-title{ font-size:17px; font-weight:600; color: var(--ink); }
+.mode-card-desc{
+  font-family:'Nunito', sans-serif;
+  font-weight:400; font-size:13px; color: var(--ink-soft);
+  text-align:center; line-height:1.4;
+}
 .options-label{
   font-family:'Fredoka', sans-serif;
   font-size: 14px; font-weight:600; color: var(--ink-soft);

@@ -39,7 +39,21 @@ const translations = {
     hint_text: "← glisse ou utilise les flèches →",
     record_prefix: "Record",
     cat_s: "chat", cat_p: "chats",
-    boss_s: "chien du quartier vaincu", boss_p: "chiens du quartier vaincus"
+    boss_s: "chien du quartier vaincu", boss_p: "chiens du quartier vaincus",
+    mode_battle_title: "Bataille de Chats",
+    mode_battle_desc: "Cours, agrandis ta horde et repousse les chiens.",
+    mode_tower_title: "Chatteau Fort",
+    mode_tower_desc: "Place des chats-tourelles pour défendre la gamelle.",
+    tower_desc: "Les chiens envahissent le chatteau en suivant le chemin. Pose des chats-tourelles sur les emplacements pour les arrêter avant qu'ils n'atteignent la gamelle. 5 vagues, 3 vies.",
+    btn_menu_back: "← Menu",
+    tower_wave_label: "Vague {n} / {max}",
+    tower_wave_toast: "Vague {n} / {max} !",
+    tower_not_enough_fish: "Pas assez de poissons !",
+    tower_win_title: "Chatteau défendu !",
+    tower_win_text: "Les 5 vagues ont été repoussées, bravo !",
+    tower_lose_title: "Le chatteau est tombé...",
+    tower_lose_stats: "Trop de chiens ont atteint la gamelle — vague {n} / {max}.",
+    tower_pause_stats: "Vague {n} / {max} · 🐟 {fish}"
   },
   en: {
     menu_title: "Cat Horde",
@@ -78,7 +92,21 @@ const translations = {
     hint_text: "← slide or use the arrow keys →",
     record_prefix: "Best",
     cat_s: "cat", cat_p: "cats",
-    boss_s: "neighborhood dog defeated", boss_p: "neighborhood dogs defeated"
+    boss_s: "neighborhood dog defeated", boss_p: "neighborhood dogs defeated",
+    mode_battle_title: "Cat Battle",
+    mode_battle_desc: "Run, grow your horde and fend off the dogs.",
+    mode_tower_title: "Cat Castle",
+    mode_tower_desc: "Place cat turrets to defend the food bowl.",
+    tower_desc: "Dogs invade the cat castle along a fixed path. Place cat turrets on the marked spots to stop them before they reach the bowl. 5 waves, 3 lives.",
+    btn_menu_back: "← Menu",
+    tower_wave_label: "Wave {n} / {max}",
+    tower_wave_toast: "Wave {n} / {max}!",
+    tower_not_enough_fish: "Not enough fish!",
+    tower_win_title: "Castle defended!",
+    tower_win_text: "All 5 waves repelled, well done!",
+    tower_lose_title: "The castle has fallen...",
+    tower_lose_stats: "Too many dogs reached the bowl — wave {n} / {max}.",
+    tower_pause_stats: "Wave {n} / {max} · 🐟 {fish}"
   },
   de: {
     menu_title: "Katzenhorde",
@@ -117,7 +145,21 @@ const translations = {
     hint_text: "← wischen oder Pfeiltasten benutzen →",
     record_prefix: "Rekord",
     cat_s: "Katze", cat_p: "Katzen",
-    boss_s: "Nachbarschaftshund besiegt", boss_p: "Nachbarschaftshunde besiegt"
+    boss_s: "Nachbarschaftshund besiegt", boss_p: "Nachbarschaftshunde besiegt",
+    mode_battle_title: "Katzenschlacht",
+    mode_battle_desc: "Lauf, vergrößere deine Horde und wehre die Hunde ab.",
+    mode_tower_title: "Katzenburg",
+    mode_tower_desc: "Platziere Katzen-Türme, um den Napf zu verteidigen.",
+    tower_desc: "Hunde dringen entlang eines festen Pfads in die Katzenburg ein. Platziere Katzen-Türme auf den markierten Plätzen, um sie zu stoppen, bevor sie den Napf erreichen. 5 Wellen, 3 Leben.",
+    btn_menu_back: "← Menü",
+    tower_wave_label: "Welle {n} / {max}",
+    tower_wave_toast: "Welle {n} / {max}!",
+    tower_not_enough_fish: "Nicht genug Fische!",
+    tower_win_title: "Burg verteidigt!",
+    tower_win_text: "Alle 5 Wellen abgewehrt, gut gemacht!",
+    tower_lose_title: "Die Burg ist gefallen...",
+    tower_lose_stats: "Zu viele Hunde haben den Napf erreicht — Welle {n} / {max}.",
+    tower_pause_stats: "Welle {n} / {max} · 🐟 {fish}"
   },
   es: {
     menu_title: "Horda de gatos",
@@ -156,7 +198,21 @@ const translations = {
     hint_text: "← desliza o usa las flechas →",
     record_prefix: "Récord",
     cat_s: "gato", cat_p: "gatos",
-    boss_s: "perro del barrio derrotado", boss_p: "perros del barrio derrotados"
+    boss_s: "perro del barrio derrotado", boss_p: "perros del barrio derrotados",
+    mode_battle_title: "Batalla de Gatos",
+    mode_battle_desc: "Corre, haz crecer tu horda y repele a los perros.",
+    mode_tower_title: "Castillo Felino",
+    mode_tower_desc: "Coloca gatos-torreta para defender el cuenco.",
+    tower_desc: "Los perros invaden el castillo siguiendo un camino fijo. Coloca gatos-torreta en los puntos marcados para detenerlos antes de que lleguen al cuenco. 5 oleadas, 3 vidas.",
+    btn_menu_back: "← Menú",
+    tower_wave_label: "Oleada {n} / {max}",
+    tower_wave_toast: "¡Oleada {n} / {max}!",
+    tower_not_enough_fish: "¡No hay suficientes peces!",
+    tower_win_title: "¡Castillo defendido!",
+    tower_win_text: "¡Las 5 oleadas repelidas, bien hecho!",
+    tower_lose_title: "El castillo ha caído...",
+    tower_lose_stats: "Demasiados perros llegaron al cuenco — oleada {n} / {max}.",
+    tower_pause_stats: "Oleada {n} / {max} · 🐟 {fish}"
   }
 };
 

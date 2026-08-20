@@ -368,7 +368,11 @@ function updateAttacks(){
 
 // --- boucle principale ----------------------------------------------------
 
-function update(){
+// Renommée updateBattle() (au lieu de update()) : le jeu a maintenant deux
+// modes indépendants (voir config.js) qui partagent le même écran de menu.
+// update()/render() sont désormais de simples aiguillages dans modes.js,
+// qui appellent updateBattle() ou updateTower() selon le mode actif.
+function updateBattle(){
   if(paused) return;
   frame++;
 
@@ -472,7 +476,9 @@ function showLose(reason){
   recordLeaderboardEntry();
 }
 
-function pauseGame(){
+// Renommées pauseBattle()/resumeBattle() — pauseGame()/resumeGame() sont
+// maintenant des aiguillages dans modes.js (voir updateBattle() ci-dessus).
+function pauseBattle(){
   if(state !== 'playing' || paused) return;
   paused = true;
   document.getElementById('pauseStats').textContent = t('pause_stats', {
@@ -481,7 +487,7 @@ function pauseGame(){
   document.getElementById('screenPause').classList.remove('hidden');
 }
 
-function resumeGame(){
+function resumeBattle(){
   paused = false;
   document.getElementById('screenPause').classList.add('hidden');
 }
