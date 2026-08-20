@@ -259,6 +259,13 @@ function attackDamage(){
   return Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
 }
 
+// Taille du chat meneur : petit chaton à horde=1, plafonne à
+// LEADER_SCALE_MAX une fois LEADER_SCALE_SATURATE_AT atteint.
+function leaderScale(){
+  const t = Math.min(1, hordeCount / LEADER_SCALE_SATURATE_AT);
+  return LEADER_SCALE_MIN + (LEADER_SCALE_MAX - LEADER_SCALE_MIN) * Math.sqrt(t);
+}
+
 function spawnOneProjectile(x){
   const mat = new THREE.MeshBasicMaterial({ color:0xFFD27A, fog:false });
   const mesh = new THREE.Mesh(projectileGeometry, mat);

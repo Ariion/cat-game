@@ -18,6 +18,8 @@ function animateLegs(legs, phase, amplitude){
 function syncLeader(){
   leaderGroup.position.x = playerX;
   leaderGroup.position.z = PLAYER_Z;
+  // grandit avec la horde, en douceur (pas un saut à chaque bonus)
+  leaderGroup.scale.setScalar(leaderGroup.scale.x + (leaderScale() - leaderGroup.scale.x) * 0.02);
   let bob = Math.sin(frame*0.08) * 0.03;
   if(attackPulse > 0){ bob += (attackPulse/8) * 0.12; } // petit sursaut au tir
   leaderGroup.position.y = bob;
@@ -34,17 +36,28 @@ function syncLeader(){
   }
 }
 
+// Répartition en spirale "tournesol" (angle d'or) plutôt qu'un tirage
+// aléatoire dans un petit disque fixe : la seule façon de faire tenir
+// jusqu'à 200 suiveurs sans qu'ils s'empilent les uns sur les autres est
+// que le rayon occupé grandisse avec leur nombre (racine carrée de
+// l'index, densité ~constante) — une horde de 5 reste compacte, une
+// horde de 150 s'étale largement autour du meneur.
+const GOLDEN_ANGLE = 2.399963;
+const FOLLOWER_SPREAD = 0.34;
+
 function syncFollowers(){
   const n = cats.length;
   for(let i=0;i<n;i++){
     const c = cats[i];
-    const ox = Math.cos(c.angle + frame*0.01) * c.radius * 0.6;
-    const oz = Math.sin(c.angle + frame*0.013) * c.radius * 0.42 + 0.55;
+    const spiralAngle = i * GOLDEN_ANGLE + frame*0.006; // rotation lente d'ensemble
+    const spreadRadius = FOLLOWER_SPREAD * Math.sqrt(i+1);
+    const ox = Math.cos(spiralAngle) * spreadRadius;
+    const oz = Math.sin(spiralAngle) * spreadRadius*0.75 + 0.6;
     const bob = Math.sin((frame + c.bob) * 0.1) * 0.05;
     const x = playerX + ox;
     const z = PLAYER_Z + oz;
 
-    dummy3D.rotation.y = c.angle;
+    dummy3D.rotation.y = c.faceAngle;
 
     dummy3D.position.set(x, bob + 0.34*c.size, z);
     dummy3D.scale.setScalar(c.size);

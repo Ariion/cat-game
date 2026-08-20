@@ -315,13 +315,19 @@ function buildCatGroup(colorHex, detailed){
   const g = new THREE.Group();
   const mat = detailed ? catMaterial : followerMaterial;
 
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), mat);
+  // Le meneur (detailed) a une tête bien plus grosse par rapport au corps
+  // que les suiveurs — proportions "chaton" plutôt que chat adulte, pour
+  // rester mignon même une fois agrandi par leaderScale().
+  const bodyRadius = detailed ? 0.29 : 0.32;
+  const headRadius = detailed ? 0.30 : 0.24;
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 10, 8), mat);
   body.scale.set(1, 0.82, 1.35);
   body.position.y = 0.34;
   g.add(body);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), mat);
-  head.position.set(0, 0.58, -0.32);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(headRadius, 10, 8), mat);
+  head.position.set(0, detailed ? 0.56 : 0.58, detailed ? -0.28 : -0.32);
   g.add(head);
 
   if(detailed){
@@ -336,13 +342,14 @@ function buildCatGroup(colorHex, detailed){
       return leg;
     });
 
-    const earGeo = new THREE.ConeGeometry(0.09, 0.16, 4);
+    // oreilles plus grandes, proportionnées à la tête agrandie
+    const earGeo = new THREE.ConeGeometry(0.105, 0.19, 4);
     const earL = new THREE.Mesh(earGeo, mat);
-    earL.position.set(-0.13, 0.78, -0.34);
+    earL.position.set(-0.15, 0.78, -0.3);
     earL.rotation.z = -0.3;
     g.add(earL);
     const earR = earL.clone();
-    earR.position.x = 0.13;
+    earR.position.x = 0.15;
     earR.rotation.z = 0.3;
     g.add(earR);
 
@@ -355,14 +362,24 @@ function buildCatGroup(colorHex, detailed){
     tail2.rotation.x = -1.9;
     g.add(tail2);
 
-    const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    // grands yeux ronds, bien espacés — l'essentiel du charme "chaton"
+    const eyeGeo = new THREE.SphereGeometry(0.05, 8, 6);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 });
     const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.09, 0.6, -0.52);
+    eyeL.position.set(-0.11, 0.58, -0.5);
     g.add(eyeL);
     const eyeR = eyeL.clone();
-    eyeR.position.x = 0.09;
+    eyeR.position.x = 0.11;
     g.add(eyeR);
+    // petit reflet blanc dans chaque œil, pour un regard vivant
+    const glintGeo = new THREE.SphereGeometry(0.016, 5, 4);
+    const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const glintL = new THREE.Mesh(glintGeo, glintMat);
+    glintL.position.set(-0.085, 0.6, -0.535);
+    g.add(glintL);
+    const glintR = glintL.clone();
+    glintR.position.x = 0.085;
+    g.add(glintR);
   }
 
   return g;
@@ -1058,7 +1075,7 @@ function initScene(){
 
   // leader (le chat du joueur) — ombre portée dynamique (peu de casters, coût négligeable)
   leaderGroup = buildCatGroup(0xC97B4F, true);
-  leaderGroup.scale.setScalar(1.15);
+  leaderGroup.scale.setScalar(leaderScale()); // petit chaton au départ — voir syncLeader() pour la croissance
   leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
 

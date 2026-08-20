@@ -273,9 +273,8 @@ function rebuildHordeVisual(){
   const target = Math.min(hordeCount - 1, MAX_INSTANCED_CATS); // -1 : le leader n'est pas un suiveur
   while(cats.length < target){
     cats.push({
-      angle: Math.random()*Math.PI*2,
-      radius: 0.35 + Math.random()*1.1,
       bob: Math.random()*10,
+      faceAngle: Math.random()*Math.PI*2, // orientation individuelle, indépendante de la position
       size: 0.75 + Math.random()*0.5
     });
   }

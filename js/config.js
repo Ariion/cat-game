@@ -135,6 +135,14 @@ const BOSS_BITE_DAMAGE = 11;
 const BOSS_TINT = 0x8A7361;
 const DOG_HEIGHT_ENEMY = 0.85; // hauteur des vrais modèles 3D (mètres) — étaient trop chétifs à 0.62
 const DOG_HEIGHT_BOSS = 1.3;   // idem pour le boss (était 1.05)
+
+// Le chat meneur grandit avec la horde : petit chaton au début, chat
+// bien planté une fois la horde installée. Courbe en racine carrée (montée
+// rapide au début, qui se tasse) et plafonnée à LEADER_SCALE_SATURATE_AT
+// pour ne jamais devenir absurde même à horde de plusieurs milliers.
+const LEADER_SCALE_MIN = 0.8;
+const LEADER_SCALE_MAX = 1.75;
+const LEADER_SCALE_SATURATE_AT = 150;
 const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par biome (voir BIOMES.gameplayMods)
 
 // Brève invulnérabilité après CHAQUE coup encaissé (pas seulement après une
