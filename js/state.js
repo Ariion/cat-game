@@ -23,6 +23,9 @@ let shakeIntensity = 0;
 let frame = 0;
 let runTime = 0;       // secondes survécues cette partie (score principal, jeu infini)
 let invulnTimer = 0;   // brève invulnérabilité après une reprise sur pub
+let shieldTimer = 0;    // power-up bouclier : invulnérabilité temporaire
+let multishotTimer = 0; // power-up tir en éventail : 3 projectiles au lieu d'1
+let magnetTimer = 0;    // power-up aimant : collecte les bonus sans s'aligner
 let paused = false;
 
 // Combat en temps réel : ennemis réguliers (pool réutilisé) + projectiles
@@ -54,6 +57,9 @@ function resetGame(){
   frame = 0;
   runTime = 0;
   invulnTimer = 0;
+  shieldTimer = 0;
+  multishotTimer = 0;
+  magnetTimer = 0;
   paused = false;
   document.getElementById('screenPause').classList.add('hidden');
   enemyPool.forEach(e=>{ e.active = false; });

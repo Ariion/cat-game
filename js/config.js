@@ -56,6 +56,14 @@ const HEART_MAX = 26;
 const PICKUP_WATER_CHANCE = 0.42; // probabilité qu'un objet soit un malus (eau)
 const PICKUP_HEART_CHANCE = 0.3;  // parmi les bonus (hors eau), part de cœurs plutôt que croquettes
 
+// Power-ups temporaires : bouclier (invulnérabilité), tir en éventail (3
+// projectiles), aimant (collecte les bonus sans avoir à s'aligner). Rares
+// et courts — un coup de pouce ponctuel, pas un nouvel état permanent.
+const POWERUP_CHANCE = 0.06;         // probabilité qu'une apparition soit un power-up plutôt qu'un bonus/malus
+const POWERUP_DURATION_FRAMES = 480; // 8s à 60 ticks/s
+const MULTISHOT_SPREAD_X = 0.55;     // écart latéral entre les 3 projectiles du tir en éventail
+const MAGNET_TOLERANCE = 6;          // tolérance latérale pendant le power-up aimant (couvre toute la largeur)
+
 // Vie : deuxième ressource, séparée du nombre de chats. Le nombre de chats
 // EST la puissance de combat (dégâts par tir) ; la vie est la marge
 // d'erreur — elle tombe quand un ennemi atteint le joueur, à 0 c'est la mort.
@@ -125,6 +133,9 @@ const BOSS_SPEED = 0.05;
 const BOSS_BITE_INTERVAL_FRAMES = 55; // le boss mord à intervalles une fois arrivé
 const BOSS_BITE_DAMAGE = 11;
 const BOSS_TINT = 0x8A7361;
+const DOG_HEIGHT_ENEMY = 0.85; // hauteur des vrais modèles 3D (mètres) — étaient trop chétifs à 0.62
+const DOG_HEIGHT_BOSS = 1.3;   // idem pour le boss (était 1.05)
+const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par biome (voir BIOMES.gameplayMods)
 
 // Brève invulnérabilité après CHAQUE coup encaissé (pas seulement après une
 // reprise sur pub). Sans ça, plusieurs ennemis qui arrivent groupés peuvent

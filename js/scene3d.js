@@ -45,6 +45,9 @@ const decorDummy = webglSupported ? new THREE.Object3D() : null;
 let weatherInst = null, weatherMat = null;
 let weatherData = []; // {x, y, z, rot}
 let currentWeather = null; // paramètres interpolés (voir applyBiomeInstant/updateBiomeTransition)
+// effets de gameplay du biome courant — valeurs neutres par défaut (utile
+// même sans WebGL, où applyBiomeInstant() n'est jamais appelé)
+let currentGameplayMods = { moveLerpMult: 1, enemySpeedMult: 1, fogDensityMult: 1 };
 
 // --- ciel : redessiné (pas remplacé) pour permettre un fondu de biome -----
 let skyCanvas, skyCtx, skyTexture, skyClouds = [];
@@ -72,39 +75,90 @@ function drawPickupIcon(cx, kind){
     cx.bezierCurveTo(6, 10, 14, 6, 14, -2);
     cx.bezierCurveTo(14, -10, 2, -10, 0, -4);
     cx.fill();
-  } else {
+  } else if(kind === 'water'){
     cx.fillStyle = '#5B8FBF';
     cx.beginPath();
     cx.moveTo(0,-14);
     cx.quadraticCurveTo(14,6,0,16);
     cx.quadraticCurveTo(-14,6,0,-14);
     cx.fill();
+  } else if(kind === 'shield'){
+    cx.fillStyle = '#E3A857';
+    cx.beginPath();
+    cx.moveTo(0,-15);
+    cx.lineTo(12,-8);
+    cx.lineTo(12,4);
+    cx.quadraticCurveTo(12,14,0,18);
+    cx.quadraticCurveTo(-12,14,-12,4);
+    cx.lineTo(-12,-8);
+    cx.closePath();
+    cx.fill();
+  } else if(kind === 'multishot'){
+    cx.strokeStyle = '#9B6FC9';
+    cx.lineWidth = 4.5;
+    cx.lineCap = 'round';
+    [-11, 0, 11].forEach(dx=>{
+      cx.beginPath();
+      cx.moveTo(dx*0.4, 14);
+      cx.lineTo(dx, -14);
+      cx.stroke();
+      cx.beginPath();
+      cx.moveTo(dx, -14);
+      cx.lineTo(dx-4, -7);
+      cx.moveTo(dx, -14);
+      cx.lineTo(dx+4, -7);
+      cx.stroke();
+    });
+  } else if(kind === 'magnet'){
+    cx.strokeStyle = '#4FBEBE';
+    cx.lineWidth = 7;
+    cx.lineCap = 'round';
+    cx.beginPath();
+    cx.arc(0, -2, 11, Math.PI*0.15, Math.PI*0.85, false);
+    cx.stroke();
+    cx.beginPath();
+    cx.moveTo(-11, -3); cx.lineTo(-11, 13);
+    cx.moveTo(11, -3); cx.lineTo(11, 13);
+    cx.stroke();
+    cx.strokeStyle = '#ffffff';
+    cx.lineWidth = 3.5;
+    cx.beginPath();
+    cx.moveTo(-11, 6); cx.lineTo(-11, 13);
+    cx.moveTo(11, 6); cx.lineTo(11, 13);
+    cx.stroke();
   }
 }
 
+const POWERUP_KINDS = ['shield', 'multishot', 'magnet'];
+
 // Icône + montant ("+3", "+22", "-4") en GRAS, bien visible — c'est
-// l'information principale de la porte, le reste n'est que décor.
+// l'information principale de la porte, le reste n'est que décor. Les
+// power-ups (durée temporaire, pas de "montant") affichent juste l'icône
+// en plus grand, sans nombre.
 function createPickupTexture(kind, amount){
   const w = 200, h = 340;
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const cx = c.getContext('2d');
+  const isPowerup = POWERUP_KINDS.includes(kind);
 
   cx.save();
-  cx.translate(w/2, h*0.2);
-  cx.scale(1.9, 1.9);
+  cx.translate(w/2, isPowerup ? h*0.42 : h*0.2);
+  cx.scale(isPowerup ? 3.2 : 1.9, isPowerup ? 3.2 : 1.9);
   drawPickupIcon(cx, kind);
   cx.restore();
 
-  const label = (amount >= 0 ? '+' : '') + amount;
-  cx.font = '800 92px Fredoka, sans-serif';
-  cx.textAlign = 'center';
-  cx.textBaseline = 'middle';
-  cx.lineWidth = 14;
-  cx.strokeStyle = 'rgba(59,50,38,0.9)';
-  cx.strokeText(label, w/2, h*0.62);
-  cx.fillStyle = '#ffffff';
-  cx.fillText(label, w/2, h*0.62);
+  if(!isPowerup){
+    const label = (amount >= 0 ? '+' : '') + amount;
+    cx.font = '800 92px Fredoka, sans-serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.lineWidth = 14;
+    cx.strokeStyle = 'rgba(59,50,38,0.9)';
+    cx.strokeText(label, w/2, h*0.62);
+    cx.fillStyle = '#ffffff';
+    cx.fillText(label, w/2, h*0.62);
+  }
 
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
@@ -404,6 +458,7 @@ function loadDogModels(){
           });
         }
       });
+      gltf.kind = kind;
       dogModels[kind] = gltf;
       settle();
     }, undefined, err=>{
@@ -420,11 +475,30 @@ function pickDogGltf(index){
   return dogModels.husky || dogModels.shiba || null;
 }
 
-function buildRealDogGroup(gltf, targetHeight, withShadow){
+// Le matériau "pelage principal" n'a pas le même nom selon la race (voir
+// l'inspection des .glb) — les autres matériaux (yeux, truffe...) restent
+// tels quels, seul celui-ci est teinté pour varier les chiens entre eux.
+const DOG_MAIN_FUR_MATERIAL = { husky: 'Material', shiba: 'Main' };
+const DOG_FUR_COLORS = [0x2b2b2b, 0x5c4a35, 0xC9A063, 0x8a8a8a, 0x9c5b3c, 0xe8ddc9, 0x6b4a2f];
+function randomFurColor(){ return DOG_FUR_COLORS[Math.floor(Math.random()*DOG_FUR_COLORS.length)]; }
+
+function buildRealDogGroup(gltf, targetHeight, withShadow, furColor){
   const root = THREE.SkeletonUtils.clone(gltf.scene);
   const scale = targetHeight / gltf.naturalHeight;
   root.scale.setScalar(scale);
   if(withShadow) root.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  // SkeletonUtils.clone() partage les matériaux avec l'original (et donc
+  // avec tous les autres clones) — il faut les cloner nous-mêmes pour
+  // pouvoir teinter le pelage d'un chien sans changer tous les autres.
+  if(furColor !== undefined){
+    const mainName = DOG_MAIN_FUR_MATERIAL[gltf.kind];
+    root.traverse(o=>{
+      if(!o.isMesh || !o.material) return;
+      const clone = o.material.clone();
+      if(clone.name === mainName) clone.color.setHex(furColor);
+      o.material = clone;
+    });
+  }
   const mixer = new THREE.AnimationMixer(root);
   const actions = {};
   gltf.animations.forEach(clip=>{ actions[clip.name] = mixer.clipAction(clip); });
@@ -455,7 +529,7 @@ function upgradeDogsToRealModels(){
   const bossVisible = bossGroup.visible, bossPos = bossGroup.position.clone();
   scene.remove(bossGroup);
   disposeProceduralGroup(bossGroup);
-  bossGroup = buildRealDogGroup(bossGltf, 1.05, true);
+  bossGroup = buildRealDogGroup(bossGltf, DOG_HEIGHT_BOSS, true, randomFurColor());
   bossGroup.position.copy(bossPos);
   bossGroup.visible = bossVisible;
   scene.add(bossGroup);
@@ -467,7 +541,7 @@ function upgradeDogsToRealModels(){
     const wasVisible = old.visible, pos = old.position.clone();
     scene.remove(old);
     disposeProceduralGroup(old);
-    const g = buildRealDogGroup(gltf, 0.62);
+    const g = buildRealDogGroup(gltf, DOG_HEIGHT_ENEMY, false, randomFurColor());
     g.position.copy(pos);
     g.visible = wasVisible;
     scene.add(g);
@@ -487,7 +561,10 @@ function updateDogAnimations(){
   }
 }
 
-const PICKUP_COLORS = { croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A };
+const PICKUP_COLORS = {
+  croquette: 0x6B8F71, water: 0x5B8FBF, heart: 0xD9607A,
+  shield: 0xE3A857, multishot: 0x9B6FC9, magnet: 0x4FBEBE
+};
 
 // Portes DROITES (pas d'arche, pas de rotation continue) en faible opacité
 // et colorées, avec le montant en gros et en gras — le joueur doit pouvoir
@@ -834,6 +911,8 @@ function applyBiomeInstant(index){
   hemiLight.groundColor.setHex(b.hemiGround);
   sunLight.color.setHex(b.sun);
   currentWeather = Object.assign({}, b.weather);
+  currentGameplayMods = Object.assign({}, b.gameplayMods);
+  scene.fog.density = FOG_DENSITY_BASE * currentGameplayMods.fogDensityMult;
   biomeAnimTo = null;
 }
 
@@ -851,7 +930,8 @@ function startBiomeTransition(index){
     hemiSky: hemiLight.color.getHex(),
     hemiGround: hemiLight.groundColor.getHex(),
     sun: sunLight.color.getHex(),
-    weather: Object.assign({}, currentWeather)
+    weather: Object.assign({}, currentWeather),
+    gameplayMods: Object.assign({}, currentGameplayMods)
   };
   biomeAnimTo = BIOMES[index];
   biomeAnimT = 0;
@@ -891,6 +971,12 @@ function updateBiomeTransition(){
     driftSpeed: lerpNum(biomeAnimFrom.weather.driftSpeed, biomeAnimTo.weather.driftSpeed, t),
     size: lerpNum(biomeAnimFrom.weather.size, biomeAnimTo.weather.size, t)
   };
+  currentGameplayMods = {
+    moveLerpMult: lerpNum(biomeAnimFrom.gameplayMods.moveLerpMult, biomeAnimTo.gameplayMods.moveLerpMult, t),
+    enemySpeedMult: lerpNum(biomeAnimFrom.gameplayMods.enemySpeedMult, biomeAnimTo.gameplayMods.enemySpeedMult, t),
+    fogDensityMult: lerpNum(biomeAnimFrom.gameplayMods.fogDensityMult, biomeAnimTo.gameplayMods.fogDensityMult, t)
+  };
+  scene.fog.density = FOG_DENSITY_BASE * currentGameplayMods.fogDensityMult;
 
   currentSkySteps = biomeAnimFrom.skySteps.map((from,i)=>lerpHex(from, biomeAnimTo.skySteps[i], t));
   // redessiner le ciel (dégradé + nuages figés) coûte un peu plus cher que
@@ -910,7 +996,7 @@ function initScene(){
   scene = new THREE.Scene();
   scene.background = createSkyTexture(BIOMES[0].skySteps);
   currentSkySteps = BIOMES[0].skySteps.slice();
-  scene.fog = new THREE.FogExp2(BIOMES[0].fog, 0.026);
+  scene.fog = new THREE.FogExp2(BIOMES[0].fog, FOG_DENSITY_BASE);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
   camera.position.set(0, 4.1, 7.2);
@@ -976,10 +1062,21 @@ function initScene(){
   leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
 
+  // halo du power-up bouclier — masqué par défaut, affiché/tourné dans
+  // syncLeader() (render3d.js) tant que shieldTimer > 0
+  const shieldMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 12, 10),
+    new THREE.MeshBasicMaterial({ color: PICKUP_COLORS.shield, transparent:true, opacity:0.3, depthWrite:false })
+  );
+  shieldMesh.position.y = 0.4;
+  shieldMesh.visible = false;
+  leaderGroup.add(shieldMesh);
+  leaderGroup.userData.shieldMesh = shieldMesh;
+
   // boss (unique, apparaît en fin de parcours)
   bossGroup = buildBossGroup(bossMaterial);
   bossGroup.visible = false;
-  bossGroup.scale.setScalar(1);
+  bossGroup.scale.setScalar(1.25); // même proportion agrandie que DOG_HEIGHT_BOSS pour le vrai modèle
   bossGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(bossGroup);
 
@@ -990,7 +1087,7 @@ function initScene(){
   enemyPool = [];
   for(let i=0;i<MAX_ENEMIES;i++){
     const g = buildBossGroup(enemyMaterial);
-    g.scale.setScalar(0.6);
+    g.scale.setScalar(0.8); // même proportion agrandie que DOG_HEIGHT_ENEMY pour le vrai modèle
     g.visible = false;
     scene.add(g);
     enemyVisuals.push(g);

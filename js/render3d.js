@@ -27,6 +27,11 @@ function syncLeader(){
   // montre au joueur qu'il vient d'être protégé d'un enchaînement de dégâts
   leaderGroup.visible = invulnTimer <= 0 || frame % 6 < 3;
   animateLegs(leaderGroup.userData.legs, frame*0.35, 0.5);
+  const shieldMesh = leaderGroup.userData.shieldMesh;
+  if(shieldMesh){
+    shieldMesh.visible = shieldTimer > 0;
+    if(shieldTimer > 0) shieldMesh.rotation.y += 0.04;
+  }
 }
 
 function syncFollowers(){

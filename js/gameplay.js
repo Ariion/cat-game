@@ -57,8 +57,17 @@ function spawnDilemma(){
   }
 }
 
+function spawnPowerup(){
+  // toujours seul (jamais en dilemme) — pas de "choix" à faire, juste un
+  // coup de pouce ponctuel à récupérer si on passe dessus
+  const kind = POWERUP_KINDS[Math.floor(Math.random()*POWERUP_KINDS.length)];
+  spawnPickupAt(PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX-PLAYER_X_MIN), kind, 0);
+}
+
 function spawnPickupEvent(){
-  if(Math.random() < DILEMMA_CHANCE){
+  if(Math.random() < POWERUP_CHANCE){
+    spawnPowerup();
+  } else if(Math.random() < DILEMMA_CHANCE){
     spawnDilemma();
   } else {
     spawnPickupAt(PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX-PLAYER_X_MIN));
@@ -88,8 +97,34 @@ function growHp(amount){
   updateHud();
 }
 
+let powerupHudText = '';
+function updatePowerupHud(){
+  const el = document.getElementById('powerupBadges');
+  if(!el) return;
+  const parts = [];
+  if(shieldTimer > 0) parts.push('🛡️ ' + Math.ceil(shieldTimer/60) + 's');
+  if(multishotTimer > 0) parts.push('✨ ' + Math.ceil(multishotTimer/60) + 's');
+  if(magnetTimer > 0) parts.push('🧲 ' + Math.ceil(magnetTimer/60) + 's');
+  const text = parts.join('   ');
+  if(text !== powerupHudText){
+    powerupHudText = text;
+    el.textContent = text;
+    el.classList.toggle('hidden', parts.length === 0);
+  }
+}
+
+function activatePowerup(kind){
+  if(kind === 'shield') shieldTimer = POWERUP_DURATION_FRAMES;
+  else if(kind === 'multishot') multishotTimer = POWERUP_DURATION_FRAMES;
+  else if(kind === 'magnet') magnetTimer = POWERUP_DURATION_FRAMES;
+  spawnBurst(playerX, 0.6, PLAYER_Z, PICKUP_COLORS[kind]);
+  sfx.heart();
+  vibrate(20);
+  showToast(t('powerup_toast_' + kind));
+}
+
 function takeDamage(amount, reason){
-  if(invulnTimer > 0) return; // grâce en cours (juste touché, ou reprise sur pub)
+  if(invulnTimer > 0 || shieldTimer > 0) return; // grâce en cours (juste touché, reprise sur pub, ou bouclier actif)
   hp = Math.max(0, hp - amount);
   spawnBurst(playerX, 0.5, PLAYER_Z, 0x8A2E3B);
   sfx.hurt();
@@ -166,7 +201,8 @@ function spawnWave(){
     e.maxHp = e.hp = Math.max(1, Math.round(attackDamage() * shotsToKillEnemy()));
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
-    e.speed = Math.min(ENEMY_SPEED_CAP, ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM);
+    // enemySpeedMult > 1 en biome Désert : la chaleur les rend plus agressifs
+    e.speed = Math.min(ENEMY_SPEED_CAP, ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM) * currentGameplayMods.enemySpeedMult;
     spawned++;
   }
 }
@@ -223,14 +259,24 @@ function attackDamage(){
   return Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
 }
 
+function spawnOneProjectile(x){
+  const mat = new THREE.MeshBasicMaterial({ color:0xFFD27A, fog:false });
+  const mesh = new THREE.Mesh(projectileGeometry, mat);
+  mesh.position.set(x, 0.55, PLAYER_Z - 0.35);
+  scene.add(mesh);
+  projectiles.push({ mesh, damage: attackDamage(), life: 140 });
+}
+
 function fireProjectile(){
   if(!webglSupported) return;
   attackPulse = 8;
-  const mat = new THREE.MeshBasicMaterial({ color:0xFFD27A, fog:false });
-  const mesh = new THREE.Mesh(projectileGeometry, mat);
-  mesh.position.set(playerX, 0.55, PLAYER_Z - 0.35);
-  scene.add(mesh);
-  projectiles.push({ mesh, damage: attackDamage(), life: 140 });
+  // power-up tir en éventail : toujours 3 projectiles en ligne droite (pas
+  // de visée), juste plus de lignes couvertes en même temps
+  if(multishotTimer > 0){
+    [-MULTISHOT_SPREAD_X, 0, MULTISHOT_SPREAD_X].forEach(offset=>spawnOneProjectile(playerX + offset));
+  } else {
+    spawnOneProjectile(playerX);
+  }
 }
 
 function applyEnemyHit(i, damage){
@@ -312,10 +358,16 @@ function update(){
   if(keyLeft) playerTargetX -= PLAYER_KEY_SPEED;
   if(keyRight) playerTargetX += PLAYER_KEY_SPEED;
   playerTargetX = Math.max(PLAYER_X_MIN, Math.min(PLAYER_X_MAX, playerTargetX));
-  playerX += (playerTargetX - playerX) * PLAYER_MOVE_LERP;
+  // moveLerpMult < 1 en biome Neige (sol glissant) : le chat met plus de
+  // temps à rejoindre la position visée, contrôle moins précis
+  playerX += (playerTargetX - playerX) * PLAYER_MOVE_LERP * currentGameplayMods.moveLerpMult;
 
   if(shakeTimer > 0){ shakeTimer--; shakeIntensity *= 0.88; }
   if(invulnTimer > 0) invulnTimer--;
+  if(shieldTimer > 0) shieldTimer--;
+  if(multishotTimer > 0) multishotTimer--;
+  if(magnetTimer > 0) magnetTimer--;
+  updatePowerupHud();
 
   updateParticles();
 
@@ -331,9 +383,13 @@ function update(){
       p.z += pickupSpeed;
       if(!p.resolved && p.z > PLAYER_Z-PICKUP_RESOLVE_RANGE && p.z < PLAYER_Z+PICKUP_RESOLVE_RANGE){
         p.resolved = true;
-        const hit = Math.abs(playerX - p.x) < PICKUP_RADIUS;
+        // l'aimant élargit la tolérance d'alignement, SAUF pour l'eau — il
+        // aide à collecter, jamais à forcer un malus qu'on aurait évité
+        const magnetActive = magnetTimer > 0 && p.kind !== 'water';
+        const hit = Math.abs(playerX - p.x) < (magnetActive ? MAGNET_TOLERANCE : PICKUP_RADIUS);
         if(hit){
           if(p.kind === 'heart'){ growHp(p.amount); }
+          else if(POWERUP_KINDS.includes(p.kind)){ activatePowerup(p.kind); }
           else { growHorde(p.amount); }
         }
         const palierBefore = currentPalier();

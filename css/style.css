@@ -74,6 +74,16 @@ canvas{
   display:flex; align-items:center; gap:7px;
   box-shadow: 0 2px 8px rgba(59,50,38,0.15);
 }
+.powerup-badges{
+  background: rgba(255,255,255,0.85);
+  border-radius: 999px;
+  padding: 5px 12px;
+  display:flex; align-items:center; gap:9px;
+  box-shadow: 0 2px 8px rgba(59,50,38,0.15);
+  font-family:'Fredoka', sans-serif;
+  font-size: 12px; font-weight:600; color: var(--ink-soft);
+  width: fit-content;
+}
 .hp-bar-track{
   width: 64px; height: 8px;
   background: rgba(59,50,38,0.14);
