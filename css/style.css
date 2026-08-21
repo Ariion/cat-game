@@ -323,3 +323,27 @@ canvas{
   font-family:'Nunito', sans-serif;
   font-size: 12px; color: var(--ink-soft); opacity:0.75;
 }
+
+/* Bouton du miaulement (Chatteau Fort). Gros et en bas à droite : c'est une
+   action d'urgence, elle doit se déclencher sans viser. */
+.meow-btn{
+  position:absolute; right:16px; bottom:18px;
+  pointer-events:auto;
+  width:62px; height:62px;
+  border-radius:50%;
+  border:3px solid rgba(255,255,255,0.9);
+  background: rgba(59,50,38,0.35);
+  color:#fff;
+  font-family:'Fredoka', sans-serif;
+  font-size:26px; font-weight:600; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 3px 12px rgba(59,50,38,0.3);
+  cursor:pointer;
+}
+.meow-btn.ready{
+  background: var(--gold);
+  border-color:#fff;
+  box-shadow: 0 0 0 4px rgba(227,168,87,0.3), 0 3px 12px rgba(59,50,38,0.3);
+}
+.meow-btn:not(.ready){ font-size:17px; }
+.meow-btn:active{ transform: scale(0.93); }

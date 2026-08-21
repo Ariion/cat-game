@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=36">
+<link rel="stylesheet" href="css/style.css?v=38">
 </head>
 <body>
 
@@ -61,6 +61,13 @@
         <button class="pause-btn hidden" id="pauseBtnTower" onclick="pauseGame()">&#10074;&#10074;</button>
       </div>
     </div>
+
+    <!-- Pouvoir du chat joueur : ralentit les chiens autour de lui. Placé en
+         bas à droite, à portée du pouce, loin de la zone où l'on tape pour se
+         déplacer. DEHORS du .hud : celui-ci est ancré en haut sans hauteur
+         propre, donc un `bottom` calculé dedans renvoyait le bouton se coller
+         au bouton pause, en haut à droite (vu en capture). -->
+    <button class="meow-btn hidden ready" id="meowBtn" onclick="triggerMeow()">&#128049;</button>
 
     <div class="toast hidden" id="toast"></div>
 
@@ -191,23 +198,23 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=36"></script>
-<script src="js/vendor/postprocessing.js?v=36"></script>
-<script src="js/config.js?v=36"></script>
-<script src="js/biomes.js?v=36"></script>
-<script src="js/i18n.js?v=36"></script>
-<script src="js/audio.js?v=36"></script>
-<script src="js/state.js?v=36"></script>
-<script src="js/towerState.js?v=36"></script>
-<script src="js/scene3d.js?v=36"></script>
-<script src="js/towerScene3d.js?v=36"></script>
-<script src="js/render3d.js?v=36"></script>
-<script src="js/towerRender3d.js?v=36"></script>
-<script src="js/gameplay.js?v=36"></script>
-<script src="js/towerGameplay.js?v=36"></script>
-<script src="js/postfx.js?v=36"></script>
-<script src="js/modes.js?v=36"></script>
-<script src="js/input.js?v=36"></script>
-<script src="js/main.js?v=36"></script>
+<script src="js/vendor/GLTFLoader.js?v=38"></script>
+<script src="js/vendor/postprocessing.js?v=38"></script>
+<script src="js/config.js?v=38"></script>
+<script src="js/biomes.js?v=38"></script>
+<script src="js/i18n.js?v=38"></script>
+<script src="js/audio.js?v=38"></script>
+<script src="js/state.js?v=38"></script>
+<script src="js/towerState.js?v=38"></script>
+<script src="js/scene3d.js?v=38"></script>
+<script src="js/towerScene3d.js?v=38"></script>
+<script src="js/render3d.js?v=38"></script>
+<script src="js/towerRender3d.js?v=38"></script>
+<script src="js/gameplay.js?v=38"></script>
+<script src="js/towerGameplay.js?v=38"></script>
+<script src="js/postfx.js?v=38"></script>
+<script src="js/modes.js?v=38"></script>
+<script src="js/input.js?v=38"></script>
+<script src="js/main.js?v=38"></script>
 </body>
 </html>

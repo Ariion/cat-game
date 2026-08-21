@@ -38,6 +38,7 @@ let hero = {
   invulnTimer: 0,       // répit après une bousculade
   buildSlot: null,      // emplacement en cours de construction
   buildTimer: 0,
+  meowCooldown: 0,     // recharge du miaulement (voir triggerMeow)
   visual: null,
   facing: 0
 };
@@ -83,6 +84,9 @@ function resetTowerGame(){
     });
     towerParticles.forEach(p=>{ towerScene.remove(p.mesh); p.mesh.material.dispose(); });
     towerLoot.forEach(l=>{ towerScene.remove(l.visual); disposeProceduralGroup(l.visual); });
+    // les ondes de miaulement en cours ont leur propre matériau cloné
+    meowRings.forEach(r=>{ towerScene.remove(r.mesh); r.mesh.material.dispose(); });
+    meowRings = [];
     applyTowerAmbianceInstant(0); // repart du plein jour, sans fondu
     setTowerBannerCount(0);
     resetHero();
@@ -100,6 +104,8 @@ function resetTowerGame(){
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('pauseBtnTower').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden'); // l'indice "glisse..." est spécifique au mode Bataille
+  document.getElementById('meowBtn').classList.remove('hidden');
+  updateMeowButton();
   updateTowerHud();
 }
 
@@ -114,6 +120,7 @@ function resetHero(){
   hero.invulnTimer = 0;
   hero.buildSlot = null;
   hero.buildTimer = 0;
+  hero.meowCooldown = 0;
   hero.facing = 0;
   if(!hero.visual){
     hero.visual = buildHeroCat();
@@ -158,6 +165,7 @@ function showTowerLose(){
     : t('tower_lose_stats', { n: towerWave, max: TOWER_WAVE_COUNT });
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
+  document.getElementById('meowBtn').classList.add('hidden');
   // sinon le chat du joueur reste planté au milieu du plateau, visible sous
   // l'écran de défaite — le moment doit être net
   if(hero.visual) hero.visual.visible = false;
@@ -169,6 +177,7 @@ function showTowerWin(){
   towerState = 'win';
   document.getElementById('screenTowerWin').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
+  document.getElementById('meowBtn').classList.add('hidden');
   sfx.win();
   vibrate(60);
 }

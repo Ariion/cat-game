@@ -121,6 +121,45 @@ function updateHeroBuild(){
   }
 }
 
+// --- miaulement : le pouvoir du chat joueur --------------------------------
+// Ralentit les chiens autour du chat, avec une recharge. Il faut donc aller
+// se placer AU CONTACT de la vague pour que ça serve — c'est ce qui donne au
+// joueur une prise sur l'issue au lieu de regarder ses tourelles.
+function meowReady(){ return hero.meowCooldown <= 0 && towerState === 'playing' && !towerPaused; }
+
+function triggerMeow(){
+  if(!meowReady() || hero.stunTimer > 0) return;
+  hero.meowCooldown = MEOW_COOLDOWN_FRAMES;
+  let touched = 0;
+  towerDogs.forEach(d=>{
+    if(Math.hypot(hero.x - d.x, hero.z - d.z) > MEOW_RADIUS) return;
+    d.slowTimer = MEOW_DURATION_FRAMES;
+    touched++;
+  });
+  spawnMeowRing(hero.x, hero.z);
+  spawnTowerBurst(hero.x, 0.8, hero.z, 0xFFF2C8, 10);
+  sfx.bossAppear();
+  vibrate([25, 20, 25]);
+  showToast(touched > 0 ? t('tower_meow_hit', { n: touched }) : t('tower_meow_miss'));
+  updateMeowButton();
+}
+
+function updateMeowCooldown(){
+  if(hero.meowCooldown > 0){
+    hero.meowCooldown--;
+    if(hero.meowCooldown === 0) updateMeowButton();
+    else if(hero.meowCooldown % 15 === 0) updateMeowButton();
+  }
+}
+
+function updateMeowButton(){
+  const btn = document.getElementById('meowBtn');
+  if(!btn) return;
+  const ready = hero.meowCooldown <= 0;
+  btn.classList.toggle('ready', ready);
+  btn.textContent = ready ? '🐱' : Math.ceil(hero.meowCooldown/60) + 's';
+}
+
 // --- butin ---------------------------------------------------------------
 
 // Valeur d'un poisson à la vague courante — voir LOOT_VALUE_PER_WAVE.
@@ -458,12 +497,46 @@ function towerDogSpeed(){
   return Math.min(ENDLESS_SPEED_CAP, TOWER_DOG_SPEED_BASE * Math.pow(ENDLESS_SPEED_GROWTH, growth));
 }
 
-function spawnTowerDog(){
-  const hp = towerDogHp();
-  const speed = towerDogSpeed();
+// Tire un type de chien pour la vague courante, parmi ceux déjà débloqués et
+// selon leur fréquence. Un chien-boss remplace le tirage une vague sur cinq,
+// et seulement pour le premier chien de la vague — sinon on aurait six boss
+// d'un coup.
+function pickDogType(indexInWave){
+  if(towerEndless && towerWave % TOWER_BOSS_EVERY === 0 && indexInWave === 0){
+    return { id:'boss', hp:TOWER_BOSS_HP, speed:TOWER_BOSS_SPEED, scale:TOWER_BOSS_SCALE,
+             tint:TOWER_BOSS_TINT, loot:TOWER_BOSS_LOOT };
+  }
+  // Types spéciaux réservés à l'INFINI. Le mode Histoire est l'entrée en
+  // matière : sa courbe de PV est déjà exponentielle (x1,55 par vague), et y
+  // ajouter des brutes à 2,6x PV le rendait tout simplement imperdable dans
+  // l'autre sens — mesuré : défaite systématique à la vague 5, alors qu'il
+  // était réglé pour une victoire en ~53 s.
+  const pool = towerEndless
+    ? TOWER_DOG_TYPES.filter(t=>towerWave >= t.from)
+    : TOWER_DOG_TYPES.filter(t=>t.id === 'normal');
+  const total = pool.reduce((n,t)=>n+t.weight, 0);
+  let r = Math.random()*total;
+  for(const t of pool){ r -= t.weight; if(r <= 0) return t; }
+  return pool[0];
+}
+
+function spawnTowerDog(indexInWave){
+  const type = pickDogType(indexInWave);
+  const hp = Math.max(1, Math.round(towerDogHp() * type.hp));
+  const speed = towerDogSpeed() * type.speed;
 
   const visual = buildBossGroup(enemyMaterial); // même chien procédural que le mode Bataille
-  visual.scale.setScalar(0.68);
+  visual.scale.setScalar(type.scale);
+  // Teinte propre au type : le matériau est PARTAGÉ par tous les chiens, donc
+  // il faut cloner avant de colorer, sinon teinter un chien les teint tous.
+  if(type.tint !== null && type.tint !== undefined){
+    visual.traverse(o=>{
+      if(o.isMesh && o.material === enemyMaterial){
+        o.material = enemyMaterial.clone();
+        o.material.color.setHex(type.tint);
+      }
+    });
+  }
   visual.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   const start = TOWER_PATH[0];
   visual.position.set(start.x, 0, start.z);
@@ -474,9 +547,12 @@ function spawnTowerDog(){
 
   towerDogs.push({
     active: true, hp, maxHp: hp, speed,
+    type: type.id, lootMult: type.loot,
+    slowTimer: 0,
     wp: 0, x: start.x, z: start.z,
     visual, hpSprite
   });
+  if(type.id === 'boss'){ showToast(t('tower_boss_wave')); sfx.bossAppear(); vibrate([30,20,30]); }
 }
 
 function dogProgress(d){
@@ -490,14 +566,19 @@ function updateTowerDogs(){
     const d = towerDogs[i];
     const target = TOWER_PATH[d.wp+1];
     if(!target){ resolveTowerDog(i, 'arrived'); continue; }
+    // vitesse EFFECTIVE : le ralentissement du miaulement s'applique au
+    // déplacement, il ne modifie jamais d.speed — sinon le chien resterait
+    // lent pour toujours
+    if(d.slowTimer > 0) d.slowTimer--;
+    const spd = d.slowTimer > 0 ? d.speed * MEOW_SLOW_FACTOR : d.speed;
     const dx = target.x - d.x, dz = target.z - d.z;
     const dist = Math.hypot(dx, dz);
-    if(dist < d.speed){
+    if(dist < spd){
       d.x = target.x; d.z = target.z; d.wp++;
       if(d.wp >= TOWER_PATH.length - 1){ resolveTowerDog(i, 'arrived'); continue; }
     } else {
-      d.x += dx/dist * d.speed;
-      d.z += dz/dist * d.speed;
+      d.x += dx/dist * spd;
+      d.z += dz/dist * spd;
     }
     d.visual.position.set(d.x, 0, d.z);
     animateLegs(d.visual.userData.legs, towerFrame*0.3 + i*1.3, 0.4);
@@ -520,7 +601,7 @@ function resolveTowerDog(i, reason){
   } else if(reason === 'killed'){
     // le butin tombe AU SOL : c'est au chat joueur d'aller le chercher, ce qui
     // l'oblige à s'aventurer près du chemin plutôt qu'à encaisser de loin
-    spawnLoot(d.x, d.z, lootValueForWave());
+    spawnLoot(d.x, d.z, Math.round(lootValueForWave() * (d.lootMult || 1)));
     sfx.enemyDown();
   }
   checkTowerWaveEnd();
@@ -679,7 +760,7 @@ function updateTowerWaves(){
     towerWaveSpawnTimer++;
     if(towerWaveSpawnTimer >= towerSpawnInterval()){
       towerWaveSpawnTimer = 0;
-      spawnTowerDog();
+      spawnTowerDog(towerWaveSpawned);
       towerWaveSpawned++;
     }
   }
@@ -691,11 +772,13 @@ function updateTower(){
   if(towerState !== 'playing' || towerPaused || inChapterBreak) return;
   towerFrame++;
   updateTowerWaves();
+  updateMeowCooldown();
   updateHero();
   updateTowerTurrets();
   updateTowerDogs();
   updateTowerLoot();
   updateTowerParticles();
+  if(webglSupported) updateMeowRings();
   if(webglSupported){
     updateTowerAmbiance();       // fondu d'ambiance entre deux vagues
     animateTowerBanners(towerFrame);

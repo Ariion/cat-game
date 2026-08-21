@@ -175,6 +175,16 @@ const CHAPTER_WAVES = 10;   // Chatteau Fort : vagues par chapitre
 // les vider et ça devient une avalanche imparable (voir le commentaire au-
 // dessus de ENEMY_SPAWN_INTERVAL_START). Toute modification ici se vérifie en
 // simulation, pas à l'oeil.
+// Déchaînement de début de chapitre. Il répond à un défaut de fond mesuré :
+// les PV des ennemis étant indexés sur les dégâts du joueur (pour empêcher le
+// one-shot), un ennemi demande le MÊME nombre de tirs à ⚡3 qu'à ⚡56. Le
+// chiffre monte, mais le joueur ne sent jamais qu'il devient plus fort.
+// Franchir un chapitre lui offre donc quelques secondes où sa puissance perce
+// vraiment — la récompense devient sensible au lieu d'être seulement lisible.
+const SURGE_DURATION_FRAMES = 300; // 5 s — 8 s allégeaient trop la difficulté
+                                   // que les chapitres venaient justement de rétablir
+const SURGE_MULTIPLIER = 3;
+
 const CHAPTER_SPAWN_INTERVAL_STEP = 9;    // vagues plus rapprochées à chaque chapitre
 const CHAPTER_SPAWN_INTERVAL_FLOOR = 95;  // plancher absolu
 const CHAPTER_ENEMIES_MAX_STEP = 0.4;     // + d'ennemis par vague
@@ -311,6 +321,34 @@ const LOOT_VALUE = 6;              // valeur d'un poisson ramassé à la vague 1
 // économique (mesuré : effondrement net vers la vague 13, tourelles bloquées
 // au grade II faute de poissons).
 const LOOT_VALUE_PER_WAVE = 0.16;  // +16 % de la valeur de base par vague
+
+// --- pouvoir du chat joueur : le miaulement --------------------------------
+// Sans lui, le joueur est SPECTATEUR au moment le plus tendu : quand une vague
+// passe, il ne peut que regarder ses tourelles tirer. Le miaulement lui donne
+// enfin une prise sur l'issue — il ralentit les chiens autour de lui, donc il
+// faut aller se mettre en danger au bon endroit pour que ça serve.
+const MEOW_RADIUS = 3.2;
+const MEOW_SLOW_FACTOR = 0.35;   // les chiens touchés avancent à 35 % de leur vitesse
+const MEOW_DURATION_FRAMES = 180; // 3 s de ralentissement
+const MEOW_COOLDOWN_FRAMES = 720; // 12 s de recharge
+
+// --- types de chiens ------------------------------------------------------
+// Faire monter les points de vie ne suffit pas : sans variété, la vague 25 se
+// joue exactement comme la vague 12, en plus lent à tuer. Chaque type change
+// une DÉCISION (où placer, quand miauler), pas seulement un nombre.
+// `from` = première vague où le type peut apparaître, `weight` = sa fréquence.
+const TOWER_DOG_TYPES = [
+  { id:'normal', from:1,  weight:10, hp:1,    speed:1,    scale:0.68, tint:null,     loot:1   },
+  { id:'swift',  from:3,  weight:4,  hp:0.55, speed:1.75, scale:0.55, tint:0xD9C08A, loot:1.2 },
+  { id:'brute',  from:5,  weight:3,  hp:2.6,  speed:0.62, scale:0.92, tint:0x7A6A5C, loot:2   }
+];
+// Chien-boss : une vague sur cinq en infini, pour jalonner la progression.
+const TOWER_BOSS_EVERY = 5;
+const TOWER_BOSS_HP = 7;
+const TOWER_BOSS_SPEED = 0.5;
+const TOWER_BOSS_SCALE = 1.35;
+const TOWER_BOSS_TINT = 0x8A5A4A;
+const TOWER_BOSS_LOOT = 6;
 
 // --- mode infini ----------------------------------------------------------
 // Le mode Histoire garde ses 5 vagues et sa vraie victoire (c'est l'entrée en

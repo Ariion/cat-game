@@ -104,6 +104,7 @@ function updatePowerupHud(){
   if(shieldTimer > 0) parts.push('🛡️ ' + Math.ceil(shieldTimer/60) + 's');
   if(multishotTimer > 0) parts.push('✨ ' + Math.ceil(multishotTimer/60) + 's');
   if(magnetTimer > 0) parts.push('🧲 ' + Math.ceil(magnetTimer/60) + 's');
+  if(surgeTimer > 0) parts.push('⚡×' + SURGE_MULTIPLIER + ' ' + Math.ceil(surgeTimer/60) + 's');
   const text = parts.join('   ');
   if(text !== powerupHudText){
     powerupHudText = text;
@@ -226,7 +227,7 @@ function spawnWave(){
     const e = enemyPool[i];
     if(e.active) continue;
     e.active = true;
-    e.maxHp = e.hp = Math.max(1, Math.round(attackDamage() * shotsToKillEnemy()));
+    e.maxHp = e.hp = Math.max(1, Math.round(attackDamageBase() * shotsToKillEnemy()));
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
     // enemySpeedMult > 1 en biome Désert : la chaleur les rend plus agressifs
@@ -255,7 +256,7 @@ function shotsToKillBoss(){
 }
 
 function spawnBoss(){
-  const maxHp = Math.max(1, Math.round(attackDamage() * shotsToKillBoss()));
+  const maxHp = Math.max(1, Math.round(attackDamageBase() * shotsToKillBoss()));
   boss = { x:0, z:PICKUP_START_Z, hp:maxHp, maxHp, biteTimer:BOSS_BITE_INTERVAL_FRAMES };
   if(webglSupported){ bossGroup.visible = true; bossGroup.position.z = boss.z; }
   sfx.bossAppear();
@@ -284,6 +285,14 @@ function updateBoss(){
 // config.js). La horde reste plus forte en grossissant, juste pas de façon
 // démesurée.
 function attackDamage(){
+  const base = Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
+  return surgeTimer > 0 ? base * SURGE_MULTIPLIER : base;
+}
+
+// Les PV des ennemis se calculent sur les dégâts NORMAUX : sans ça, le
+// déchaînement gonflerait aussi la résistance des ennemis créés pendant, et
+// s'annulerait tout seul.
+function attackDamageBase(){
   return Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
 }
 
@@ -417,6 +426,7 @@ function updateBattle(){
   if(shieldTimer > 0) shieldTimer--;
   if(multishotTimer > 0) multishotTimer--;
   if(magnetTimer > 0) magnetTimer--;
+  if(surgeTimer > 0) surgeTimer--;
   updatePowerupHud();
 
   updateParticles();
@@ -448,7 +458,10 @@ function updateBattle(){
         updateHud();
         if(currentPalier() > palierBefore){
           const chapBefore = Math.floor((palierBefore - 1) / CHAPTER_PALIERS);
-          if(currentChapter() > chapBefore){ showChapterBreak('battle'); }
+          if(currentChapter() > chapBefore){
+            surgeTimer = SURGE_DURATION_FRAMES; // récompense sensible du chapitre franchi
+            showChapterBreak('battle');
+          }
           let toastMsg = t('palier_toast', {n: currentPalier()});
           if(webglSupported && targetBiomeIndex() !== biomeIndex){
             startBiomeTransition(targetBiomeIndex());

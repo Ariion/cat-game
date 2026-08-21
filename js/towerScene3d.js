@@ -527,6 +527,39 @@ function setHeroBuildProgress(ratio){
   heroRingTex.needsUpdate = true;
 }
 
+// Onde du miaulement : un anneau au sol qui s'élargit puis s'efface, pour que
+// le joueur voie exactement quelle portée il vient de couvrir.
+let meowRings = [];
+let meowRingGeo, meowRingMat;
+function spawnMeowRing(x, z){
+  if(!webglSupported) return;
+  if(!meowRingGeo){
+    meowRingGeo = new THREE.RingGeometry(0.86, 1, 40);
+    meowRingMat = new THREE.MeshBasicMaterial({ color:0xFFF2C8, transparent:true, side:THREE.DoubleSide, depthWrite:false });
+  }
+  const mesh = new THREE.Mesh(meowRingGeo, meowRingMat.clone());
+  mesh.rotation.x = -Math.PI/2;
+  mesh.position.set(x, 0.09, z);
+  mesh.scale.setScalar(0.4);
+  towerScene.add(mesh);
+  meowRings.push({ mesh, life: 34 });
+}
+
+function updateMeowRings(){
+  for(let i=meowRings.length-1; i>=0; i--){
+    const r = meowRings[i];
+    r.life--;
+    const t = 1 - r.life/34;
+    r.mesh.scale.setScalar(0.4 + t*MEOW_RADIUS);
+    r.mesh.material.opacity = 0.75 * (1-t);
+    if(r.life <= 0){
+      towerScene.remove(r.mesh);
+      r.mesh.material.dispose();
+      meowRings.splice(i,1);
+    }
+  }
+}
+
 // Poisson lâché par un chien abattu : le joueur doit aller le chercher.
 let lootFishMat, lootFishGeo, lootTailGeo;
 function buildLootFish(){
