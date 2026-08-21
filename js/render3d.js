@@ -99,5 +99,5 @@ function renderBattle(){
   syncBoss();
   syncLight();
   syncCamera();
-  renderer.render(scene, camera);
+  renderWithBloom(scene, camera, 'battle');
 }

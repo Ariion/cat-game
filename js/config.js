@@ -219,12 +219,12 @@ const TOWER_DOG_SPEED_BASE = 0.028;
 // principe que les biomes du mode Bataille.
 // Un palier par vague (index 0 = avant la vague 1).
 const TOWER_AMBIANCE = [
-  { skySteps:[0x8FC7E8, 0xB6DCF0, 0xDCEEF5, 0xF2F0DE], fog:0xD6E8DC, ground:0x8FBA72, sun:0xFFF0CC, sunInt:0.75, hemiInt:0.8,  sunPos:[5, 12, 7] },
-  { skySteps:[0x7FBCE4, 0xAED4EC, 0xDCE9EE, 0xF4EBD2], fog:0xD2E2D6, ground:0x8CB570, sun:0xFFE9BC, sunInt:0.78, hemiInt:0.78, sunPos:[5, 11, 7] },
-  { skySteps:[0x77A8D2, 0xB8C9DE, 0xE8D8C0, 0xF6D9A8], fog:0xDCD2BE, ground:0x86A96A, sun:0xFFDCA0, sunInt:0.82, hemiInt:0.72, sunPos:[6, 8.5, 6] },
-  { skySteps:[0x5F7FB0, 0xA88EA8, 0xE0A882, 0xF6C081], fog:0xD8B79A, ground:0x7C9A62, sun:0xFFC078, sunInt:0.88, hemiInt:0.62, sunPos:[7, 6, 5] },
-  { skySteps:[0x40538C, 0x8A6A93, 0xD3806A, 0xF0A263], fog:0xC49578, ground:0x6E8A58, sun:0xFFA55C, sunInt:0.95, hemiInt:0.54, sunPos:[7.5, 4.5, 4] },
-  { skySteps:[0x2C3A66, 0x6B4C7E, 0xB85C55, 0xE07A4A], fog:0xA87A62, ground:0x5E784C, sun:0xFF8A44, sunInt:1.0,  hemiInt:0.48, sunPos:[8, 3.5, 3] }
+  { skySteps:[0x8FC7E8, 0xB6DCF0, 0xDCEEF5, 0xF2F0DE], fog:0xD6E8DC, ground:0x8FBA72, sun:0xFFF0CC, sunInt:0.75, hemiInt:0.8,  bloomS:0.30, bloomT:0.97,  sunPos:[5, 12, 7] },
+  { skySteps:[0x7FBCE4, 0xAED4EC, 0xDCE9EE, 0xF4EBD2], fog:0xD2E2D6, ground:0x8CB570, sun:0xFFE9BC, sunInt:0.78, hemiInt:0.78, bloomS:0.35, bloomT:0.95, sunPos:[5, 11, 7] },
+  { skySteps:[0x77A8D2, 0xB8C9DE, 0xE8D8C0, 0xF6D9A8], fog:0xDCD2BE, ground:0x86A96A, sun:0xFFDCA0, sunInt:0.82, hemiInt:0.72, bloomS:0.42, bloomT:0.92, sunPos:[6, 8.5, 6] },
+  { skySteps:[0x5F7FB0, 0xA88EA8, 0xE0A882, 0xF6C081], fog:0xD8B79A, ground:0x7C9A62, sun:0xFFC078, sunInt:0.88, hemiInt:0.62, bloomS:0.52, bloomT:0.87, sunPos:[7, 6, 5] },
+  { skySteps:[0x40538C, 0x8A6A93, 0xD3806A, 0xF0A263], fog:0xC49578, ground:0x6E8A58, sun:0xFFA55C, sunInt:0.95, hemiInt:0.54, bloomS:0.62, bloomT:0.81, sunPos:[7.5, 4.5, 4] },
+  { skySteps:[0x2C3A66, 0x6B4C7E, 0xB85C55, 0xE07A4A], fog:0xA87A62, ground:0x5E784C, sun:0xFF8A44, sunInt:1.0,  hemiInt:0.48, bloomS:0.72, bloomT:0.75, sunPos:[8, 3.5, 3] }
 ];
 const TOWER_AMBIANCE_TRANSITION_SECONDS = 2.5;
 

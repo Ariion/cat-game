@@ -36,6 +36,14 @@ function buildTowerSkyClouds(w, h){
   });
 }
 
+// Éclaircit une couleur vers le blanc (t=0 : couleur d'origine, t=1 : blanc)
+// et renvoie une chaîne CSS rgba() prête pour le canvas.
+function lightenHexToCss(hex, t, alpha){
+  const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+  const mix = c => Math.round(c + (255 - c) * t);
+  return 'rgba(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ',' + alpha + ')';
+}
+
 function redrawTowerSky(stepsHex){
   const w = towerSkyCanvas.width, h = towerSkyCanvas.height;
   const grad = towerSkyCtx.createLinearGradient(0, 0, 0, h);
@@ -46,7 +54,13 @@ function redrawTowerSky(stepsHex){
   towerSkyCtx.fillStyle = grad;
   towerSkyCtx.fillRect(0, 0, w, h);
 
-  towerSkyCtx.fillStyle = 'rgba(255,255,255,0.72)';
+  // Nuages TEINTÉS par le ciel du moment, pas d'un blanc fixe : au
+  // crépuscule un blanc pur est bien plus lumineux que le ciel sombre
+  // derrière, donc il franchissait le seuil du bloom et ressortait en gros
+  // pâtés blancs baveux (repéré en capture). Les teinter les recale sur
+  // l'ambiance — et c'est de toute façon plus juste : des nuages au couchant
+  // prennent la couleur du soleil, ils ne restent pas blancs.
+  towerSkyCtx.fillStyle = lightenHexToCss(stepsHex[2], 0.42, 0.8);
   towerSkyClouds.forEach(puffs=>{
     puffs.forEach(p=>{
       towerSkyCtx.beginPath();
@@ -452,6 +466,7 @@ function redrawTowerHpBar(sprite, ratio){
 // Même principe que le fondu de biome du mode Bataille (scene3d.js) : on
 // interpole les couleurs/intensités entre deux paliers de TOWER_AMBIANCE
 // plutôt que de basculer d'un coup.
+let towerBloomS = TOWER_AMBIANCE[0].bloomS, towerBloomT = TOWER_AMBIANCE[0].bloomT;
 let towerAmbIndex = 0;
 let towerAmbT = 0;
 let towerAmbFrom = null, towerAmbTo = null;
@@ -470,6 +485,7 @@ function applyTowerAmbianceInstant(index){
   towerSunLight.intensity = a.sunInt;
   towerHemiLight.intensity = a.hemiInt;
   towerSunLight.position.set(a.sunPos[0], a.sunPos[1], a.sunPos[2]);
+  towerBloomS = a.bloomS; towerBloomT = a.bloomT;
 }
 
 function startTowerAmbianceTransition(index){
@@ -482,7 +498,8 @@ function startTowerAmbianceTransition(index){
     sun: towerSunLight.color.getHex(),
     sunInt: towerSunLight.intensity,
     hemiInt: towerHemiLight.intensity,
-    sunPos: [towerSunLight.position.x, towerSunLight.position.y, towerSunLight.position.z]
+    sunPos: [towerSunLight.position.x, towerSunLight.position.y, towerSunLight.position.z],
+    bloomS: towerBloomS, bloomT: towerBloomT
   };
   towerAmbTo = TOWER_AMBIANCE[clamped];
   towerAmbIndex = clamped;
@@ -505,6 +522,8 @@ function updateTowerAmbiance(){
     lerpNum(from.sunPos[1], to.sunPos[1], t),
     lerpNum(from.sunPos[2], to.sunPos[2], t)
   );
+  towerBloomS = lerpNum(from.bloomS, to.bloomS, t);
+  towerBloomT = lerpNum(from.bloomT, to.bloomT, t);
 
   // Le ciel est un canvas : le redessiner à chaque frame coûterait cher pour
   // rien (le dégradé bouge très lentement) — une frame sur 6 suffit, comme

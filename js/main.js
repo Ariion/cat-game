@@ -13,11 +13,12 @@ if(!webglSupported){
 
 initScene();
 initTowerScene();
+initPostFX(); // après les deux scènes : a besoin du renderer créé par initScene()
 applyTranslations();
 updateBestScoreDisplays();
 updateMenuResumeButton();
 showMainMenu();
-window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); });
+window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); onResizePostFX(); });
 
 // Pas de temps fixe : update() tourne toujours à un rythme stable
 // (~60 ticks/s) quel que soit le taux de rafraîchissement de l'écran.
