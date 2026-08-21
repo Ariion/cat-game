@@ -168,9 +168,22 @@ function getLeaderboard(){
   }catch(e){ return []; }
 }
 
-function recordLeaderboardEntry(){
+// Point d'entrée UNIQUE pour l'enregistrement d'un score. Aujourd'hui il n'écrit
+// que dans localStorage (donc un classement propre à CET appareil). Le jour où
+// l'on branche un vrai classement mondial, c'est la seule fonction à étendre :
+// envoyer aussi l'entrée à l'API, et fusionner la réponse dans l'affichage.
+// Deux réalités à garder en tête ce jour-là : il faut un serveur (une page
+// statique ne peut pas stocker de scores partagés), et les scores seront
+// TRICHABLES — tout tourne dans le navigateur du joueur, donc sans validation
+// côté serveur n'importe qui peut poster le score qu'il veut.
+function submitScore(entry){
   const list = getLeaderboard();
-  list.push({ horde: hordeCount, time: runTime, bosses: bossesDefeated });
+  list.push(entry);
+  return list;
+}
+
+function recordLeaderboardEntry(){
+  const list = submitScore({ horde: hordeCount, time: runTime, bosses: bossesDefeated, chapter: currentChapter() + 1 });
   list.sort((a,b)=> b.time - a.time);
   const top = list.slice(0, 10);
   try{ localStorage.setItem('hordeDeChatsLeaderboard', JSON.stringify(top)); }catch(e){}

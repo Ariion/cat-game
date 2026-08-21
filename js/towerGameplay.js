@@ -626,7 +626,13 @@ function towerAmbianceIndexForWave(){
   return pos < n-1 ? pos : period - pos; // aller puis retour
 }
 
+// Chapitre courant du Chatteau Fort (0-indexé).
+function towerChapter(){
+  return Math.floor((towerWave - 1) / CHAPTER_WAVES);
+}
+
 function startNextTowerWave(){
+  const chapBefore = towerWave > 0 ? towerChapter() : -1;
   towerWave++;
   towerWaveSpawned = 0;
   towerWaveDogsLeft = dogsThisWave();
@@ -637,6 +643,11 @@ function startNextTowerWave(){
   if(webglSupported){
     startTowerAmbianceTransition(towerAmbianceIndexForWave());
     setTowerBannerCount(Math.min(5, towerWave));
+  }
+  // coupure de chapitre : seulement en infini (l'Histoire ne fait que 5
+  // vagues, elle n'atteint jamais de frontière)
+  if(towerEndless && towerWave > 1 && towerChapter() > chapBefore){
+    showChapterBreak('tower');
   }
   showToast(towerEndless
     ? t('tower_wave_toast_endless', { n: towerWave })
@@ -677,7 +688,7 @@ function updateTowerWaves(){
 // --- boucle principale ----------------------------------------------------
 
 function updateTower(){
-  if(towerState !== 'playing' || towerPaused) return;
+  if(towerState !== 'playing' || towerPaused || inChapterBreak) return;
   towerFrame++;
   updateTowerWaves();
   updateHero();

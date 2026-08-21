@@ -176,20 +176,49 @@ function updateParticles(){
 // Démarre lent et se resserre avec la progression — sans ça, la difficulté
 // est déjà à son maximum dès la 1ère seconde et la partie est injouable
 // avant même que la horde ait eu le temps de grossir un minimum.
+// Chapitre courant (0-indexé). Chaque chapitre relève les plafonds de
+// difficulté — voir les quatre fonctions ci-dessous.
+function currentChapter(){
+  return Math.floor((currentPalier() - 1) / CHAPTER_PALIERS);
+}
+
+// --- plafonds de difficulté, désormais fonction du chapitre ---------------
+// Ils étaient constants : tous atteints en ~60 s, après quoi la difficulté ne
+// bougeait plus JAMAIS (mesuré en simulation — intervalle 160, 4 ennemis/vague,
+// 3 tirs pour tuer, vitesse 0.105, et fin de l'histoire). Le mode ne se
+// terminait pas mais rejouait la même minute indéfiniment.
+function chapterSpawnIntervalMin(){
+  return Math.max(CHAPTER_SPAWN_INTERVAL_FLOOR,
+    ENEMY_SPAWN_INTERVAL_MIN - currentChapter()*CHAPTER_SPAWN_INTERVAL_STEP);
+}
+function chapterEnemiesPerWaveMax(){
+  return Math.min(CHAPTER_ENEMIES_MAX_ABS,
+    ENEMIES_PER_WAVE_MAX + currentChapter()*CHAPTER_ENEMIES_MAX_STEP);
+}
+function chapterShotsToKillCap(){
+  return Math.min(CHAPTER_SHOTS_CAP_ABS,
+    SHOTS_TO_KILL_ENEMY_CAP + currentChapter()*CHAPTER_SHOTS_CAP_STEP);
+}
+function chapterEnemySpeedCap(){
+  return Math.min(CHAPTER_ENEMY_SPEED_ABS,
+    ENEMY_SPEED_CAP + currentChapter()*CHAPTER_ENEMY_SPEED_STEP);
+}
+
 function enemySpawnInterval(){
   const t = Math.min(1, pickupsCleared / ENEMY_SPAWN_INTERVAL_RAMP_ITEMS);
-  return Math.round(ENEMY_SPAWN_INTERVAL_START + (ENEMY_SPAWN_INTERVAL_MIN - ENEMY_SPAWN_INTERVAL_START) * t);
+  const floor = chapterSpawnIntervalMin();
+  return Math.round(ENEMY_SPAWN_INTERVAL_START + (floor - ENEMY_SPAWN_INTERVAL_START) * t);
 }
 
 // PV = un nombre de tirs à encaisser au régime de dégâts ACTUEL du joueur,
 // pas une valeur fixe — voir le commentaire dans config.js.
 function shotsToKillEnemy(){
-  return Math.min(SHOTS_TO_KILL_ENEMY_CAP, SHOTS_TO_KILL_ENEMY_BASE + pickupsCleared*SHOTS_TO_KILL_ENEMY_GROWTH);
+  return Math.min(chapterShotsToKillCap(), SHOTS_TO_KILL_ENEMY_BASE + pickupsCleared*SHOTS_TO_KILL_ENEMY_GROWTH);
 }
 
 function spawnWave(){
   const count = Math.min(
-    ENEMIES_PER_WAVE_MAX,
+    Math.round(chapterEnemiesPerWaveMax()),
     Math.round(ENEMIES_PER_WAVE_BASE + pickupsCleared*ENEMIES_PER_WAVE_PER_ITEM)
   );
   let spawned = 0;
@@ -201,7 +230,7 @@ function spawnWave(){
     e.x = PLAYER_X_MIN + Math.random()*(PLAYER_X_MAX - PLAYER_X_MIN);
     e.z = ENEMY_START_Z - Math.random()*10;
     // enemySpeedMult > 1 en biome Désert : la chaleur les rend plus agressifs
-    e.speed = Math.min(ENEMY_SPEED_CAP, ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM) * currentGameplayMods.enemySpeedMult;
+    e.speed = Math.min(chapterEnemySpeedCap(), ENEMY_SPEED_BASE + pickupsCleared*ENEMY_SPEED_PER_ITEM) * currentGameplayMods.enemySpeedMult;
     spawned++;
   }
 }
@@ -373,7 +402,7 @@ function updateAttacks(){
 // update()/render() sont désormais de simples aiguillages dans modes.js,
 // qui appellent updateBattle() ou updateTower() selon le mode actif.
 function updateBattle(){
-  if(paused) return;
+  if(paused || inChapterBreak) return;
   frame++;
 
   if(keyLeft) playerTargetX -= PLAYER_KEY_SPEED;
@@ -418,6 +447,8 @@ function updateBattle(){
         pickupSpeed = Math.min(PICKUP_SPEED_MAX, PICKUP_SPEED_BASE + pickupsCleared*PICKUP_SPEED_PER_ITEM);
         updateHud();
         if(currentPalier() > palierBefore){
+          const chapBefore = Math.floor((palierBefore - 1) / CHAPTER_PALIERS);
+          if(currentChapter() > chapBefore){ showChapterBreak('battle'); }
           let toastMsg = t('palier_toast', {n: currentPalier()});
           if(webglSupported && targetBiomeIndex() !== biomeIndex){
             startBiomeTransition(targetBiomeIndex());

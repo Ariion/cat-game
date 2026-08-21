@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=34">
+<link rel="stylesheet" href="css/style.css?v=35">
 </head>
 <body>
 
@@ -151,6 +151,25 @@
       </div>
     </div>
 
+    <div class="overlay hidden" id="screenChapter">
+      <h1 id="chapterTitle">Chapitre 2</h1>
+      <p id="chapterStats"></p>
+      <!--
+        EMPLACEMENT PUBLICITAIRE. La pub est SIMULÉE ici (simple délai) : dans
+        un navigateur, la pub récompensée n'existe pas vraiment (AdSense
+        interdit l'incitation). Pour de vraies pubs il faut empaqueter le jeu
+        en app (Capacitor/Cordova) et brancher un SDK (AdMob, Unity Ads) —
+        c'est dans showChapterAd() (modes.js) qu'il faudra appeler le SDK, et
+        n'enchaîner sur endChapterBreak() qu'au callback de fin.
+      -->
+      <div class="ad-slot" id="chapterAdSlot">
+        <span class="ad-slot-label" data-i18n="ad_slot_label">Emplacement publicitaire</span>
+      </div>
+      <div class="choice-row">
+        <button class="btn" id="chapterContinueBtn" onclick="endChapterBreak()" data-i18n="btn_chapter_continue">Continuer</button>
+      </div>
+    </div>
+
     <div class="overlay hidden" id="screenAd">
       <h1 data-i18n="ad_title">Publicité</h1>
       <div class="ad-spinner"></div>
@@ -172,23 +191,23 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=34"></script>
-<script src="js/vendor/postprocessing.js?v=34"></script>
-<script src="js/config.js?v=34"></script>
-<script src="js/biomes.js?v=34"></script>
-<script src="js/i18n.js?v=34"></script>
-<script src="js/audio.js?v=34"></script>
-<script src="js/state.js?v=34"></script>
-<script src="js/towerState.js?v=34"></script>
-<script src="js/scene3d.js?v=34"></script>
-<script src="js/towerScene3d.js?v=34"></script>
-<script src="js/render3d.js?v=34"></script>
-<script src="js/towerRender3d.js?v=34"></script>
-<script src="js/gameplay.js?v=34"></script>
-<script src="js/towerGameplay.js?v=34"></script>
-<script src="js/postfx.js?v=34"></script>
-<script src="js/modes.js?v=34"></script>
-<script src="js/input.js?v=34"></script>
-<script src="js/main.js?v=34"></script>
+<script src="js/vendor/GLTFLoader.js?v=35"></script>
+<script src="js/vendor/postprocessing.js?v=35"></script>
+<script src="js/config.js?v=35"></script>
+<script src="js/biomes.js?v=35"></script>
+<script src="js/i18n.js?v=35"></script>
+<script src="js/audio.js?v=35"></script>
+<script src="js/state.js?v=35"></script>
+<script src="js/towerState.js?v=35"></script>
+<script src="js/scene3d.js?v=35"></script>
+<script src="js/towerScene3d.js?v=35"></script>
+<script src="js/render3d.js?v=35"></script>
+<script src="js/towerRender3d.js?v=35"></script>
+<script src="js/gameplay.js?v=35"></script>
+<script src="js/towerGameplay.js?v=35"></script>
+<script src="js/postfx.js?v=35"></script>
+<script src="js/modes.js?v=35"></script>
+<script src="js/input.js?v=35"></script>
+<script src="js/main.js?v=35"></script>
 </body>
 </html>

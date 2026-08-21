@@ -306,3 +306,20 @@ canvas{
   pointer-events:none;
 }
 .hidden{ display:none !important; }
+
+/* Emplacement publicitaire des coupures de chapitre. Volontairement neutre et
+   ÉTIQUETÉ : tant que la pub est simulée, il ne doit pas se faire passer pour
+   une vraie annonce. */
+.ad-slot{
+  width: 100%; max-width: 300px;
+  height: 130px;
+  margin: 0 0 22px;
+  border: 2px dashed rgba(59,50,38,0.28);
+  border-radius: 14px;
+  background: rgba(59,50,38,0.05);
+  display:flex; align-items:center; justify-content:center;
+}
+.ad-slot-label{
+  font-family:'Nunito', sans-serif;
+  font-size: 12px; color: var(--ink-soft); opacity:0.75;
+}

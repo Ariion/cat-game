@@ -153,6 +153,37 @@ const FOG_DENSITY_BASE = 0.026; // densité de base du brouillard, modulée par 
 // complète (8 coups en 5s au même endroit du parcours).
 const HIT_INVULN_FRAMES = 26; // ~0.43s à 60 ticks/s
 
+// ===========================================================================
+// CHAPITRES — communs aux deux modes
+// ===========================================================================
+// Une partie infinie se découpe en chapitres. À chaque fin de chapitre : une
+// respiration (récap + emplacement publicitaire), un changement de décor, et
+// surtout un CRAN DE DIFFICULTÉ EN PLUS.
+//
+// Ce dernier point est la raison d'être du système côté Bataille : ses quatre
+// leviers de difficulté (intervalle des vagues, ennemis par vague, tirs pour
+// tuer, vitesse) atteignaient tous leur plafond en ~60 secondes, après quoi
+// PLUS RIEN ne montait jamais — mesuré en simulation. Le mode ne se terminait
+// pas, mais il rejouait la même minute à l'infini. Les plafonds deviennent
+// donc fonction du chapitre au lieu d'être des constantes.
+const CHAPTER_PALIERS = 10; // Bataille : paliers par chapitre (~80-100 s)
+const CHAPTER_WAVES = 10;   // Chatteau Fort : vagues par chapitre
+
+// Montée des plafonds du mode Bataille, par chapitre. ATTENTION en retouchant
+// ces valeurs : le DÉBIT d'arrivée des ennemis doit rester sous le débit
+// d'élimination possible, sinon les vagues s'empilent plus vite qu'on ne peut
+// les vider et ça devient une avalanche imparable (voir le commentaire au-
+// dessus de ENEMY_SPAWN_INTERVAL_START). Toute modification ici se vérifie en
+// simulation, pas à l'oeil.
+const CHAPTER_SPAWN_INTERVAL_STEP = 9;    // vagues plus rapprochées à chaque chapitre
+const CHAPTER_SPAWN_INTERVAL_FLOOR = 95;  // plancher absolu
+const CHAPTER_ENEMIES_MAX_STEP = 0.4;     // + d'ennemis par vague
+const CHAPTER_ENEMIES_MAX_ABS = 7;
+const CHAPTER_SHOTS_CAP_STEP = 0.35;      // ennemis plus coriaces
+const CHAPTER_SHOTS_CAP_ABS = 7;
+const CHAPTER_ENEMY_SPEED_STEP = 0.004;
+const CHAPTER_ENEMY_SPEED_ABS = 0.15;
+
 // Mort et reprise : à la mort, le joueur choisit de recommencer à zéro ou
 // de "regarder une pub" (simulée ici — nécessite un vrai SDK de pub une
 // fois packagé en app, voir watchAdAndContinue() dans gameplay.js) pour
