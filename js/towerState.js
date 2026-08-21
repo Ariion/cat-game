@@ -40,11 +40,21 @@ function resetTowerGame(){
     towerTurrets.forEach(tu=>{
       towerScene.remove(tu.visual);
       disposeProceduralGroup(tu.visual);
+      // l'aura est ajoutée à la SCÈNE (pas au groupe de la tourelle, pour ne
+      // pas hériter de son échelle qui change à chaque grade) — il faut donc
+      // la retirer séparément, sinon elle resterait affichée après un rejeu
+      if(tu.aura){
+        towerScene.remove(tu.aura);
+        tu.aura.geometry.dispose();
+        tu.aura.material.dispose();
+      }
     });
     towerDogs.forEach(d=>{
       if(d.visual){ towerScene.remove(d.visual); disposeProceduralGroup(d.visual); }
     });
     towerParticles.forEach(p=>{ towerScene.remove(p.mesh); p.mesh.material.dispose(); });
+    applyTowerAmbianceInstant(0); // repart du plein jour, sans fondu
+    setTowerBannerCount(0);
   }
   towerTurrets = [];
   towerDogs = [];

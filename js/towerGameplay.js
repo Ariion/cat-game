@@ -34,28 +34,164 @@ function placeTurret(slot){
   // même chat que le meneur du mode Bataille (buildCatGroup(), scene3d.js) —
   // pas de tourelle mécanique, juste un chat posté en garde, immobile (pas
   // d'animation de pattes : on veut une posture assise/vigilante, pas une
-  // course sur place). Perché sur le petit socle de l'emplacement (voir
+  // course sur place). Perché sur le socle de l'emplacement (voir
   // initTowerScene()), comme une vraie tour de guet plutôt que posé au ras
   // du sol.
   const visual = buildCatGroup();
-  visual.scale.setScalar(1.2);
-  visual.position.set(slot.x, 0.16, slot.z);
+  visual.position.set(slot.x, 0.26, slot.z);
   const facing = nearestPathPointTo(slot.x, slot.z);
   visual.lookAt(facing.x, 0, facing.z);
   visual.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   towerScene.add(visual);
 
-  towerTurrets.push({
+  const turret = {
     x: slot.x, z: slot.z,
-    range: TOWER_TURRET_RANGE,
-    damage: TOWER_TURRET_DAMAGE,
+    level: 0,
+    kills: 0,
     fireTimer: 0,
-    visual
-  });
+    visual,
+    insignia: null, // casque/couronne ajouté à la montée en grade
+    aura: null,
+    rankLabel: buildTurretRankLabel()
+  };
+  visual.add(turret.rankLabel);
+  applyTurretLevel(turret, 0);
+  towerTurrets.push(turret);
 
   sfx.croquette();
   vibrate(15);
   updateTowerHud();
+}
+
+// --- montée en grade des tourelles --------------------------------------
+// Une tourelle accumule ses propres éliminations et gagne un rang quand elle
+// atteint les seuils de TOWER_TURRET_LEVELS (config.js) : plus grosse, plus
+// de dégâts/portée/cadence, et un insigne visible (casque puis couronne) +
+// une aura au sol de la couleur du rang. C'est la progression individuelle
+// de la défense, en plus de la montée d'ambiance par vague.
+
+// Petite étiquette de rang au-dessus de la tourelle (I / II / III) — même
+// technique canvas que l'étiquette de puissance du mode Bataille.
+function buildTurretRankLabel(){
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 64;
+  const ctx = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent:true, depthWrite:false, fog:false
+  }));
+  // L'étiquette est enfant du groupe de la tourelle, lui-même agrandi à
+  // chaque rang (scale jusqu'à 2.1) : on compense ici pour qu'elle garde à
+  // peu près la même taille à l'écran quel que soit le rang.
+  sprite.scale.set(0.62, 0.31, 1);
+  sprite.position.set(0, 1.25, 0);
+  sprite.renderOrder = 3;
+  sprite.userData = { canvas: c, ctx, tex };
+  return sprite;
+}
+
+// Pastille pleine (fond coloré du rang + chiffre romain clair) plutôt qu'un
+// simple texte contourné : à la taille où l'étiquette apparaît vue de la
+// caméra en plongée, un texte fin ne se lisait pas du tout — il ressortait
+// comme une petite tache sombre indistincte.
+function redrawTurretRankLabel(sprite, level){
+  const ud = sprite.userData, c = ud.canvas, ctx = ud.ctx;
+  const accent = TOWER_TURRET_LEVELS[level].accent;
+  const hex = '#' + accent.toString(16).padStart(6, '0');
+  ctx.clearRect(0, 0, c.width, c.height);
+
+  const w = 96, h = 46, x = (c.width-w)/2, y = (c.height-h)/2, r = h/2;
+  ctx.fillStyle = 'rgba(59,50,38,0.9)';
+  ctx.beginPath();
+  ctx.roundRect(x-4, y-4, w+8, h+8, r+4);
+  ctx.fill();
+  ctx.fillStyle = hex;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+
+  ctx.font = '800 30px Fredoka, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = level === 1 ? '#3B3226' : '#FFF6E2'; // le rang II est argenté : texte sombre pour rester lisible
+  ctx.fillText(['I', 'II', 'III'][level] || 'I', c.width/2, c.height/2 + 1);
+  ud.tex.needsUpdate = true;
+}
+
+// Insigne de grade posé sur la tête du chat : rien au rang I, un casque au
+// rang II, une couronne au rang III.
+function buildTurretInsignia(level, accentHex){
+  if(level === 0) return null;
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: accentHex, flatShading:true, roughness:0.45, metalness:0.35 });
+  if(level === 1){
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8, 0, Math.PI*2, 0, Math.PI/2), mat);
+    helm.position.set(0, 0.72, -0.28);
+    g.add(helm);
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.3), mat);
+    crest.position.set(0, 0.85, -0.28);
+    g.add(crest);
+  } else {
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.1, 10), mat);
+    band.position.set(0, 0.76, -0.28);
+    g.add(band);
+    for(let i=0;i<6;i++){
+      const ang = (i/6)*Math.PI*2;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 5), mat);
+      spike.position.set(Math.sin(ang)*0.2, 0.88, -0.28 + Math.cos(ang)*0.2);
+      g.add(spike);
+    }
+  }
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  return g;
+}
+
+function applyTurretLevel(turret, level){
+  const def = TOWER_TURRET_LEVELS[level];
+  turret.level = level;
+  turret.damage = def.damage;
+  turret.range = def.range;
+  turret.fireInterval = def.fireInterval;
+  turret.visual.scale.setScalar(def.scale);
+
+  if(turret.insignia){ turret.visual.remove(turret.insignia); disposeProceduralGroup(turret.insignia); }
+  turret.insignia = buildTurretInsignia(level, def.accent);
+  if(turret.insignia) turret.visual.add(turret.insignia);
+
+  // aura au sol : matérialise la portée ET le rang d'un coup d'œil
+  if(turret.aura){ towerScene.remove(turret.aura); turret.aura.geometry.dispose(); turret.aura.material.dispose(); }
+  const aura = new THREE.Mesh(
+    new THREE.RingGeometry(def.range - 0.06, def.range, 40),
+    new THREE.MeshBasicMaterial({ color: def.accent, transparent:true, opacity: 0.16 + level*0.06, side: THREE.DoubleSide, depthWrite:false })
+  );
+  aura.rotation.x = -Math.PI/2;
+  aura.position.set(turret.x, 0.05, turret.z);
+  towerScene.add(aura);
+  turret.aura = aura;
+
+  // L'étiquette est enfant du groupe, donc sa taille à l'écran = échelle
+  // locale × échelle du groupe. On vise donc une taille MONDE constante
+  // (~1 unité de large) en divisant par l'échelle du rang : sinon soit elle
+  // grossit avec la tourelle jusqu'à la masquer, soit — en compensant trop —
+  // le chiffre devient un pâté de quelques pixels illisible.
+  const inv = 1 / def.scale;
+  turret.rankLabel.scale.set(1.0 * inv, 0.5 * inv, 1);
+  // idem pour la hauteur : on veut la pastille juste au-dessus de la tête,
+  // pas flottant de plus en plus haut à mesure que le chat grandit
+  turret.rankLabel.position.y = 0.78 + 0.42 * inv;
+  redrawTurretRankLabel(turret.rankLabel, level);
+}
+
+function registerTurretKill(turret){
+  turret.kills++;
+  const next = turret.level + 1;
+  if(next < TOWER_TURRET_LEVELS.length && turret.kills >= TOWER_TURRET_LEVELS[next].killsNeeded){
+    applyTurretLevel(turret, next);
+    spawnTowerBurst(turret.x, 0.9, turret.z, TOWER_TURRET_LEVELS[next].accent, 14);
+    sfx.win();
+    vibrate(30);
+    showToast(t('tower_rank_up', { n: next + 1 }));
+  }
 }
 
 // --- vagues de chiens ---------------------------------------------------
@@ -181,28 +317,36 @@ function updateTowerParticles(){
   towerParticles = towerParticles.filter(p=>p.life>0);
 }
 
-function applyTowerDogHit(dog, damage){
+// killer = la tourelle qui a porté le coup, pour lui créditer l'élimination
+// (montée en grade) — absente si les dégâts viennent d'ailleurs.
+function applyTowerDogHit(dog, damage, killer){
   dog.hp -= damage;
   redrawTowerHpBar(dog.hpSprite, Math.max(0, dog.hp/dog.maxHp));
   if(dog.hp <= 0){
     const i = towerDogs.indexOf(dog);
-    if(i >= 0) resolveTowerDog(i, 'killed');
+    if(i >= 0){
+      resolveTowerDog(i, 'killed');
+      if(killer) registerTurretKill(killer);
+    }
   }
 }
 
 function fireTowerTurret(tu, dog){
   sfx.hit();
-  spawnTowerBurst(tu.x, 0.9, tu.z, 0xFFFFFF, 3);   // petit flash au départ du tir
+  const accent = TOWER_TURRET_LEVELS[tu.level].accent;
+  spawnTowerBurst(tu.x, 0.9, tu.z, accent, 3);     // flash au départ, à la couleur du rang
   spawnTowerBurst(dog.x, 0.5, dog.z, 0xCCFF33, 5); // impact, même citron-vert que le tir du mode Bataille
-  applyTowerDogHit(dog, tu.damage);
+  applyTowerDogHit(dog, tu.damage, tu);
 }
 
 function updateTowerTurrets(){
   towerTurrets.forEach(tu=>{
+    // léger balancement de l'aura : montre que la tourelle est "en éveil"
+    if(tu.aura) tu.aura.rotation.z += 0.004;
     if(tu.fireTimer > 0){ tu.fireTimer--; return; }
     const target = findFurthestDogInRange(tu);
     if(!target) return;
-    tu.fireTimer = TOWER_TURRET_FIRE_INTERVAL;
+    tu.fireTimer = tu.fireInterval;
     fireTowerTurret(tu, target);
   });
 }
@@ -215,6 +359,12 @@ function startNextTowerWave(){
   towerWaveDogsLeft = TOWER_DOGS_PER_WAVE;
   towerWaveSpawnTimer = 0;
   updateTowerHud();
+  // le siège s'assombrit et le chatteau se pavoise d'une bannière de plus à
+  // chaque vague — la partie ne se joue pas sous le même ciel du début à la fin
+  if(webglSupported){
+    startTowerAmbianceTransition(towerWave);
+    setTowerBannerCount(towerWave);
+  }
   showToast(t('tower_wave_toast', { n: towerWave, max: TOWER_WAVE_COUNT }));
 }
 
@@ -256,4 +406,8 @@ function updateTower(){
   updateTowerTurrets();
   updateTowerDogs();
   updateTowerParticles();
+  if(webglSupported){
+    updateTowerAmbiance();       // fondu d'ambiance entre deux vagues
+    animateTowerBanners(towerFrame);
+  }
 }

@@ -177,13 +177,13 @@ const AD_SIMULATION_MS = 1800;
 // dans towerScene3d.js : si on retouche le chemin, les emplacements suivent
 // automatiquement, jamais besoin de recaler des coordonnées à la main.
 const TOWER_PATH = [
-  { x: -3.0, z: -11 },
-  { x: -3.0, z: -6.5 },
-  { x:  2.6, z: -6.5 },
-  { x:  2.6, z: -1.5 },
-  { x: -2.6, z: -1.5 },
-  { x: -2.6, z:  3.5 },
-  { x:  1.0, z:  3.5 }  // gamelle (objectif à protéger)
+  { x: -3.2, z: -12 },
+  { x: -3.2, z: -7.5 },
+  { x:  2.8, z: -7.5 },
+  { x:  2.8, z: -3.0 },
+  { x: -2.8, z: -3.0 },
+  { x: -2.8, z:  1.5 },
+  { x:  1.1, z:  1.5 }  // gamelle, aux portes du chatteau (objectif à protéger)
 ];
 const TOWER_SLOT_OFFSET = 1.15; // distance perpendiculaire au chemin pour chaque emplacement
 
@@ -195,13 +195,38 @@ const TOWER_FISH_PER_KILL = 6;
 
 const TOWER_WAVE_COUNT = 5;
 const TOWER_DOGS_PER_WAVE = 6;
-const TOWER_WAVE_HP_GROWTH = 1.3;    // multiplicateur de PV par vague (vague N -> N+1)
+// Croissance des PV volontairement FORTE d'une vague à l'autre : avec une
+// progression douce, les chiens mouraient tous devant la toute première
+// tourelle du parcours et les 5 suivantes ne tiraient quasiment jamais
+// (mesuré : 28 éliminations pour la 1re tourelle contre 2 pour les autres
+// réunies) — donc une seule tourelle montait en grade et la défense en
+// profondeur ne servait à rien. Des chiens qui encaissent assez pour
+// traverser plusieurs zones de tir redonnent un rôle à chaque emplacement.
+const TOWER_WAVE_HP_GROWTH = 1.55;    // multiplicateur de PV par vague (vague N -> N+1)
 const TOWER_WAVE_SPEED_GROWTH = 1.12; // multiplicateur de vitesse par vague
 const TOWER_DOG_SPAWN_INTERVAL_FRAMES = 45; // délai entre 2 chiens d'une même vague
 const TOWER_WAVE_DELAY_FRAMES = 150;        // pause avant le lancement de la vague suivante
 
 const TOWER_DOG_HP_BASE = 40;
 const TOWER_DOG_SPEED_BASE = 0.028;
+
+// Le siège s'assombrit vague après vague : on part d'un plein jour paisible
+// pour finir au crépuscule rouge, la lumière rasant de plus en plus bas.
+// Purement atmosphérique (aucun effet sur le gameplay), mais c'est ce qui
+// fait monter la tension — une partie ne doit pas se jouer sous le même
+// ciel du début à la fin. Un fondu progressif relie chaque palier au
+// suivant (voir startTowerAmbianceTransition() dans towerScene3d.js), même
+// principe que les biomes du mode Bataille.
+// Un palier par vague (index 0 = avant la vague 1).
+const TOWER_AMBIANCE = [
+  { skySteps:[0x8FC7E8, 0xB6DCF0, 0xDCEEF5, 0xF2F0DE], fog:0xD6E8DC, ground:0x8FBA72, sun:0xFFF0CC, sunInt:0.75, hemiInt:0.8,  sunPos:[5, 12, 7] },
+  { skySteps:[0x7FBCE4, 0xAED4EC, 0xDCE9EE, 0xF4EBD2], fog:0xD2E2D6, ground:0x8CB570, sun:0xFFE9BC, sunInt:0.78, hemiInt:0.78, sunPos:[5, 11, 7] },
+  { skySteps:[0x77A8D2, 0xB8C9DE, 0xE8D8C0, 0xF6D9A8], fog:0xDCD2BE, ground:0x86A96A, sun:0xFFDCA0, sunInt:0.82, hemiInt:0.72, sunPos:[6, 8.5, 6] },
+  { skySteps:[0x5F7FB0, 0xA88EA8, 0xE0A882, 0xF6C081], fog:0xD8B79A, ground:0x7C9A62, sun:0xFFC078, sunInt:0.88, hemiInt:0.62, sunPos:[7, 6, 5] },
+  { skySteps:[0x40538C, 0x8A6A93, 0xD3806A, 0xF0A263], fog:0xC49578, ground:0x6E8A58, sun:0xFFA55C, sunInt:0.95, hemiInt:0.54, sunPos:[7.5, 4.5, 4] },
+  { skySteps:[0x2C3A66, 0x6B4C7E, 0xB85C55, 0xE07A4A], fog:0xA87A62, ground:0x5E784C, sun:0xFF8A44, sunInt:1.0,  hemiInt:0.48, sunPos:[8, 3.5, 3] }
+];
+const TOWER_AMBIANCE_TRANSITION_SECONDS = 2.5;
 
 // Une seule tourelle ne couvre qu'UN segment du chemin (voir
 // computeTowerSlotPositions() dans towerScene3d.js) — un chien qui la
@@ -215,6 +240,20 @@ const TOWER_DOG_SPEED_BASE = 0.028;
 // à 40 ticks/tir et 18 dégâts, une tourelle isolée n'abattait que 2-3 chiens
 // sur 6 avant qu'ils ne sortent de portée). Cadence et dégâts remontés en
 // conséquence.
-const TOWER_TURRET_RANGE = 2.6;
-const TOWER_TURRET_FIRE_INTERVAL = 30; // cadence de tir d'une tourelle (ticks)
-const TOWER_TURRET_DAMAGE = 20;
+
+// Les tourelles MONTENT EN GRADE avec leurs éliminations : un chat qui a
+// fait ses preuves devient visiblement plus imposant (plus gros, casque puis
+// couronne, aura colorée) ET plus efficace. C'est la deuxième couche de
+// progression du mode, en plus de la montée en puissance du décor par vague
+// (voir TOWER_AMBIANCE) — le joueur voit sa défense grandir au lieu de
+// juste empiler des tourelles identiques.
+// killsNeeded = cumul d'éliminations de CETTE tourelle pour atteindre le rang.
+// Échelles volontairement généreuses : vue de la caméra en plongée, un chat
+// à l'échelle 1 n'était qu'une petite tache orange indistincte au milieu du
+// décor. Il faut qu'on reconnaisse un chat en faction, et qu'on VOIE la
+// différence entre un rang I et un rang III d'un coup d'œil.
+const TOWER_TURRET_LEVELS = [
+  { killsNeeded: 0,  damage: 20, range: 2.6, fireInterval: 30, scale: 1.55, accent: 0xC9A063 },
+  { killsNeeded: 4,  damage: 30, range: 2.9, fireInterval: 26, scale: 1.8,  accent: 0xD9D9E0 },
+  { killsNeeded: 10, damage: 46, range: 3.2, fireInterval: 22, scale: 2.1,  accent: 0xE3A857 }
+];
