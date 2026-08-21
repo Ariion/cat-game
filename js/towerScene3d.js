@@ -19,6 +19,11 @@ let towerSunLight, towerHemiLight, towerGroundMat, towerCastleBanners = [];
 // la technique (dégradé + nuages sur un canvas) est la même.
 let towerSkyCanvas, towerSkyCtx, towerSkyTexture, towerSkyClouds = [];
 
+// Décalage de la maison par rapport à l'arrivée du chemin. Constante partagée
+// (et non deux nombres recopiés) : elle sert à la fois à POSER la maison et à
+// interdire au décor de pousser dessus — les deux doivent rester d'accord.
+const TOWER_HOUSE_OFFSET = { x: 1.5, z: -1.2 };
+
 function buildTowerSkyClouds(w, h){
   const layout = [[0.14,0.13],[0.62,0.09],[0.38,0.21],[0.86,0.24],[0.08,0.29],[0.52,0.31],[0.74,0.17]];
   return layout.map(([cxr,cyr])=>{
@@ -227,6 +232,32 @@ function buildFoodBowl(){
   rim.rotation.x = Math.PI/2;
   rim.position.y = 0.28;
   g.add(rim);
+
+  // Croquettes en tas dans l'écuelle : sans elles la gamelle n'était qu'un
+  // disque rose, et rien à l'écran ne disait ce que les chiens viennent
+  // voler. C'est l'enjeu du niveau, il doit se voir.
+  const kibbleMat = new THREE.MeshStandardMaterial({ color: 0xA9713F, flatShading:true, roughness:0.95 });
+  const kibbleGeo = new THREE.DodecahedronGeometry(0.075, 0);
+  for(let i=0;i<16;i++){
+    const ang = Math.random()*Math.PI*2, rad = Math.random()*0.3;
+    const k = new THREE.Mesh(kibbleGeo, kibbleMat);
+    k.position.set(Math.cos(ang)*rad, 0.31 + Math.random()*0.06, Math.sin(ang)*rad);
+    k.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    k.scale.setScalar(0.75 + Math.random()*0.5);
+    g.add(k);
+  }
+  // un poisson planté dans le tas, clin d'oeil à la ressource du mode
+  const fishBody = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7FB8D9, flatShading:true, roughness:0.6 }));
+  fishBody.scale.set(1.5, 0.75, 0.5);
+  fishBody.position.set(0.06, 0.42, 0.02);
+  fishBody.rotation.z = 0.5;
+  g.add(fishBody);
+  const fishTail = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 4), new THREE.MeshStandardMaterial({ color: 0x7FB8D9, flatShading:true, roughness:0.6 }));
+  fishTail.scale.set(1, 1, 0.4);
+  fishTail.position.set(-0.16, 0.36, 0.02);
+  fishTail.rotation.z = 1.9;
+  g.add(fishTail);
+
   g.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }
@@ -251,93 +282,224 @@ function buildBanner(clothHex){
   return g;
 }
 
-// Le chatteau : enceinte crénelée avec porte, donjon central à toit pointu,
-// quatre tours d'angle. Bien plus imposant que la maquette de la v1 — c'est
-// le point de mire de tout le niveau, il doit se lire comme une vraie
-// forteresse à défendre.
-function buildCatCastle(){
+// --- chat-tourelle : chat ASSIS en posture de garde ------------------------
+// Ne PAS réutiliser buildCatGroup() (scene3d.js) ici : ce chat-là est taillé
+// pour le runner — quadrupède debout, vu de dos et de loin. Repris tel quel
+// en vue plongeante et à petite échelle, il ne se lisait plus du tout : deux
+// boules orange, oreilles et yeux cachés du mauvais côté, queue en travers
+// comme une planche.
+//
+// ORIENTATION : ce chat regarde vers +Z. C'est imposé par Object3D.lookAt(),
+// qui pour un objet ordinaire (≠ caméra/lumière) amène le +Z local sur la
+// cible. Le chat du runner, lui, a la tête en -Z : posé ici avec un lookAt()
+// vers le chemin, il lui tournait littéralement le dos.
+let turretFurMat, turretCreamMat, turretDarkMat, turretPinkMat, turretGlintMat;
+function initTurretCatMaterials(){
+  if(turretFurMat) return;
+  // matériaux partagés par tous les chats-tourelles (jusqu'à 6 en scène)
+  turretFurMat   = new THREE.MeshStandardMaterial({ color: 0xC97B4F, flatShading:true, roughness:0.8 });
+  turretCreamMat = new THREE.MeshStandardMaterial({ color: 0xF6E3C8, flatShading:true, roughness:0.75 });
+  turretDarkMat  = new THREE.MeshBasicMaterial({ color: 0x2A2018 });
+  turretPinkMat  = new THREE.MeshStandardMaterial({ color: 0xE09A9A, flatShading:true, roughness:0.7 });
+  turretGlintMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+}
+
+function buildTurretCat(){
+  initTurretCatMaterials();
   const g = new THREE.Group();
-  const stoneTex = createStoneTexture(0xBFAE93, 0x8C7B62);
-  stoneTex.repeat.set(3, 1);
-  const wallMat = new THREE.MeshStandardMaterial({ map: stoneTex, color: 0xE0D2B8, flatShading:true, roughness:0.95 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x4E7FA8, flatShading:true, roughness:0.6 });
-  const trimMat = new THREE.MeshStandardMaterial({ color: 0x8A7361, flatShading:true, roughness:0.9 });
 
-  // socle / terrasse
-  const base = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.35, 3.6), wallMat);
-  base.position.y = 0.175;
-  g.add(base);
+  // arrière-train posé au sol + torse qui se redresse : la silhouette assise
+  // se distingue immédiatement des chiens (quadrupèdes) qui longent le chemin
+  const haunches = new THREE.Mesh(new THREE.SphereGeometry(0.30, 12, 10), turretFurMat);
+  haunches.scale.set(1.15, 0.9, 1.05);
+  haunches.position.y = 0.22;
+  g.add(haunches);
 
-  // enceinte : deux tronçons de mur de part et d'autre de la porte
-  const wallH = 1.15, wallT = 0.36, gateW = 1.1;
-  const sideW = (5.4 - gateW) / 2;
+  // Sommet du torse NETTEMENT plus étroit que la tête (0.17 contre 0.265) :
+  // à proportions proches, tête et torse fusionnaient en un seul cône et le
+  // chat se lisait comme une quille de bowling.
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.30, 0.42, 12), turretFurMat);
+  torso.position.y = 0.47;
+  g.add(torso);
+
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), turretCreamMat);
+  chest.scale.set(1, 1.25, 0.7);
+  chest.position.set(0, 0.45, 0.18);
+  g.add(chest);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.265, 12, 10), turretFurMat);
+  head.position.y = 0.86;
+  g.add(head);
+
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), turretCreamMat);
+  muzzle.scale.set(1.25, 0.85, 1);
+  muzzle.position.set(0, 0.79, 0.21);
+  g.add(muzzle);
+
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), turretPinkMat);
+  nose.position.set(0, 0.825, 0.32);
+  g.add(nose);
+
+  // Oreilles VOLONTAIREMENT surdimensionnées, avec un intérieur clair qui
+  // tranche : à cette distance c'est le seul signal qui dit "chat" plutôt
+  // que "caillou orange".
   [-1, 1].forEach(side=>{
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, wallT), wallMat);
-    wall.position.set(side*(gateW/2 + sideW/2), 0.35 + wallH/2, 1.62);
-    g.add(wall);
-    // créneaux sur ce tronçon
-    const merlons = Math.max(2, Math.floor(sideW / 0.42));
-    for(let i=0;i<merlons;i++){
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, wallT), wallMat);
-      const startX = side*(gateW/2) + side*(sideW * (i + 0.5) / merlons);
-      m.position.set(startX, 0.35 + wallH + 0.11, 1.62);
-      g.add(m);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.125, 0.27, 4), turretFurMat);
+    ear.position.set(side*0.16, 1.08, -0.02);
+    ear.rotation.z = -side*0.28;
+    ear.rotation.x = -0.12;
+    g.add(ear);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.17, 4), turretPinkMat);
+    inner.position.set(side*0.155, 1.07, 0.04);
+    inner.rotation.z = -side*0.28;
+    inner.rotation.x = -0.12;
+    g.add(inner);
+  });
+
+  [-1, 1].forEach(side=>{
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), turretDarkMat);
+    eye.position.set(side*0.105, 0.90, 0.205);
+    g.add(eye);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.013, 5, 4), turretGlintMat);
+    glint.position.set(side*0.088, 0.918, 0.232);
+    g.add(glint);
+    // pattes avant tendues devant, posture de sphinx en alerte
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.30, 8), turretFurMat);
+    leg.position.set(side*0.135, 0.15, 0.22);
+    g.add(leg);
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), turretCreamMat);
+    paw.position.set(side*0.135, 0.04, 0.26);
+    g.add(paw);
+  });
+
+  // queue enroulée à plat autour du train arrière : lisible vue de dessus,
+  // là où une queue dressée se confondait avec un piquet
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.055, 8, 20, Math.PI*1.2), turretFurMat);
+  tail.rotation.x = -Math.PI/2;
+  tail.rotation.z = -0.5;
+  tail.position.set(0.02, 0.07, -0.02);
+  g.add(tail);
+  const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), turretCreamMat);
+  tailTip.position.set(0.30, 0.07, 0.10);
+  g.add(tailTip);
+
+  return g;
+}
+
+// --- la maison du chat : l'objectif que les chiens veulent piller ----------
+// Remplace le château médiéval : ce que les chiens convoitent, ce n'est pas
+// une forteresse, c'est le foyer du chat et sa gamelle. Toute la mise en
+// scène raconte ça — niche, coussin, griffoir, écuelle d'eau, croquettes.
+function buildCatHouse(){
+  const g = new THREE.Group();
+  const woodMat  = new THREE.MeshStandardMaterial({ color: 0xC08E5E, flatShading:true, roughness:0.9 });
+  const wallMat  = new THREE.MeshStandardMaterial({ color: 0xF2DFC0, flatShading:true, roughness:0.85 });
+  const roofMat  = new THREE.MeshStandardMaterial({ color: 0xD98E8E, flatShading:true, roughness:0.7 });
+  const darkMat  = new THREE.MeshStandardMaterial({ color: 0x3B2E22, flatShading:true, roughness:1 });
+  const accentMat= new THREE.MeshStandardMaterial({ color: 0x5B8FBF, flatShading:true, roughness:0.7 });
+
+  // terrasse en bois
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.26, 2.7), woodMat);
+  deck.position.y = 0.13;
+  g.add(deck);
+
+  // petite palissade sur les côtés et l'arrière — délimite "chez lui"
+  const postGeo = new THREE.BoxGeometry(0.12, 0.5, 0.12);
+  const railGeo = new THREE.BoxGeometry(0.08, 0.08, 2.5);
+  [-1, 1].forEach(side=>{
+    for(let i=0;i<4;i++){
+      const post = new THREE.Mesh(postGeo, woodMat);
+      post.position.set(side*1.6, 0.26+0.25, -1.15 + i*0.78);
+      g.add(post);
     }
+    const rail = new THREE.Mesh(railGeo, woodMat);
+    rail.position.set(side*1.6, 0.26+0.36, 0);
+    g.add(rail);
   });
-  // linteau au-dessus de la porte
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(gateW, 0.3, wallT), wallMat);
-  lintel.position.set(0, 0.35 + wallH - 0.15, 1.62);
-  g.add(lintel);
-  // porte en bois, en retrait
-  const gate = new THREE.Mesh(new THREE.BoxGeometry(gateW*0.86, wallH - 0.3, 0.1), trimMat);
-  gate.position.set(0, 0.35 + (wallH-0.3)/2, 1.5);
-  g.add(gate);
 
-  // murs latéraux (profondeur de l'enceinte)
+  // corps de la niche
+  const bodyW = 2.2, bodyH = 1.25, bodyD = 1.8;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW, bodyH, bodyD), wallMat);
+  body.position.set(0, 0.26 + bodyH/2, -0.15);
+  g.add(body);
+
+  // toit à deux pentes : prisme triangulaire extrudé le long de Z — plus
+  // "maison" qu'une pyramide, et géométriquement plus simple à poser droit
+  // qu'un assemblage de deux boîtes inclinées à recaler à la main.
+  const roofShape = new THREE.Shape();
+  roofShape.moveTo(-1.35, 0); roofShape.lineTo(1.35, 0); roofShape.lineTo(0, 0.9); roofShape.closePath();
+  const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: 2.05, bevelEnabled: false });
+  roofGeo.translate(0, 0, -2.05/2);
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(0, 0.26 + bodyH, -0.15);
+  g.add(roof);
+
+  // deux oreilles de chat sur le faîte : signe le lieu au premier coup d'œil
   [-1, 1].forEach(side=>{
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, 3.2), wallMat);
-    wall.position.set(side*2.52, 0.35 + wallH/2, 0.1);
-    g.add(wall);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 4), roofMat);
+    ear.position.set(side*0.52, 0.26 + bodyH + 0.78, -0.15);
+    ear.rotation.z = -side*0.2;
+    g.add(ear);
   });
 
-  // donjon central
-  const keep = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.88, 2.5, 10), wallMat);
-  keep.position.set(0, 0.35 + 1.25, -0.25);
-  g.add(keep);
-  const keepRoof = new THREE.Mesh(new THREE.ConeGeometry(1.05, 1.5, 10), roofMat);
-  keepRoof.position.set(0, 0.35 + 2.5 + 0.75, -0.25);
-  g.add(keepRoof);
-  // bandeau de fenêtres du donjon
-  const windowMat = new THREE.MeshStandardMaterial({ color: 0x4A3B2C, flatShading:true, roughness:1 });
-  for(let i=0;i<4;i++){
-    const ang = (i/4)*Math.PI*2 + 0.4;
-    const w = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.3, 0.12), windowMat);
-    w.position.set(Math.sin(ang)*0.8, 0.35 + 1.75, -0.25 + Math.cos(ang)*0.8);
-    w.rotation.y = ang;
-    g.add(w);
+  // entrée : arche sombre (disque + bas carré) encadrée de bois
+  const holeR = 0.36;
+  const arch = new THREE.Mesh(new THREE.CylinderGeometry(holeR, holeR, 0.16, 16), darkMat);
+  arch.rotation.x = Math.PI/2;
+  arch.position.set(0, 0.26 + 0.62, 0.73);
+  g.add(arch);
+  const archBase = new THREE.Mesh(new THREE.BoxGeometry(holeR*2, 0.62, 0.16), darkMat);
+  archBase.position.set(0, 0.26 + 0.31, 0.73);
+  g.add(archBase);
+  const frame = new THREE.Mesh(new THREE.TorusGeometry(holeR + 0.05, 0.055, 8, 18), woodMat);
+  frame.position.set(0, 0.26 + 0.62, 0.77);
+  g.add(frame);
+
+  // plaque au-dessus de la porte
+  const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.24, 0.08), woodMat);
+  plaque.position.set(0, 0.26 + 1.08, 0.78);
+  g.add(plaque);
+
+  // coussin du chat, à gauche de la porte
+  const cushion = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 8), accentMat);
+  cushion.scale.set(1, 0.34, 1);
+  cushion.position.set(-1.15, 0.26 + 0.1, 0.95);
+  g.add(cushion);
+
+  // griffoir : poteau entouré de corde + plateforme
+  const postScr = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 1.0, 10), woodMat);
+  postScr.position.set(1.2, 0.26 + 0.5, 0.85);
+  g.add(postScr);
+  for(let i=0;i<7;i++){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 6, 12), new THREE.MeshStandardMaterial({ color: 0xD9C08A, flatShading:true, roughness:1 }));
+    ring.rotation.x = Math.PI/2;
+    ring.position.set(1.2, 0.26 + 0.14 + i*0.12, 0.85);
+    g.add(ring);
   }
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.62), woodMat);
+  platform.position.set(1.2, 0.26 + 1.03, 0.85);
+  g.add(platform);
 
-  // quatre tours d'angle
-  [[-2.35, 1.5], [2.35, 1.5], [-2.35, -1.3], [2.35, -1.3]].forEach(([tx, tz], i)=>{
-    const h = i < 2 ? 1.9 : 2.2; // celles du fond un peu plus hautes, pour la silhouette
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, h, 9), wallMat);
-    tower.position.set(tx, 0.35 + h/2, tz);
-    g.add(tower);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.85, 9), roofMat);
-    roof.position.set(tx, 0.35 + h + 0.42, tz);
-    g.add(roof);
-  });
+  // écuelle d'eau, à côté de la gamelle principale (placée séparément à
+  // l'arrivée du chemin — c'est elle, l'objectif)
+  const waterOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.16, 14), accentMat);
+  waterOuter.position.set(-0.5, 0.26 + 0.08, 1.15);
+  g.add(waterOuter);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.05, 14), new THREE.MeshStandardMaterial({ color: 0x8FCBE8, flatShading:true, roughness:0.3 }));
+  water.position.set(-0.5, 0.26 + 0.15, 1.15);
+  g.add(water);
 
   g.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
 
-  // Bannières : montées sur les tours et le donjon, masquées au départ et
-  // révélées une par une à chaque vague survécue (voir setTowerBannerCount()).
+  // Fanions révélés un par vague survécue — même mécanique que les anciennes
+  // bannières du château (setTowerBannerCount()), juste transposée en
+  // guirlande de fête sur la maison.
   const bannerSpots = [
-    [-2.35, 2.25, 1.5], [2.35, 2.25, 1.5],
-    [-2.35, 2.55, -1.3], [2.35, 2.55, -1.3],
-    [0, 4.1, -0.25]
+    [-1.6, 0.76, -1.15], [1.6, 0.76, -1.15],
+    [-1.6, 0.76, 1.15],  [1.6, 0.76, 1.15],
+    [0, 0.26 + bodyH + 1.0, -0.15]
   ];
-  const bannerColors = [0xD98E8E, 0x5B8FBF, 0xD98E8E, 0x5B8FBF, 0xE3A857];
+  const bannerColors = [0xD98E8E, 0x5B8FBF, 0xE3A857, 0x6B8F71, 0xE3A857];
   towerCastleBanners = bannerSpots.map(([bx, by, bz], i)=>{
     const banner = buildBanner(bannerColors[i]);
     banner.position.set(bx, by, bz);
@@ -348,6 +510,7 @@ function buildCatCastle(){
 
   return g;
 }
+
 
 // Révèle les N premières bannières — appelé à chaque vague pour que le
 // chatteau se pavoise au fil du siège (progression visible du "grade" de la
@@ -385,7 +548,12 @@ function buildTowerScenery(){
     // tourelle : le décor ne doit rien masquer de jouable
     const p = nearestPathPointTo(x, z);
     if(Math.hypot(x-p.x, z-p.z) < 1.9) return true;
-    return towerSlots.some(s=>Math.hypot(x-s.x, z-s.z) < 1.5);
+    if(towerSlots.some(s=>Math.hypot(x-s.x, z-s.z) < 1.5)) return true;
+    // ... ni sur la gamelle (l'objectif) ni sur la maison : un arbre planté
+    // là masquait purement et simplement ce que le joueur doit défendre
+    const last = TOWER_PATH[TOWER_PATH.length-1];
+    if(Math.hypot(x-last.x, z-last.z) < 2.3) return true;
+    return Math.hypot(x-(last.x+TOWER_HOUSE_OFFSET.x), z-(last.z+TOWER_HOUSE_OFFSET.z)) < 3.0;
   }
 
   let placed = 0, guard = 0;
@@ -605,8 +773,16 @@ function initTowerScene(){
   // chemin (z plus petit), le chatteau se plantait AU MILIEU du tracé et
   // chevauchait les segments ; plus près que la gamelle (z plus grand), il
   // masquait complètement la gamelle, l'objectif devenant invisible.
-  const castle = buildCatCastle();
-  castle.position.set(last.x, 0, last.z - 2.2);
+  // La maison se pose À CÔTÉ de l'arrivée, pas dans la boucle finale du
+  // chemin : cette boucle contient déjà deux emplacements de tourelle (elle
+  // est calculée depuis TOWER_PATH, voir computeTowerSlotPositions()), et une
+  // maison centrée dedans se retrouvait littéralement sous les pattes d'un
+  // chat-tourelle, terrasse et chat encastrés (repéré en capture). Décalée
+  // ici, elle borde la gamelle sans empiéter sur aucun emplacement — et
+  // déplacer le décor coûte moins cher que déformer le terrain de jeu.
+  const castle = buildCatHouse();
+  castle.position.set(last.x + TOWER_HOUSE_OFFSET.x, 0, last.z + TOWER_HOUSE_OFFSET.z);
+  castle.rotation.y = -0.5; // porte tournée vers la gamelle et le chemin
   castle.scale.setScalar(0.85);
   towerScene.add(castle);
   setTowerBannerCount(0);

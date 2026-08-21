@@ -31,13 +31,12 @@ function placeTurret(slot){
   slot.occupied = true;
   slot.marker.visible = false;
 
-  // même chat que le meneur du mode Bataille (buildCatGroup(), scene3d.js) —
-  // pas de tourelle mécanique, juste un chat posté en garde, immobile (pas
-  // d'animation de pattes : on veut une posture assise/vigilante, pas une
-  // course sur place). Perché sur le socle de l'emplacement (voir
-  // initTowerScene()), comme une vraie tour de guet plutôt que posé au ras
-  // du sol.
-  const visual = buildCatGroup();
+  // Chat ASSIS taillé pour ce mode (buildTurretCat(), towerScene3d.js), et
+  // non le chat du runner : celui-ci est un quadrupède debout pensé pour
+  // être vu de dos et de loin, illisible en vue plongeante. Il regarde
+  // aussi vers +Z, ce qu'attend lookAt() — le chat du runner a la tête en
+  // -Z et se retrouvait donc dos au chemin.
+  const visual = buildTurretCat();
   visual.position.set(slot.x, 0.26, slot.z);
   const facing = nearestPathPointTo(slot.x, slot.z);
   visual.lookAt(facing.x, 0, facing.z);
@@ -125,20 +124,22 @@ function buildTurretInsignia(level, accentHex){
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: accentHex, flatShading:true, roughness:0.45, metalness:0.35 });
   if(level === 1){
-    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8, 0, Math.PI*2, 0, Math.PI/2), mat);
-    helm.position.set(0, 0.72, -0.28);
+    // posé sur la tête du chat ASSIS : centre en (0, 0.78, 0) — l'ancien
+    // placement visait la tête du chat du runner, en z = -0.28
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, Math.PI*2, 0, Math.PI/2), mat);
+    helm.position.set(0, 0.94, 0);
     g.add(helm);
     const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.3), mat);
-    crest.position.set(0, 0.85, -0.28);
+    crest.position.set(0, 1.08, 0);
     g.add(crest);
   } else {
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.1, 10), mat);
-    band.position.set(0, 0.76, -0.28);
+    band.position.set(0, 0.98, 0);
     g.add(band);
     for(let i=0;i<6;i++){
       const ang = (i/6)*Math.PI*2;
       const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 5), mat);
-      spike.position.set(Math.sin(ang)*0.2, 0.88, -0.28 + Math.cos(ang)*0.2);
+      spike.position.set(Math.sin(ang)*0.2, 1.10, Math.cos(ang)*0.2);
       g.add(spike);
     }
   }
@@ -178,7 +179,9 @@ function applyTurretLevel(turret, level){
   turret.rankLabel.scale.set(1.0 * inv, 0.5 * inv, 1);
   // idem pour la hauteur : on veut la pastille juste au-dessus de la tête,
   // pas flottant de plus en plus haut à mesure que le chat grandit
-  turret.rankLabel.position.y = 0.78 + 0.42 * inv;
+  // au-dessus des oreilles (sommet ~1.15 en local), + un écart constant en
+  // MONDE pour ne pas s'éloigner à mesure que le chat grandit
+  turret.rankLabel.position.y = 1.28 + 0.42 * inv;
   redrawTurretRankLabel(turret.rankLabel, level);
 }
 
