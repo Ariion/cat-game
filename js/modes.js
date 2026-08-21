@@ -39,8 +39,16 @@ function endChapterBreak(){
 
 function showMainMenu(){
   gameMode = null;
+  // Désarme le gel : il survivait au retour au menu, et la partie lancée
+  // ensuite ne répondait plus du tout — update() refusait de tourner sans
+  // que rien à l'écran ne l'explique.
+  inChapterBreak = false;
+  // screenChapter DOIT figurer ici : sans lui, revenir au menu pendant une
+  // coupure laissait l'écran de chapitre affiché PAR-DESSUS le menu principal
+  // (et voir endChapterBreak() juste en dessous pour le drapeau de gel).
   ['screenStart','screenTowerStart','screenOptions','screenLeaderboard',
-   'screenLose','screenAd','screenPause','screenTowerWin','screenTowerLose']
+   'screenLose','screenAd','screenPause','screenTowerWin','screenTowerLose',
+   'screenChapter']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('towerHud').classList.add('hidden');
@@ -85,6 +93,10 @@ function goToMenu(){
 }
 
 function pauseGame(){
+  // Pendant une coupure de chapitre, le jeu est déjà figé et l'écran de
+  // chapitre couvre le bouton pause : superposer la pause par-dessus n'aurait
+  // aucun sens et empilerait deux écrans.
+  if(inChapterBreak) return;
   const saveBtn = document.getElementById('saveGameBtn');
   if(saveBtn) saveBtn.classList.toggle('hidden', gameMode !== 'battle'); // pas de sauvegarde en Chatteau Fort (partie finie, pas infinie)
   if(gameMode === 'battle') pauseBattle();

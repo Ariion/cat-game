@@ -175,6 +175,7 @@ function buildTowerPath(){
   const kerbMat = new THREE.MeshStandardMaterial({ color: 0x9B9186, flatShading:true, roughness:0.95 });
   const pathWidth = 1.05, pathThickness = 0.08;
   const kerbGeo = new THREE.DodecahedronGeometry(0.15, 0);
+  const kerbs = []; // transformations collectées, posées en une fois après la boucle
 
   for(let i=0;i<TOWER_PATH.length-1;i++){
     const a = TOWER_PATH[i], b = TOWER_PATH[i+1];
@@ -187,26 +188,44 @@ function buildTowerPath(){
     seg.receiveShadow = true;
     towerScene.add(seg);
 
-    // pierres de bordure, de part et d'autre du segment
+    // pierres de bordure : leurs transformations sont seulement COLLECTÉES
+    // ici, puis posées d'un coup en instanced mesh après la boucle (voir
+    // plus bas) — une par maillage, c'était 132 appels de rendu pour du pur
+    // décor, soit 28 % du coût de la scène (mesuré).
     const nx = Math.cos(angle), nz = -Math.sin(angle); // perpendiculaire au segment
     const count = Math.max(2, Math.round(len / 0.55));
     for(let k=0;k<=count;k++){
       const t = k/count;
       const cx = a.x + dx*t, cz = a.z + dz*t;
       [-1, 1].forEach(side=>{
-        const stone = new THREE.Mesh(kerbGeo, kerbMat);
-        stone.position.set(
-          cx + nx*(pathWidth/2 + 0.1)*side + (Math.random()-0.5)*0.06,
-          0.07 + Math.random()*0.03,
-          cz + nz*(pathWidth/2 + 0.1)*side + (Math.random()-0.5)*0.06
-        );
-        stone.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-        stone.scale.setScalar(0.7 + Math.random()*0.5);
-        stone.castShadow = true;
-        towerScene.add(stone);
+        kerbs.push({
+          x: cx + nx*(pathWidth/2 + 0.1)*side + (Math.random()-0.5)*0.06,
+          y: 0.07 + Math.random()*0.03,
+          z: cz + nz*(pathWidth/2 + 0.1)*side + (Math.random()-0.5)*0.06,
+          rx: Math.random()*Math.PI, ry: Math.random()*Math.PI, rz: Math.random()*Math.PI,
+          s: 0.7 + Math.random()*0.5
+        });
       });
     }
   }
+
+  // Un seul objet pour toutes les pierres de bordure : elles sont identiques,
+  // statiques et jamais animées, donc exactement le cas d'usage d'un
+  // InstancedMesh. 132 appels de rendu deviennent 1.
+  const kerbMesh = new THREE.InstancedMesh(kerbGeo, kerbMat, kerbs.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  kerbs.forEach((k, i)=>{
+    e.set(k.rx, k.ry, k.rz);
+    q.setFromEuler(e);
+    pos.set(k.x, k.y, k.z);
+    scl.setScalar(k.s);
+    m.compose(pos, q, scl);
+    kerbMesh.setMatrixAt(i, m);
+  });
+  kerbMesh.instanceMatrix.needsUpdate = true;
+  kerbMesh.castShadow = true;
+  towerScene.add(kerbMesh);
   for(let i=1;i<TOWER_PATH.length-1;i++){
     const p = TOWER_PATH[i];
     const join = new THREE.Mesh(new THREE.CylinderGeometry(pathWidth/2, pathWidth/2, pathThickness, 14), pathMat);
@@ -613,8 +632,12 @@ function buildCatHouse(){
   const postScr = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 1.0, 10), woodMat);
   postScr.position.set(1.2, 0.26 + 0.5, 0.85);
   g.add(postScr);
+  // géométrie ET matériau partagés par les sept anneaux : ils étaient créés
+  // à neuf à chaque tour de boucle, pour un rendu strictement identique
+  const ringGeo = new THREE.TorusGeometry(0.14, 0.022, 6, 12);
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0xD9C08A, flatShading:true, roughness:1 });
   for(let i=0;i<7;i++){
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 6, 12), new THREE.MeshStandardMaterial({ color: 0xD9C08A, flatShading:true, roughness:1 }));
+    const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI/2;
     ring.position.set(1.2, 0.26 + 0.14 + i*0.12, 0.85);
     g.add(ring);

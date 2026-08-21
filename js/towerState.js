@@ -158,6 +158,9 @@ function showTowerLose(){
     : t('tower_lose_stats', { n: towerWave, max: TOWER_WAVE_COUNT });
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
+  // sinon le chat du joueur reste planté au milieu du plateau, visible sous
+  // l'écran de défaite — le moment doit être net
+  if(hero.visual) hero.visual.visible = false;
   sfx.lose();
   vibrate([25,15,25,15,25]);
 }

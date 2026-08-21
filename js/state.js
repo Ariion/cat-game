@@ -209,7 +209,10 @@ function renderLeaderboard(){
     rank.textContent = '#' + (i+1);
     const stats = document.createElement('span');
     stats.className = 'lb-stats';
-    stats.textContent = `${formatTime(entry.time)} · ${entry.horde} ${catWord(entry.horde)} · ${entry.bosses} ${bossWord(entry.bosses)}`;
+    // le chapitre est l'unité de progression la plus parlante ("chapitre 4" se
+    // compare mieux que "2:47") : il était stocké depuis peu mais jamais montré
+    const chap = entry.chapter ? ` · ${t('chapter_title', { n: entry.chapter })}` : '';
+    stats.textContent = `${formatTime(entry.time)}${chap} · ${entry.horde} ${catWord(entry.horde)} · ${entry.bosses} ${bossWord(entry.bosses)}`;
     row.appendChild(rank);
     row.appendChild(stats);
     container.appendChild(row);
