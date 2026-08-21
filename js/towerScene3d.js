@@ -115,6 +115,71 @@ function buildFoodBowl(){
   return g;
 }
 
+// Petit château (donjon central + 2 tourelles flanquantes, toits pointus)
+// planté juste derrière la gamelle — donne au bout du chemin la silhouette
+// d'un "chatteau" qu'on défend plutôt qu'un simple bol posé dans l'herbe.
+// Toits bleus (--bad du thème) pour trancher sur le doré/vert ambiant.
+function buildCatCastle(){
+  const g = new THREE.Group();
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xEBCFA0, flatShading:true, roughness:0.85 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x5B8FBF, flatShading:true, roughness:0.55 });
+
+  const keep = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 1.2, 8), wallMat);
+  keep.position.y = 0.6;
+  g.add(keep);
+  const keepRoof = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.85, 8), roofMat);
+  keepRoof.position.y = 1.2 + 0.42;
+  g.add(keepRoof);
+
+  [-1.05, 1.05].forEach(x=>{
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.8, 8), wallMat);
+    tower.position.set(x, 0.4, 0.35);
+    g.add(tower);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 8), roofMat);
+    roof.position.set(x, 0.8 + 0.25, 0.35);
+    g.add(roof);
+  });
+
+  g.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  return g;
+}
+
+// Rochers + touffes d'herbe qui bordent le chemin, façon petite vallée —
+// purement décoratif (aucune incidence sur portée/collision), juste pour
+// ne pas laisser un sol plat et vide autour du chemin.
+function buildTowerScenery(){
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x9B9186, flatShading:true, roughness:0.95 });
+  const tuftMat = new THREE.MeshStandardMaterial({ color: 0x7FA372, flatShading:true, roughness:0.85 });
+  const rockGeo = new THREE.IcosahedronGeometry(0.34, 0);
+  const tuftGeo = new THREE.ConeGeometry(0.16, 0.32, 5);
+
+  for(let i=0;i<16;i++){
+    const t = Math.random();
+    const seg = Math.floor(t * (TOWER_PATH.length-1));
+    const a = TOWER_PATH[seg], b = TOWER_PATH[Math.min(seg+1, TOWER_PATH.length-1)];
+    const lt = Math.random();
+    const px = a.x + (b.x-a.x)*lt, pz = a.z + (b.z-a.z)*lt;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const dist = 2.1 + Math.random()*1.6; // assez loin du chemin/des emplacements pour ne jamais les gêner
+    const x = px + side*dist + (Math.random()-0.5);
+    const z = pz + (Math.random()-0.5)*1.5;
+
+    if(Math.random() < 0.45){
+      const rock = new THREE.Mesh(rockGeo, rockMat);
+      rock.position.set(x, 0.16, z);
+      rock.scale.set(0.7+Math.random()*0.7, 0.5+Math.random()*0.5, 0.7+Math.random()*0.7);
+      rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+      rock.castShadow = true;
+      towerScene.add(rock);
+    } else {
+      const tuft = new THREE.Mesh(tuftGeo, tuftMat);
+      tuft.position.set(x, 0.16, z);
+      tuft.scale.setScalar(0.8 + Math.random()*0.6);
+      towerScene.add(tuft);
+    }
+  }
+}
+
 // Barre de vie flottante au-dessus d'un chien — même technique que
 // buildPowerLabel()/redrawPowerLabel() dans scene3d.js (texture canvas,
 // redessinée seulement quand la valeur affichée change).
@@ -155,50 +220,62 @@ function initTowerScene(){
   if(!webglSupported) return;
 
   towerScene = new THREE.Scene();
-  towerScene.background = new THREE.Color(0xF6E2BE);
-  towerScene.fog = new THREE.FogExp2(0xF6E2BE, 0.018);
+  towerScene.background = new THREE.Color(0xBFE0EF); // ciel doux — davantage visible qu'avant vu l'angle de caméra plus rasant
+  towerScene.fog = new THREE.FogExp2(0xCFE8CE, 0.028);
 
-  // Vue en plongée, légèrement en angle plutôt que purement zénithale — garde
-  // un peu de relief/profondeur (ombres, hauteur des chats/chiens) tout en
-  // montrant l'ensemble du plateau, de l'entrée (loin) à la gamelle (près).
-  towerCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
-  towerCamera.position.set(0, 15.5, 6.5);
-  towerCamera.lookAt(0, 0, -4);
+  // Caméra en plongée oblique plutôt que quasi zénithale (v1) — plus proche
+  // d'une mise en scène "3/4 cinématique" (chemin qui s'enfonce dans le
+  // cadre, tourelles/château qui se détachent en hauteur) façon jeux de
+  // stratégie mobile, au lieu d'un plateau vu à plat comme un plan de jeu de
+  // société.
+  towerCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  towerCamera.position.set(0, 9.5, 12.5);
+  towerCamera.lookAt(0, 0.3, -3);
 
-  // Intensités plus basses qu'en mode Bataille : la caméra est ici presque à
-  // la verticale du sol (vue en plongée) au lieu de le voir en rasant, donc
-  // la lumière le frappe presque de face — sans tone mapping sur le
-  // renderer, ça sature direct vers le blanc si on garde des intensités
-  // "plein soleil rasant" (repéré : sol/chemin passaient au blanc-jaune, la
-  // gamelle disparaissait dans le chemin).
-  const hemi = new THREE.HemisphereLight(0xFFF6E0, 0xC9A063, 0.7);
+  // Intensités plus basses qu'en mode Bataille : même en plongée oblique, la
+  // caméra reste plus verticale que la vue rasante du mode Bataille, donc la
+  // lumière frappe le sol plus de face — sans tone mapping sur le renderer,
+  // ça sature vite vers le blanc à intensités égales (repéré : sol/chemin
+  // quasi invisibles, blanchis).
+  const hemi = new THREE.HemisphereLight(0xE9F3D8, 0xC9A063, 0.75);
   towerScene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xFFEBC2, 0.55);
-  sun.position.set(4, 12, 4);
+  const sun = new THREE.DirectionalLight(0xFFEBC2, 0.6);
+  sun.position.set(4, 12, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 30;
-  sun.shadow.camera.left = -8;
-  sun.shadow.camera.right = 8;
-  sun.shadow.camera.top = 8;
-  sun.shadow.camera.bottom = -14;
+  sun.shadow.camera.far = 34;
+  sun.shadow.camera.left = -9;
+  sun.shadow.camera.right = 9;
+  sun.shadow.camera.top = 9;
+  sun.shadow.camera.bottom = -16;
   sun.shadow.bias = -0.003;
   towerScene.add(sun);
 
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0xEBCFA0, roughness: 1 });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 18), groundMat);
+  // Herbe plutôt que sable/crème — un chemin de terre battue qui traverse
+  // une prairie, comme un vrai terrain plutôt qu'un plateau abstrait.
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x9AC17C, flatShading:true, roughness:1 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(14, 20), groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -4);
   ground.receiveShadow = true;
   towerScene.add(ground);
 
   buildTowerPath();
+  buildTowerScenery();
 
   const bowl = buildFoodBowl();
   const last = TOWER_PATH[TOWER_PATH.length - 1];
   bowl.position.set(last.x, 0, last.z);
   towerScene.add(bowl);
+
+  // La gamelle est le point du chemin le plus PROCHE de la caméra (z le plus
+  // grand) — le château doit donc se tenir à z plus PETIT (plus loin de la
+  // caméra) pour apparaître au-dessus d'elle dans le cadre, pas coupé en
+  // bas de l'écran.
+  const castle = buildCatCastle();
+  castle.position.set(last.x + 0.2, 0, last.z - 1.5);
+  towerScene.add(castle);
 
   // petit repère à l'entrée du chemin (deux piquets), pour marquer d'où
   // viennent les chiens
@@ -211,15 +288,26 @@ function initTowerScene(){
     towerScene.add(post);
   });
 
+  // Chaque emplacement repose sur un petit socle rond (bois/pierre) — même
+  // vide, ça se lit comme une base de tourelle/guet plutôt qu'un simple
+  // rond en pointillés posé à plat sur l'herbe.
+  const pedestalMat = new THREE.MeshStandardMaterial({ color: 0xC9A876, flatShading:true, roughness:0.9 });
   towerSlots = computeTowerSlotPositions();
   const markerTex = createSlotMarkerTexture();
   towerSlots.forEach(slot=>{
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.16, 12), pedestalMat);
+    pedestal.position.set(slot.x, 0.08, slot.z);
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    towerScene.add(pedestal);
+    slot.pedestal = pedestal;
+
     const marker = new THREE.Mesh(
-      new THREE.CircleGeometry(0.5, 24),
+      new THREE.CircleGeometry(0.36, 24),
       new THREE.MeshBasicMaterial({ map: markerTex, transparent: true })
     );
     marker.rotation.x = -Math.PI/2;
-    marker.position.set(slot.x, 0.02, slot.z);
+    marker.position.set(slot.x, 0.17, slot.z);
     towerScene.add(marker);
     slot.marker = marker;
   });

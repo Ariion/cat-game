@@ -34,10 +34,12 @@ function placeTurret(slot){
   // même chat que le meneur du mode Bataille (buildCatGroup(), scene3d.js) —
   // pas de tourelle mécanique, juste un chat posté en garde, immobile (pas
   // d'animation de pattes : on veut une posture assise/vigilante, pas une
-  // course sur place)
+  // course sur place). Perché sur le petit socle de l'emplacement (voir
+  // initTowerScene()), comme une vraie tour de guet plutôt que posé au ras
+  // du sol.
   const visual = buildCatGroup();
   visual.scale.setScalar(1.2);
-  visual.position.set(slot.x, 0, slot.z);
+  visual.position.set(slot.x, 0.16, slot.z);
   const facing = nearestPathPointTo(slot.x, slot.z);
   visual.lookAt(facing.x, 0, facing.z);
   visual.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
