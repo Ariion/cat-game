@@ -28,6 +28,8 @@ function selectBattleMode(){
 
 function selectTowerMode(){
   gameMode = 'tower';
+  const best = document.getElementById('towerBestLabel');
+  if(best) best.textContent = towerBestWave > 0 ? t('tower_best_label', { n: towerBestWave }) : '';
   document.getElementById('screenMainMenu').classList.add('hidden');
   document.getElementById('screenTowerStart').classList.remove('hidden');
 }
@@ -42,6 +44,9 @@ function goToMenu(){
   } else if(gameMode === 'tower'){
     towerPaused = false;
     towerState = 'idle';
+    // le chat joueur reste sinon planté au milieu du plateau, visible en
+    // arrière-plan des écrans de menu
+    if(hero.visual) hero.visual.visible = false;
   }
   showMainMenu();
   updateMenuResumeButton();

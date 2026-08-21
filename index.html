@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=33">
+<link rel="stylesheet" href="css/style.css?v=34">
 </head>
 <body>
 
@@ -95,9 +95,11 @@
 
     <div class="overlay hidden" id="screenTowerStart">
       <h1 data-i18n="mode_tower_title">Chatteau Fort</h1>
-      <p data-i18n="tower_desc">Les chiens envahissent le chatteau en suivant le chemin. Pose des chats-tourelles sur les emplacements pour les arrêter avant qu'ils n'atteignent la gamelle. 5 vagues, 3 vies.</p>
+      <p data-i18n="tower_desc2">Déplace ton chat au doigt : pose-toi sur un emplacement pour y bâtir une tourelle, et va ramasser les poissons lâchés par les chiens abattus.</p>
+      <p class="record" id="towerBestLabel"></p>
       <div class="menu-buttons">
-        <button class="btn" onclick="startTowerGame()" data-i18n="btn_play">Jouer</button>
+        <button class="btn" onclick="startTowerGame(false)" data-i18n="btn_tower_story">Histoire &middot; 5 vagues</button>
+        <button class="btn secondary" onclick="startTowerGame(true)" data-i18n="btn_tower_endless">Infini</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
       </div>
     </div>
@@ -106,7 +108,7 @@
       <h1 data-i18n="tower_win_title">Chatteau défendu !</h1>
       <p data-i18n="tower_win_text">Les 5 vagues ont été repoussées, bravo !</p>
       <div class="choice-row">
-        <button class="btn retry" onclick="startTowerGame()" data-i18n="btn_retry">Recommencer</button>
+        <button class="btn retry" onclick="startTowerGame(towerEndless)" data-i18n="btn_retry">Recommencer</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
       </div>
     </div>
@@ -115,7 +117,7 @@
       <h1 data-i18n="tower_lose_title">Le chatteau est tombé...</h1>
       <p id="towerLoseText">Trop de chiens ont atteint la gamelle.</p>
       <div class="choice-row">
-        <button class="btn retry" onclick="startTowerGame()" data-i18n="btn_retry">Recommencer</button>
+        <button class="btn retry" onclick="startTowerGame(towerEndless)" data-i18n="btn_retry">Recommencer</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
       </div>
     </div>
@@ -170,23 +172,23 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=33"></script>
-<script src="js/vendor/postprocessing.js?v=33"></script>
-<script src="js/config.js?v=33"></script>
-<script src="js/biomes.js?v=33"></script>
-<script src="js/i18n.js?v=33"></script>
-<script src="js/audio.js?v=33"></script>
-<script src="js/state.js?v=33"></script>
-<script src="js/towerState.js?v=33"></script>
-<script src="js/scene3d.js?v=33"></script>
-<script src="js/towerScene3d.js?v=33"></script>
-<script src="js/render3d.js?v=33"></script>
-<script src="js/towerRender3d.js?v=33"></script>
-<script src="js/gameplay.js?v=33"></script>
-<script src="js/towerGameplay.js?v=33"></script>
-<script src="js/postfx.js?v=33"></script>
-<script src="js/modes.js?v=33"></script>
-<script src="js/input.js?v=33"></script>
-<script src="js/main.js?v=33"></script>
+<script src="js/vendor/GLTFLoader.js?v=34"></script>
+<script src="js/vendor/postprocessing.js?v=34"></script>
+<script src="js/config.js?v=34"></script>
+<script src="js/biomes.js?v=34"></script>
+<script src="js/i18n.js?v=34"></script>
+<script src="js/audio.js?v=34"></script>
+<script src="js/state.js?v=34"></script>
+<script src="js/towerState.js?v=34"></script>
+<script src="js/scene3d.js?v=34"></script>
+<script src="js/towerScene3d.js?v=34"></script>
+<script src="js/render3d.js?v=34"></script>
+<script src="js/towerRender3d.js?v=34"></script>
+<script src="js/gameplay.js?v=34"></script>
+<script src="js/towerGameplay.js?v=34"></script>
+<script src="js/postfx.js?v=34"></script>
+<script src="js/modes.js?v=34"></script>
+<script src="js/input.js?v=34"></script>
+<script src="js/main.js?v=34"></script>
 </body>
 </html>

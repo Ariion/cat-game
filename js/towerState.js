@@ -19,6 +19,30 @@ let towerParticles = []; // effets de tir (voir spawnTowerBurst() dans towerGame
 let towerFrame = 0;
 let towerPaused = false;
 
+// Mode de partie : 'story' = les TOWER_WAVE_COUNT vagues avec une vraie
+// victoire au bout (l'entrée en matière), 'endless' = vagues sans fin, la
+// partie ne s'arrête qu'à la perte des vies. Les deux partagent tout le
+// reste ; seules la courbe de difficulté et la condition de fin diffèrent.
+let towerEndless = false;
+let towerBestWave = 0;
+try{ towerBestWave = parseInt(localStorage.getItem('hordeDeChatsTowerBest') || '0', 10) || 0; }catch(e){}
+
+// Le chat que le joueur incarne : il se déplace vers la destination indiquée
+// au doigt, érige les tourelles en se postant sur un emplacement, et ramasse
+// le butin lâché par les chiens.
+let hero = {
+  x: 0, z: 0,           // position courante
+  tx: 0, tz: 0,         // destination visée
+  moving: false,
+  stunTimer: 0,         // bousculé par un chien : immobilisé
+  invulnTimer: 0,       // répit après une bousculade
+  buildSlot: null,      // emplacement en cours de construction
+  buildTimer: 0,
+  visual: null,
+  facing: 0
+};
+let towerLoot = [];     // {x, z, value, life, visual} — poissons lâchés par les chiens abattus
+
 // Remet à zéro l'état d'une partie de Chatteau Fort (rejouer après une
 // victoire/défaite, ou premier lancement) — ne touche jamais aux
 // emplacements eux-mêmes (towerSlots garde ses objets/marqueurs 3D créés une
@@ -31,7 +55,12 @@ function resetTowerGame(){
   towerWaveDogsLeft = 0;
   towerWaveSpawned = 0;
   towerWaveSpawnTimer = 0;
-  towerWaveDelayTimer = 90; // petite pause avant la vague 1, le temps de voir le plateau
+  // Répit AVANT la 1re vague. Il était de 90 ticks (1,5 s), ce qui suffisait
+  // quand une tourelle se posait d'un tap ; depuis que le chat doit s'y
+  // rendre à pied, ce délai ne laissait pas le temps de bâtir la moindre
+  // défense et la partie commençait déjà perdue (mesuré : 2 vies perdues
+  // avant la vague 2).
+  towerWaveDelayTimer = 420;
   towerNextTurretCost = TOWER_TURRET_COST_BASE;
   towerFrame = 0;
   towerPaused = false;
@@ -53,12 +82,15 @@ function resetTowerGame(){
       if(d.visual){ towerScene.remove(d.visual); disposeProceduralGroup(d.visual); }
     });
     towerParticles.forEach(p=>{ towerScene.remove(p.mesh); p.mesh.material.dispose(); });
+    towerLoot.forEach(l=>{ towerScene.remove(l.visual); disposeProceduralGroup(l.visual); });
     applyTowerAmbianceInstant(0); // repart du plein jour, sans fondu
     setTowerBannerCount(0);
+    resetHero();
   }
   towerTurrets = [];
   towerDogs = [];
   towerParticles = [];
+  towerLoot = [];
   towerSlots.forEach(s=>{ s.occupied = false; if(s.marker) s.marker.visible = true; });
 
   document.getElementById('screenPause').classList.add('hidden');
@@ -71,9 +103,31 @@ function resetTowerGame(){
   updateTowerHud();
 }
 
-function startTowerGame(){
+// Le chat joueur démarre devant la maison, à l'abri : c'est de là qu'il part
+// chercher le butin, et c'est le point le plus éloigné de l'entrée des chiens.
+function resetHero(){
+  const last = TOWER_PATH[TOWER_PATH.length-1];
+  hero.x = last.x + 0.4; hero.z = last.z + 1.5;
+  hero.tx = hero.x; hero.tz = hero.z;
+  hero.moving = false;
+  hero.stunTimer = 0;
+  hero.invulnTimer = 0;
+  hero.buildSlot = null;
+  hero.buildTimer = 0;
+  hero.facing = 0;
+  if(!hero.visual){
+    hero.visual = buildHeroCat();
+    towerScene.add(hero.visual);
+  }
+  hero.visual.visible = true;
+  hero.visual.position.set(hero.x, 0, hero.z);
+  setHeroBuildProgress(0);
+}
+
+function startTowerGame(endless){
   initAudio();
   gameMode = 'tower';
+  towerEndless = !!endless;
   document.getElementById('screenTowerStart').classList.add('hidden');
   document.getElementById('screenTowerWin').classList.add('hidden');
   document.getElementById('screenTowerLose').classList.add('hidden');
@@ -86,14 +140,22 @@ function updateTowerHud(){
   const livesEl = document.getElementById('towerLives');
   if(livesEl) livesEl.textContent = Math.max(0, towerLives);
   const waveEl = document.getElementById('waveLabel');
-  if(waveEl) waveEl.textContent = t('tower_wave_label', { n: Math.max(1, towerWave), max: TOWER_WAVE_COUNT });
+  if(waveEl){
+    waveEl.textContent = towerEndless
+      ? t('tower_wave_endless', { n: Math.max(1, towerWave) })
+      : t('tower_wave_label', { n: Math.max(1, towerWave), max: TOWER_WAVE_COUNT });
+  }
 }
 
 function showTowerLose(){
   towerState = 'lose';
-  document.getElementById('towerLoseText').textContent = t('tower_lose_stats', {
-    n: towerWave, max: TOWER_WAVE_COUNT
-  });
+  if(towerEndless && towerWave > towerBestWave){
+    towerBestWave = towerWave;
+    try{ localStorage.setItem('hordeDeChatsTowerBest', String(towerBestWave)); }catch(e){}
+  }
+  document.getElementById('towerLoseText').textContent = towerEndless
+    ? t('tower_lose_endless', { n: towerWave, best: towerBestWave })
+    : t('tower_lose_stats', { n: towerWave, max: TOWER_WAVE_COUNT });
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   sfx.lose();
@@ -111,9 +173,9 @@ function showTowerWin(){
 function pauseTower(){
   if(towerState !== 'playing' || towerPaused) return;
   towerPaused = true;
-  document.getElementById('pauseStats').textContent = t('tower_pause_stats', {
-    n: Math.max(1, towerWave), max: TOWER_WAVE_COUNT, fish
-  });
+  document.getElementById('pauseStats').textContent = towerEndless
+    ? t('tower_pause_endless', { n: Math.max(1, towerWave), fish })
+    : t('tower_pause_stats', { n: Math.max(1, towerWave), max: TOWER_WAVE_COUNT, fish });
   document.getElementById('screenPause').classList.remove('hidden');
 }
 

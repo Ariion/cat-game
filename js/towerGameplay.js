@@ -6,18 +6,213 @@
 
 // --- pose de tourelles ------------------------------------------------
 
-function handleTowerTap(clientX, clientY){
-  if(!webglSupported || !towerRaycaster) return;
+// --- chat joueur : déplacement, construction, butin, bousculade ------------
+
+// Convertit un point de l'écran en position au sol (y=0) de la scène du mode.
+// Un raycast sur un PLAN mathématique plutôt que sur le maillage du sol :
+// ça marche même là où le sol est masqué par un décor, et ça n'exige aucun
+// maillage cible particulier.
+const TOWER_GROUND_PLANE = webglSupported ? new THREE.Plane(new THREE.Vector3(0,1,0), 0) : null;
+const towerHitPoint = webglSupported ? new THREE.Vector3() : null;
+
+function towerScreenToGround(clientX, clientY){
+  if(!webglSupported || !towerRaycaster) return null;
   const rect = canvas.getBoundingClientRect();
-  const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
-  const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
-  towerPointerNDC.set(ndcX, ndcY);
+  towerPointerNDC.set(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
+  );
   towerRaycaster.setFromCamera(towerPointerNDC, towerCamera);
-  const freeMarkers = towerSlots.filter(s=>!s.occupied).map(s=>s.marker);
-  const hits = towerRaycaster.intersectObjects(freeMarkers);
-  if(hits.length === 0) return;
-  const slot = towerSlots.find(s=>s.marker === hits[0].object);
-  placeTurret(slot);
+  const hit = towerRaycaster.ray.intersectPlane(TOWER_GROUND_PLANE, towerHitPoint);
+  return hit ? { x: hit.x, z: hit.z } : null;
+}
+
+// Le tap ne pose plus de tourelle : il indique où le chat doit se rendre.
+// C'est en ARRIVANT sur un emplacement qu'il l'érige (voir updateHeroBuild()).
+function handleTowerTap(clientX, clientY){
+  const p = towerScreenToGround(clientX, clientY);
+  if(!p) return;
+  hero.tx = Math.max(-6.5, Math.min(6.5, p.x));
+  hero.tz = Math.max(-13.5, Math.min(5.5, p.z));
+  hero.moving = true;
+}
+
+function updateHeroMove(){
+  if(hero.stunTimer > 0){
+    hero.stunTimer--;
+    hero.moving = false;
+    return;
+  }
+  if(hero.invulnTimer > 0) hero.invulnTimer--;
+  if(!hero.moving) return;
+  const dx = hero.tx - hero.x, dz = hero.tz - hero.z;
+  const dist = Math.hypot(dx, dz);
+  if(dist < HERO_ARRIVE_RADIUS){ hero.moving = false; return; }
+  hero.x += dx/dist * HERO_SPEED;
+  hero.z += dz/dist * HERO_SPEED;
+  hero.facing = Math.atan2(dx, dz);
+}
+
+// Construction : il suffit de rester posté sur un emplacement libre, le temps
+// que l'anneau se remplisse. Un délai plutôt qu'une pose instantanée, sinon
+// un simple passage au-dessus d'un emplacement dépensait les poissons sans
+// que le joueur l'ait voulu.
+function turretUpgradeCost(level){
+  return Math.round(TOWER_UPGRADE_COST_BASE * Math.pow(TOWER_UPGRADE_COST_GROWTH, level));
+}
+
+function turretAt(x, z){
+  return towerTurrets.find(tu=>Math.hypot(tu.x - x, tu.z - z) < 0.01) || null;
+}
+
+function updateHeroBuild(){
+  if(hero.stunTimer > 0){ hero.buildSlot = null; hero.buildTimer = 0; setHeroBuildProgress(0); return; }
+  let onSlot = null;
+  for(const s of towerSlots){
+    if(Math.hypot(hero.x - s.x, hero.z - s.z) < HERO_BUILD_RADIUS){ onSlot = s; break; }
+  }
+  // Se poster sur une tourelle DÉJÀ bâtie l'améliore d'un grade contre des
+  // poissons — même geste que pour la bâtir, et surtout le seul débouché de
+  // la monnaie une fois tous les emplacements occupés (voir config.js).
+  if(onSlot && onSlot.occupied){
+    const tu = turretAt(onSlot.x, onSlot.z);
+    const cost = tu ? turretUpgradeCost(tu.level) : Infinity;
+    if(!tu || fish < cost){
+      if(hero.buildSlot){ hero.buildSlot = null; hero.buildTimer = 0; setHeroBuildProgress(0); }
+      return;
+    }
+    if(hero.buildSlot !== onSlot){ hero.buildSlot = onSlot; hero.buildTimer = 0; }
+    hero.buildTimer++;
+    setHeroBuildProgress(hero.buildTimer / HERO_UPGRADE_FRAMES);
+    if(hero.buildTimer >= HERO_UPGRADE_FRAMES){
+      fish -= cost;
+      applyTurretLevel(tu, tu.level + 1);
+      spawnTowerBurst(tu.x, 0.9, tu.z, turretLevelDef(tu.level).accent, 14);
+      sfx.win();
+      vibrate(30);
+      showToast(t('tower_rank_up', { n: tu.level + 1 }));
+      updateTowerHud();
+      hero.buildSlot = null; hero.buildTimer = 0; setHeroBuildProgress(0);
+    }
+    return;
+  }
+  if(!onSlot || fish < towerNextTurretCost){
+    if(hero.buildSlot){ hero.buildSlot = null; hero.buildTimer = 0; setHeroBuildProgress(0); }
+    return;
+  }
+  if(hero.buildSlot !== onSlot){ hero.buildSlot = onSlot; hero.buildTimer = 0; }
+  hero.buildTimer++;
+  setHeroBuildProgress(hero.buildTimer / HERO_BUILD_FRAMES);
+  if(hero.buildTimer >= HERO_BUILD_FRAMES){
+    placeTurret(onSlot);
+    hero.buildSlot = null;
+    hero.buildTimer = 0;
+    setHeroBuildProgress(0);
+    // Le chat s'écarte de l'emplacement qu'il vient de bâtir : la tourelle
+    // occupe exactement la même case, et sans ce pas de côté le chat joueur
+    // disparaissait DANS la tourelle — on ne savait plus où était son
+    // personnage (repéré en capture).
+    const away = Math.atan2(hero.x - onSlot.x, hero.z - onSlot.z);
+    const off = HERO_BUILD_RADIUS + 0.45;
+    hero.x = onSlot.x + Math.sin(away)*off;
+    hero.z = onSlot.z + Math.cos(away)*off;
+    hero.tx = hero.x; hero.tz = hero.z;
+    hero.moving = false;
+  }
+}
+
+// --- butin ---------------------------------------------------------------
+
+// Valeur d'un poisson à la vague courante — voir LOOT_VALUE_PER_WAVE.
+function lootValueForWave(){
+  return Math.max(1, Math.round(LOOT_VALUE * (1 + LOOT_VALUE_PER_WAVE*(towerWave-1))));
+}
+
+function spawnLoot(x, z, value){
+  const l = { x, z, value, life: LOOT_LIFETIME_FRAMES, visual: null };
+  if(webglSupported){
+    l.visual = buildLootFish();
+    l.visual.position.set(x, 0.18, z);
+    l.visual.rotation.y = Math.random()*Math.PI*2;
+    towerScene.add(l.visual);
+  }
+  towerLoot.push(l);
+}
+
+function updateTowerLoot(){
+  for(let i=towerLoot.length-1; i>=0; i--){
+    const l = towerLoot[i];
+    l.life--;
+    if(l.visual){
+      l.visual.position.y = 0.18 + Math.sin((towerFrame + i*11)*0.09)*0.05;
+      l.visual.rotation.y += 0.03;
+      // clignote sur la fin, pour prévenir qu'il va disparaître
+      l.visual.visible = l.life > LOOT_BLINK_FRAMES || Math.floor(l.life/6) % 2 === 0;
+    }
+    const caught = Math.hypot(hero.x - l.x, hero.z - l.z) < HERO_PICKUP_RADIUS;
+    if(caught || l.life <= 0){
+      if(caught){
+        fish += l.value;
+        sfx.croquette();
+        spawnTowerBurst(l.x, 0.4, l.z, 0x7FB8D9, 4);
+        updateTowerHud();
+      }
+      if(l.visual){ towerScene.remove(l.visual); disposeProceduralGroup(l.visual); }
+      towerLoot.splice(i, 1);
+    }
+  }
+}
+
+// --- bousculade -----------------------------------------------------------
+// Un chien qui percute le chat l'étourdit et lui fait lâcher une part de ses
+// poissons au sol (récupérables). Ça ne coûte JAMAIS de vie : les vies restent
+// adossées à la gamelle, sinon une mauvaise trajectoire pourrait finir la
+// partie sans rapport avec la défense elle-même.
+function updateHeroHits(){
+  if(hero.stunTimer > 0 || hero.invulnTimer > 0) return;
+  for(const d of towerDogs){
+    if(Math.hypot(hero.x - d.x, hero.z - d.z) > HERO_HIT_RADIUS) continue;
+    hero.stunTimer = HERO_STUN_FRAMES;
+    hero.invulnTimer = HERO_STUN_FRAMES + HERO_INVULN_FRAMES;
+    hero.moving = false;
+    hero.buildSlot = null; hero.buildTimer = 0; setHeroBuildProgress(0);
+    const lost = Math.floor(fish * HERO_STUN_FISH_LOSS);
+    if(lost > 0){
+      fish -= lost;
+      // éparpillé en plusieurs poissons autour du chat, à aller re-ramasser
+      const drops = Math.min(5, Math.max(1, Math.round(lost / LOOT_VALUE)));
+      const per = Math.max(1, Math.floor(lost / drops));
+      for(let i=0;i<drops;i++){
+        const ang = Math.random()*Math.PI*2, rad = 0.5 + Math.random()*0.6;
+        spawnLoot(hero.x + Math.cos(ang)*rad, hero.z + Math.sin(ang)*rad, per);
+      }
+    }
+    spawnTowerBurst(hero.x, 0.5, hero.z, 0xC94868, 8);
+    sfx.hurt();
+    vibrate([20,15,20]);
+    updateTowerHud();
+    showToast(t('tower_hero_bumped'));
+    break;
+  }
+}
+
+function updateHero(){
+  updateHeroMove();
+  updateHeroHits();
+  updateHeroBuild();
+  if(!hero.visual) return;
+  hero.visual.position.set(hero.x, 0, hero.z);
+  hero.visual.rotation.y = hero.facing;
+  // clignote pendant le répit qui suit une bousculade
+  hero.visual.visible = hero.invulnTimer <= 0 || towerFrame % 8 < 5;
+  if(hero.stunTimer > 0){
+    // sonné : il tourne sur lui-même au lieu de trotter
+    hero.visual.rotation.y += 0.25;
+  } else if(hero.moving){
+    animateLegs(hero.visual.userData.legs, towerFrame*0.42, 0.5);
+  } else {
+    animateLegs(hero.visual.userData.legs, 0, 0);
+  }
 }
 
 function placeTurret(slot){
@@ -95,7 +290,7 @@ function buildTurretRankLabel(){
 // comme une petite tache sombre indistincte.
 function redrawTurretRankLabel(sprite, level){
   const ud = sprite.userData, c = ud.canvas, ctx = ud.ctx;
-  const accent = TOWER_TURRET_LEVELS[level].accent;
+  const accent = turretLevelDef(level).accent;
   const hex = '#' + accent.toString(16).padStart(6, '0');
   ctx.clearRect(0, 0, c.width, c.height);
 
@@ -109,11 +304,16 @@ function redrawTurretRankLabel(sprite, level){
   ctx.roundRect(x, y, w, h, r);
   ctx.fill();
 
-  ctx.font = '800 30px Fredoka, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = level === 1 ? '#3B3226' : '#FFF6E2'; // le rang II est argenté : texte sombre pour rester lisible
-  ctx.fillText(['I', 'II', 'III'][level] || 'I', c.width/2, c.height/2 + 1);
+  // Chiffres romains pour les 3 grades dessinés, puis le NOMBRE au-delà :
+  // en infini les grades ne sont plus bornés, et un tableau de 3 entrées
+  // renvoyait undefined (la tourelle affichait 'I' à vie).
+  const roman = ['I', 'II', 'III'][level];
+  const txt = roman || String(level + 1);
+  ctx.font = (txt.length > 2 ? '800 24px' : '800 30px') + ' Fredoka, sans-serif';
+  ctx.fillText(txt, c.width/2, c.height/2 + 1);
   ud.tex.needsUpdate = true;
 }
 
@@ -147,8 +347,27 @@ function buildTurretInsignia(level, accentHex){
   return g;
 }
 
+// Définition d'un grade. Au-delà des 3 grades DESSINÉS, les suivants sont
+// extrapolés : en mode infini la difficulté monte sans fin, donc la puissance
+// du joueur doit pouvoir suivre — un plafond de 3 grades condamnerait la
+// partie d'avance quel que soit le talent du joueur.
+function turretLevelDef(level){
+  const last = TOWER_TURRET_LEVELS.length - 1;
+  if(level <= last) return TOWER_TURRET_LEVELS[level];
+  const base = TOWER_TURRET_LEVELS[last];
+  const extra = level - last;
+  return {
+    killsNeeded: base.killsNeeded + extra*TURRET_LEVEL_KILLS_STEP,
+    damage: base.damage + extra*TURRET_LEVEL_DAMAGE_STEP,
+    range: Math.min(TURRET_LEVEL_RANGE_MAX, base.range + extra*TURRET_LEVEL_RANGE_STEP),
+    fireInterval: Math.max(TURRET_FIRE_INTERVAL_MIN, base.fireInterval - extra),
+    scale: base.scale, // la taille se fige : au-delà, un chat plus gros masquerait le plateau
+    accent: base.accent
+  };
+}
+
 function applyTurretLevel(turret, level){
-  const def = TOWER_TURRET_LEVELS[level];
+  const def = turretLevelDef(level);
   turret.level = level;
   turret.damage = def.damage;
   turret.range = def.range;
@@ -188,9 +407,16 @@ function applyTurretLevel(turret, level){
 function registerTurretKill(turret){
   turret.kills++;
   const next = turret.level + 1;
-  if(next < TOWER_TURRET_LEVELS.length && turret.kills >= TOWER_TURRET_LEVELS[next].killsNeeded){
+  const nextDef = turretLevelDef(next);
+  // Les éliminations ne font gagner QUE les grades dessinés (I -> III).
+  // Au-delà, il faut payer (voir updateHeroBuild) : sans cette borne, une
+  // tourelle bien placée qui rafle toutes les éliminations montait seule à
+  // l'infini — mesuré en simulation : grade 107 à la vague 69, une puissance
+  // qui distançait définitivement la courbe de difficulté et rendait le mode
+  // infini... inperdable.
+  if(next < TOWER_TURRET_LEVELS.length && turret.kills >= nextDef.killsNeeded){
     applyTurretLevel(turret, next);
-    spawnTowerBurst(turret.x, 0.9, turret.z, TOWER_TURRET_LEVELS[next].accent, 14);
+    spawnTowerBurst(turret.x, 0.9, turret.z, nextDef.accent, 14);
     sfx.win();
     vibrate(30);
     showToast(t('tower_rank_up', { n: next + 1 }));
@@ -199,10 +425,42 @@ function registerTurretKill(turret){
 
 // --- vagues de chiens ---------------------------------------------------
 
+// Nombre de chiens de la vague courante — fixe en Histoire, croissant en
+// Infini.
+function dogsThisWave(){
+  if(!towerEndless) return TOWER_DOGS_PER_WAVE;
+  return Math.min(ENDLESS_DOGS_MAX, Math.round(ENDLESS_DOGS_BASE + (towerWave-1)*ENDLESS_DOGS_PER_WAVE));
+}
+
+function towerSpawnInterval(){
+  if(!towerEndless) return TOWER_DOG_SPAWN_INTERVAL_FRAMES;
+  // les arrivées se resserrent avec les vagues, jusqu'à un plancher
+  return Math.max(ENDLESS_SPAWN_INTERVAL_MIN, TOWER_DOG_SPAWN_INTERVAL_FRAMES - (towerWave-1)*1.5);
+}
+
+// PV d'un chien de la vague courante. Les deux modes suivent des courbes
+// DIFFÉRENTES, et c'est délibéré : l'exponentielle du mode Histoire (x1.55 par
+// vague) donne une montée franche et courte, parfaite sur 5 vagues, mais
+// deviendrait absurde en infini (x7000 vers la vague 20). L'infini utilise
+// donc une croissance polynomiale, qui monte sans jamais exploser.
+function towerDogHp(){
+  const growth = towerWave - 1;
+  if(!towerEndless) return Math.round(TOWER_DOG_HP_BASE * Math.pow(TOWER_WAVE_HP_GROWTH, growth));
+  return Math.round(TOWER_DOG_HP_BASE * Math.pow(1 + ENDLESS_HP_RAMP*growth, ENDLESS_HP_POWER));
+}
+
+function towerDogSpeed(){
+  const growth = towerWave - 1;
+  if(!towerEndless) return TOWER_DOG_SPEED_BASE * Math.pow(TOWER_WAVE_SPEED_GROWTH, growth);
+  // plafonnée : au-delà, les chiens traverseraient le plateau plus vite que
+  // les tourelles ne peuvent tirer, ce qui ne serait plus une difficulté mais
+  // un mur
+  return Math.min(ENDLESS_SPEED_CAP, TOWER_DOG_SPEED_BASE * Math.pow(ENDLESS_SPEED_GROWTH, growth));
+}
+
 function spawnTowerDog(){
-  const growth = towerWave - 1; // vague 1 = pas de croissance
-  const hp = Math.round(TOWER_DOG_HP_BASE * Math.pow(TOWER_WAVE_HP_GROWTH, growth));
-  const speed = TOWER_DOG_SPEED_BASE * Math.pow(TOWER_WAVE_SPEED_GROWTH, growth);
+  const hp = towerDogHp();
+  const speed = towerDogSpeed();
 
   const visual = buildBossGroup(enemyMaterial); // même chien procédural que le mode Bataille
   visual.scale.setScalar(0.68);
@@ -260,9 +518,10 @@ function resolveTowerDog(i, reason){
     updateTowerHud();
     if(towerLives <= 0){ showTowerLose(); return; }
   } else if(reason === 'killed'){
-    fish += TOWER_FISH_PER_KILL;
+    // le butin tombe AU SOL : c'est au chat joueur d'aller le chercher, ce qui
+    // l'oblige à s'aventurer près du chemin plutôt qu'à encaisser de loin
+    spawnLoot(d.x, d.z, lootValueForWave());
     sfx.enemyDown();
-    updateTowerHud();
   }
   checkTowerWaveEnd();
 }
@@ -336,7 +595,7 @@ function applyTowerDogHit(dog, damage, killer){
 
 function fireTowerTurret(tu, dog){
   sfx.hit();
-  const accent = TOWER_TURRET_LEVELS[tu.level].accent;
+  const accent = turretLevelDef(tu.level).accent;
   spawnTowerBurst(tu.x, 0.9, tu.z, accent, 3);     // flash au départ, à la couleur du rang
   spawnTowerBurst(dog.x, 0.5, dog.z, 0xCCFF33, 5); // impact, même citron-vert que le tir du mode Bataille
   applyTowerDogHit(dog, tu.damage, tu);
@@ -356,25 +615,40 @@ function updateTowerTurrets(){
 
 // --- vagues : lancement + fin --------------------------------------------
 
+// Ambiance de la vague. En Histoire, une étape par vague (jour -> crépuscule).
+// En Infini, le cycle fait l'aller-retour indéfiniment : le jour retombe, se
+// relève, et la partie ne se déroule jamais sous un ciel figé.
+function towerAmbianceIndexForWave(){
+  const n = TOWER_AMBIANCE.length;
+  if(!towerEndless) return Math.min(n-1, towerWave);
+  const period = (n-1)*2;
+  const pos = (towerWave-1) % period;
+  return pos < n-1 ? pos : period - pos; // aller puis retour
+}
+
 function startNextTowerWave(){
   towerWave++;
   towerWaveSpawned = 0;
-  towerWaveDogsLeft = TOWER_DOGS_PER_WAVE;
+  towerWaveDogsLeft = dogsThisWave();
   towerWaveSpawnTimer = 0;
   updateTowerHud();
   // le siège s'assombrit et le chatteau se pavoise d'une bannière de plus à
   // chaque vague — la partie ne se joue pas sous le même ciel du début à la fin
   if(webglSupported){
-    startTowerAmbianceTransition(towerWave);
-    setTowerBannerCount(towerWave);
+    startTowerAmbianceTransition(towerAmbianceIndexForWave());
+    setTowerBannerCount(Math.min(5, towerWave));
   }
-  showToast(t('tower_wave_toast', { n: towerWave, max: TOWER_WAVE_COUNT }));
+  showToast(towerEndless
+    ? t('tower_wave_toast_endless', { n: towerWave })
+    : t('tower_wave_toast', { n: towerWave, max: TOWER_WAVE_COUNT }));
 }
 
 function checkTowerWaveEnd(){
   if(towerState !== 'playing') return; // une défaite peut avoir déjà été déclenchée par ce même appel
-  if(towerWaveDogsLeft > 0 || towerWaveSpawned < TOWER_DOGS_PER_WAVE) return;
-  if(towerWave >= TOWER_WAVE_COUNT){
+  if(towerWaveDogsLeft > 0 || towerWaveSpawned < dogsThisWave()) return;
+  // en infini il n'y a pas de victoire : les vagues s'enchaînent tant qu'il
+  // reste des vies
+  if(!towerEndless && towerWave >= TOWER_WAVE_COUNT){
     if(towerLives > 0) showTowerWin();
     return;
   }
@@ -382,7 +656,7 @@ function checkTowerWaveEnd(){
 }
 
 function updateTowerWaves(){
-  const waveFullyResolved = towerWaveSpawned >= TOWER_DOGS_PER_WAVE && towerWaveDogsLeft === 0;
+  const waveFullyResolved = towerWaveSpawned >= dogsThisWave() && towerWaveDogsLeft === 0;
   if(towerWave === 0 || waveFullyResolved){
     if(towerWaveDelayTimer > 0){
       towerWaveDelayTimer--;
@@ -390,9 +664,9 @@ function updateTowerWaves(){
     }
     return;
   }
-  if(towerWaveSpawned < TOWER_DOGS_PER_WAVE){
+  if(towerWaveSpawned < dogsThisWave()){
     towerWaveSpawnTimer++;
-    if(towerWaveSpawnTimer >= TOWER_DOG_SPAWN_INTERVAL_FRAMES){
+    if(towerWaveSpawnTimer >= towerSpawnInterval()){
       towerWaveSpawnTimer = 0;
       spawnTowerDog();
       towerWaveSpawned++;
@@ -406,8 +680,10 @@ function updateTower(){
   if(towerState !== 'playing' || towerPaused) return;
   towerFrame++;
   updateTowerWaves();
+  updateHero();
   updateTowerTurrets();
   updateTowerDogs();
+  updateTowerLoot();
   updateTowerParticles();
   if(webglSupported){
     updateTowerAmbiance();       // fondu d'ambiance entre deux vagues

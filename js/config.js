@@ -188,10 +188,10 @@ const TOWER_PATH = [
 const TOWER_SLOT_OFFSET = 1.15; // distance perpendiculaire au chemin pour chaque emplacement
 
 const TOWER_LIVES_START = 3;
-const TOWER_FISH_START = 50;
+const TOWER_FISH_START = 80; // de quoi bâtir deux tourelles avant la 1re vague
 const TOWER_TURRET_COST_BASE = 30;
 const TOWER_TURRET_COST_INCREMENT = 14; // chaque tourelle posée coûte plus cher que la précédente
-const TOWER_FISH_PER_KILL = 6;
+const TOWER_FISH_PER_KILL = 6; // (le butin tombe au sol, voir LOOT_VALUE)
 
 const TOWER_WAVE_COUNT = 5;
 const TOWER_DOGS_PER_WAVE = 6;
@@ -252,6 +252,71 @@ const TOWER_AMBIANCE_TRANSITION_SECONDS = 2.5;
 // à l'échelle 1 n'était qu'une petite tache orange indistincte au milieu du
 // décor. Il faut qu'on reconnaisse un chat en faction, et qu'on VOIE la
 // différence entre un rang I et un rang III d'un coup d'œil.
+// --- chat jouable + butin ------------------------------------------------
+// Le joueur incarne un chat qui se déplace librement sur la carte : c'est LUI
+// qui érige les tourelles (en se postant sur un emplacement) et qui encaisse
+// le butin lâché par les chiens abattus. Le tap ne pose donc plus rien
+// directement, il indique où le chat doit aller.
+const HERO_SPEED = 0.075;          // vitesse de déplacement (unités/tick)
+const HERO_ARRIVE_RADIUS = 0.12;   // distance en deçà de laquelle la destination est atteinte
+const HERO_PICKUP_RADIUS = 0.62;   // rayon de ramassage du butin
+const HERO_BUILD_RADIUS = 0.55;    // il faut être au moins aussi proche d'un emplacement pour le bâtir
+const HERO_BUILD_FRAMES = 36;      // ~0.6 s posté sur l'emplacement avant que la tourelle sorte de terre
+// Un chien qui percute le chat le bouscule : étourdi un court instant et il
+// lâche une partie de ses poissons. Ça ne coûte JAMAIS de vie — les vies
+// restent adossées à la gamelle — mais ça rend risqué d'aller chercher du
+// butin au ras du chemin.
+const HERO_STUN_FRAMES = 60;
+const HERO_HIT_RADIUS = 0.55;
+const HERO_STUN_FISH_LOSS = 0.25;  // fraction des poissons lâchée au sol
+const HERO_INVULN_FRAMES = 90;     // répit après une bousculade, sinon la meute enchaîne
+
+const LOOT_LIFETIME_FRAMES = 600;  // ~10 s avant qu'un poisson au sol disparaisse
+const LOOT_BLINK_FRAMES = 150;     // il clignote sur la fin, pour prévenir
+const LOOT_VALUE = 6;              // valeur d'un poisson ramassé à la vague 1
+// Le butin GRANDIT avec les vagues. Sans ça le revenu reste plat alors que
+// les PV des chiens et le prix des améliorations, eux, montent : le joueur
+// finit par ne plus rien pouvoir acheter et bute sur un mur purement
+// économique (mesuré : effondrement net vers la vague 13, tourelles bloquées
+// au grade II faute de poissons).
+const LOOT_VALUE_PER_WAVE = 0.16;  // +16 % de la valeur de base par vague
+
+// --- mode infini ----------------------------------------------------------
+// Le mode Histoire garde ses 5 vagues et sa vraie victoire (c'est l'entrée en
+// matière). Le mode Infini enchaîne les vagues sans fin, avec une difficulté
+// qui monte PROGRESSIVEMENT — d'où une courbe différente de celle du mode
+// Histoire : TOWER_WAVE_HP_GROWTH (1.55) est exponentiel, parfait pour tenir
+// 5 vagues, mais intenable au-delà (vague 20 -> x7000 de PV). En infini les
+// PV suivent donc une croissance POLYNOMIALE, qui monte franchement sans
+// jamais exploser.
+const ENDLESS_HP_RAMP = 0.30;      // terme linéaire avant élévation à la puissance
+const ENDLESS_HP_POWER = 1.42;
+const ENDLESS_SPEED_GROWTH = 1.035; // par vague, plafonné ci-dessous
+const ENDLESS_SPEED_CAP = 0.075;
+const ENDLESS_DOGS_BASE = 4;
+const ENDLESS_DOGS_PER_WAVE = 0.45; // + N chiens par vague
+const ENDLESS_DOGS_MAX = 14;
+const ENDLESS_SPAWN_INTERVAL_MIN = 22; // les chiens arrivent de plus en plus serrés
+
+// En infini, la puissance du joueur doit pouvoir monter SANS FIN elle aussi,
+// sinon la courbe de difficulté finit mécaniquement par la dépasser quoi que
+// fasse le joueur. Au-delà des 3 grades dessinés (TOWER_TURRET_LEVELS), les
+// grades suivants sont donc extrapolés par ces pas — voir turretLevelDef().
+const TURRET_LEVEL_DAMAGE_STEP = 16;
+const TURRET_LEVEL_RANGE_STEP = 0.12;
+const TURRET_LEVEL_RANGE_MAX = 4.2;
+const TURRET_LEVEL_KILLS_STEP = 8;   // éliminations supplémentaires exigées par grade au-delà du 3e
+const TURRET_FIRE_INTERVAL_MIN = 12;
+
+// Améliorer une tourelle en se postant dessus. INDISPENSABLE en infini : les
+// emplacements sont en nombre fixe (un par segment de chemin), donc une fois
+// les 6 bâtis les poissons n'auraient plus AUCUN débouché et l'économie
+// s'arrêterait net au bout de deux minutes, alors que la difficulté, elle,
+// continue de monter. C'est le puits de dépense qui fait tenir le mode.
+const TOWER_UPGRADE_COST_BASE = 35;
+const TOWER_UPGRADE_COST_GROWTH = 1.45;
+const HERO_UPGRADE_FRAMES = 48; // un peu plus long que bâtir : c'est un choix plus lourd
+
 const TOWER_TURRET_LEVELS = [
   { killsNeeded: 0,  damage: 20, range: 2.6, fireInterval: 30, scale: 1.55, accent: 0xC9A063 },
   { killsNeeded: 4,  damage: 30, range: 2.9, fireInterval: 26, scale: 1.8,  accent: 0xD9D9E0 },

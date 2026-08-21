@@ -386,6 +386,149 @@ function buildTurretCat(){
   return g;
 }
 
+// --- chat JOUEUR + butin ---------------------------------------------------
+// Le chat du joueur doit se distinguer d'un coup d'oeil des chats-tourelles,
+// sinon on perd son propre personnage dans la mêlée : robe grise (les
+// tourelles sont rousses), écharpe rouge, et il reste DEBOUT sur ses quatre
+// pattes là où les tourelles sont assises.
+function buildHeroCat(){
+  initTurretCatMaterials();
+  const g = new THREE.Group();
+  const furMat = new THREE.MeshStandardMaterial({ color: 0x8C8F9A, flatShading:true, roughness:0.8 });
+  const scarfMat = new THREE.MeshStandardMaterial({ color: 0xC94868, flatShading:true, roughness:0.75 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), furMat);
+  body.scale.set(1, 0.84, 1.35);
+  body.position.y = 0.42;
+  g.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.245, 12, 10), furMat);
+  head.position.set(0, 0.62, 0.3);
+  g.add(head);
+
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8), turretCreamMat);
+  muzzle.scale.set(1.2, 0.85, 1);
+  muzzle.position.set(0, 0.56, 0.47);
+  g.add(muzzle);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), turretPinkMat);
+  nose.position.set(0, 0.585, 0.57);
+  g.add(nose);
+
+  [-1, 1].forEach(side=>{
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.23, 4), furMat);
+    ear.position.set(side*0.145, 0.82, 0.26);
+    ear.rotation.z = -side*0.26;
+    g.add(ear);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.062, 0.14, 4), turretPinkMat);
+    inner.position.set(side*0.14, 0.81, 0.31);
+    inner.rotation.z = -side*0.26;
+    g.add(inner);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), turretDarkMat);
+    eye.position.set(side*0.095, 0.665, 0.47);
+    g.add(eye);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.013, 5, 4), turretGlintMat);
+    glint.position.set(side*0.079, 0.682, 0.497);
+    g.add(glint);
+  });
+
+  // écharpe : la touche de couleur qui le rend repérable en pleine mêlée
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.055, 8, 14), scarfMat);
+  scarf.rotation.x = Math.PI/2 - 0.2;
+  scarf.position.set(0, 0.5, 0.16);
+  g.add(scarf);
+  const scarfTail = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.3, 0.05), scarfMat);
+  scarfTail.position.set(0.16, 0.38, 0.06);
+  scarfTail.rotation.z = 0.35;
+  g.add(scarfTail);
+
+  // pattes animables, comme les chiens (voir animateLegs dans render3d.js)
+  const legPositions = [
+    [-0.145, 0.2, 0.2], [0.145, 0.2, 0.2],
+    [-0.145, 0.2, -0.2], [0.145, 0.2, -0.2]
+  ];
+  g.userData.legs = legPositions.map(([x,y,z])=>{
+    const leg = buildLeg(furMat, 0.2, 0.05, 0.035);
+    leg.position.set(x, y, z);
+    g.add(leg);
+    return leg;
+  });
+
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.46, 6), furMat);
+  tail.position.set(0, 0.55, -0.42);
+  tail.rotation.x = 0.9;
+  g.add(tail);
+
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+
+  // anneau de progression de construction, au-dessus de la tête
+  const ring = buildHeroBuildRing();
+  g.add(ring);
+  g.userData.buildRing = ring;
+
+  g.scale.setScalar(1.15);
+  return g;
+}
+
+// Anneau qui se remplit pendant que le chat érige une tourelle. Texture
+// canvas redessinée seulement quand le pourcentage affiché change vraiment
+// (par pas de 5 %), pas à chaque frame.
+let heroRingCanvas, heroRingCtx, heroRingTex, heroRingLastStep = -1;
+function buildHeroBuildRing(){
+  heroRingCanvas = document.createElement('canvas');
+  heroRingCanvas.width = 96; heroRingCanvas.height = 96;
+  heroRingCtx = heroRingCanvas.getContext('2d');
+  heroRingTex = new THREE.CanvasTexture(heroRingCanvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: heroRingTex, transparent:true, depthWrite:false, fog:false
+  }));
+  sprite.scale.set(0.62, 0.62, 1);
+  sprite.position.set(0, 1.25, 0);
+  sprite.renderOrder = 4;
+  sprite.visible = false;
+  return sprite;
+}
+
+function setHeroBuildProgress(ratio){
+  if(!hero.visual) return;
+  const ring = hero.visual.userData.buildRing;
+  if(!ring) return;
+  if(ratio <= 0){ ring.visible = false; heroRingLastStep = -1; return; }
+  ring.visible = true;
+  const step = Math.round(ratio*20); // 20 paliers = 5 % — inutile de redessiner plus fin
+  if(step === heroRingLastStep) return;
+  heroRingLastStep = step;
+  const c = heroRingCanvas, cx = heroRingCtx, R = 38;
+  cx.clearRect(0,0,c.width,c.height);
+  cx.lineWidth = 10;
+  cx.strokeStyle = 'rgba(59,50,38,0.55)';
+  cx.beginPath(); cx.arc(48, 48, R, 0, Math.PI*2); cx.stroke();
+  cx.strokeStyle = '#E3A857';
+  cx.lineCap = 'round';
+  cx.beginPath(); cx.arc(48, 48, R, -Math.PI/2, -Math.PI/2 + Math.PI*2*Math.min(1, ratio)); cx.stroke();
+  heroRingTex.needsUpdate = true;
+}
+
+// Poisson lâché par un chien abattu : le joueur doit aller le chercher.
+let lootFishMat, lootFishGeo, lootTailGeo;
+function buildLootFish(){
+  if(!lootFishMat){
+    lootFishMat = new THREE.MeshStandardMaterial({ color: 0x7FB8D9, flatShading:true, roughness:0.55 });
+    lootFishGeo = new THREE.SphereGeometry(0.14, 8, 6);
+    lootTailGeo = new THREE.ConeGeometry(0.1, 0.16, 4);
+  }
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(lootFishGeo, lootFishMat);
+  body.scale.set(1.5, 0.8, 0.55);
+  g.add(body);
+  const tail = new THREE.Mesh(lootTailGeo, lootFishMat);
+  tail.scale.set(1, 1, 0.4);
+  tail.position.set(-0.22, 0, 0);
+  tail.rotation.z = 1.9;
+  g.add(tail);
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  return g;
+}
+
 // --- la maison du chat : l'objectif que les chiens veulent piller ----------
 // Remplace le château médiéval : ce que les chiens convoitent, ce n'est pas
 // une forteresse, c'est le foyer du chat et sa gamelle. Toute la mise en
