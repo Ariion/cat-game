@@ -44,6 +44,22 @@ function updateHeroMove(){
     return;
   }
   if(hero.invulnTimer > 0) hero.invulnTimer--;
+
+  // La MANETTE prime : tant que le doigt pousse, le chat va dans cette
+  // direction. Le déplacement vers une destination (hero.tx/tz) reste en
+  // dessous — il ne sert plus au joueur, mais les bots de test s'en servent
+  // et il reste utile pour recentrer le chat par code.
+  const mag = Math.hypot(hero.stickX, hero.stickZ);
+  if(mag > 0.001){
+    hero.moving = false;
+    hero.x += hero.stickX * HERO_SPEED;
+    hero.z += hero.stickZ * HERO_SPEED;
+    hero.facing = Math.atan2(hero.stickX, hero.stickZ);
+    hero.x = Math.max(-6.5, Math.min(6.5, hero.x));
+    hero.z = Math.max(-13.5, Math.min(5.5, hero.z));
+    return;
+  }
+
   if(!hero.moving) return;
   const dx = hero.tx - hero.x, dz = hero.tz - hero.z;
   const dist = Math.hypot(dx, dz);
@@ -247,7 +263,7 @@ function updateHero(){
   if(hero.stunTimer > 0){
     // sonné : il tourne sur lui-même au lieu de trotter
     hero.visual.rotation.y += 0.25;
-  } else if(hero.moving){
+  } else if(hero.moving || Math.hypot(hero.stickX, hero.stickZ) > 0.001){
     animateLegs(hero.visual.userData.legs, towerFrame*0.42, 0.5);
   } else {
     animateLegs(hero.visual.userData.legs, 0, 0);
@@ -525,17 +541,34 @@ function spawnTowerDog(indexInWave){
   const hp = Math.max(1, Math.round(towerDogHp() * type.hp));
   const speed = towerDogSpeed() * type.speed;
 
-  const visual = buildBossGroup(enemyMaterial); // même chien procédural que le mode Bataille
-  visual.scale.setScalar(type.scale);
-  // Teinte propre au type : le matériau est PARTAGÉ par tous les chiens, donc
-  // il faut cloner avant de colorer, sinon teinter un chien les teint tous.
-  if(type.tint !== null && type.tint !== undefined){
-    visual.traverse(o=>{
-      if(o.isMesh && o.material === enemyMaterial){
-        o.material = enemyMaterial.clone();
-        o.material.color.setHex(type.tint);
-      }
-    });
+  // VRAIS modèles 3D (les mêmes GLB que le mode Bataille) dès qu'ils sont
+  // chargés, chien procédural en attendant : même schéma d'amélioration
+  // progressive que dans l'autre mode, jamais bloquant si le chargement
+  // échoue. buildRealDogGroup() teinte déjà le pelage en clonant les
+  // matériaux par instance.
+  const gltf = pickDogGltf(towerDogs.length);
+  // type.scale a été réglé pour le chien PROCÉDURAL (0.68 = chien normal) ;
+  // appliqué tel quel à une hauteur cible, il rapetissait tout le monde. On
+  // le ramène donc autour de 1 pour le chien normal.
+  const dogHeight = TOWER_DOG_HEIGHT * (type.scale / 0.68);
+  let visual;
+  if(gltf){
+    visual = buildRealDogGroup(gltf, dogHeight, false,
+                               type.tint !== null && type.tint !== undefined ? type.tint : randomFurColor());
+  } else {
+    visual = buildBossGroup(enemyMaterial);
+    visual.scale.setScalar(type.scale);
+    // Teinte propre au type : le matériau procédural est PARTAGÉ par tous les
+    // chiens, donc il faut cloner avant de colorer, sinon teinter un chien les
+    // teint tous.
+    if(type.tint !== null && type.tint !== undefined){
+      visual.traverse(o=>{
+        if(o.isMesh && o.material === enemyMaterial){
+          o.material = enemyMaterial.clone();
+          o.material.color.setHex(type.tint);
+        }
+      });
+    }
   }
   visual.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   const start = TOWER_PATH[0];
@@ -543,6 +576,15 @@ function spawnTowerDog(indexInWave){
   towerScene.add(visual);
 
   const hpSprite = buildTowerDogHpBar();
+  // La taille du sprite était calibrée en supposant que le groupe parent est
+  // réduit (0.68 pour le procédural). Sur un vrai modèle, c'est le root
+  // INTERNE qui porte l'échelle et le groupe reste à 1 : sans correction, la
+  // barre s'affichait à sa taille brute, énorme et détachée loin au-dessus du
+  // chien (vu en capture).
+  if(gltf){
+    hpSprite.scale.set(0.62, 0.105, 1);
+    hpSprite.position.y = dogHeight + 0.28;
+  }
   visual.add(hpSprite);
 
   towerDogs.push({
@@ -581,14 +623,38 @@ function updateTowerDogs(){
       d.z += dz/dist * spd;
     }
     d.visual.position.set(d.x, 0, d.z);
-    animateLegs(d.visual.userData.legs, towerFrame*0.3 + i*1.3, 0.4);
+    // oriente le chien dans son sens de marche (le modèle procédural n'en
+    // avait pas besoin, il courait toujours vers la caméra)
+    if(dist > 0.0001) d.visual.rotation.y = Math.atan2(dx, dz);
+    if(d.visual.userData.mixer){
+      // vrai modèle : animation par mixer, ralentie quand le chien l'est
+      d.visual.userData.mixer.update((d.slowTimer > 0 ? MEOW_SLOW_FACTOR : 1) / 60);
+    } else {
+      animateLegs(d.visual.userData.legs, towerFrame*0.3 + i*1.3, 0.4);
+    }
   }
+}
+
+// Retire proprement le visuel d'un chien. ATTENTION : SkeletonUtils.clone()
+// PARTAGE la géométrie entre tous les clones d'un même modèle. Appeler
+// disposeProceduralGroup() dessus détruirait la géométrie commune et ferait
+// disparaître TOUS les autres chiens. On ne libère donc que les matériaux,
+// qui eux sont clonés par instance.
+function disposeTowerDogVisual(g){
+  if(g.userData.isRealModel){
+    g.traverse(o=>{
+      if(!o.isMesh || !o.material) return;
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>m && m.dispose());
+    });
+    return;
+  }
+  disposeProceduralGroup(g);
 }
 
 function resolveTowerDog(i, reason){
   const d = towerDogs[i];
   towerScene.remove(d.visual);
-  disposeProceduralGroup(d.visual);
+  disposeTowerDogVisual(d.visual);
   towerDogs.splice(i, 1);
   towerWaveDogsLeft--;
 

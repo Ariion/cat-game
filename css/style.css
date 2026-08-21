@@ -347,3 +347,23 @@ canvas{
 }
 .meow-btn:not(.ready){ font-size:17px; }
 .meow-btn:active{ transform: scale(0.93); }
+
+/* Manette virtuelle du Chatteau Fort. Discrète (le jeu reste visible dessous)
+   et flottante : son centre est le point où le doigt s'est posé. */
+.stick{
+  position:absolute;
+  width:116px; height:116px;
+  margin-left:-58px; margin-top:-58px;   /* centrée sur le point de contact */
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,0.55);
+  background: rgba(59,50,38,0.16);
+  pointer-events:none;
+  z-index:4;
+}
+.stick-knob{
+  position:absolute; left:50%; top:50%;
+  width:52px; height:52px; margin-left:-26px; margin-top:-26px;
+  border-radius:50%;
+  background: rgba(255,255,255,0.82);
+  box-shadow: 0 2px 8px rgba(59,50,38,0.3);
+}

@@ -39,6 +39,7 @@ let hero = {
   buildSlot: null,      // emplacement en cours de construction
   buildTimer: 0,
   meowCooldown: 0,     // recharge du miaulement (voir triggerMeow)
+  stickX: 0, stickZ: 0, // direction poussée à la manette (0 = au repos)
   visual: null,
   facing: 0
 };
@@ -80,7 +81,7 @@ function resetTowerGame(){
       }
     });
     towerDogs.forEach(d=>{
-      if(d.visual){ towerScene.remove(d.visual); disposeProceduralGroup(d.visual); }
+      if(d.visual){ towerScene.remove(d.visual); disposeTowerDogVisual(d.visual); }
     });
     towerParticles.forEach(p=>{ towerScene.remove(p.mesh); p.mesh.material.dispose(); });
     towerLoot.forEach(l=>{ towerScene.remove(l.visual); disposeProceduralGroup(l.visual); });
@@ -121,6 +122,7 @@ function resetHero(){
   hero.buildSlot = null;
   hero.buildTimer = 0;
   hero.meowCooldown = 0;
+  hero.stickX = 0; hero.stickZ = 0;
   hero.facing = 0;
   if(!hero.visual){
     hero.visual = buildHeroCat();

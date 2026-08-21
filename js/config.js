@@ -332,6 +332,20 @@ const MEOW_SLOW_FACTOR = 0.35;   // les chiens touchés avancent à 35 % de leur
 const MEOW_DURATION_FRAMES = 180; // 3 s de ralentissement
 const MEOW_COOLDOWN_FRAMES = 720; // 12 s de recharge
 
+// --- manette virtuelle (Chatteau Fort) ------------------------------------
+// Le déplacement se faisait en TAPANT la destination : il fallait viser, et
+// atteindre une tourelle précise pour l'améliorer relevait de l'adresse plus
+// que de la stratégie. Un joystick flottant rend le contrôle direct — on
+// pose le pouce n'importe où et on pousse dans la direction voulue.
+const STICK_RADIUS_PX = 58;   // amplitude au-delà de laquelle on va à pleine vitesse
+const STICK_DEADZONE_PX = 7;  // en deçà, on considère que le doigt ne bouge pas
+
+// La caméra suit doucement le chat au lieu d'être rivée au plateau. Volontai-
+// rement PARTIELLE (un quart du déplacement) : centrer le chat ferait perdre
+// la vue d'ensemble du chemin, qui est ce qu'on doit lire dans un tower defense.
+const TOWER_CAM_FOLLOW = 0.25;
+const TOWER_CAM_LERP = 0.06;
+
 // --- types de chiens ------------------------------------------------------
 // Faire monter les points de vie ne suffit pas : sans variété, la vague 25 se
 // joue exactement comme la vague 12, en plus lent à tuer. Chaque type change
@@ -342,6 +356,10 @@ const TOWER_DOG_TYPES = [
   { id:'swift',  from:3,  weight:4,  hp:0.55, speed:1.75, scale:0.55, tint:0xD9C08A, loot:1.2 },
   { id:'brute',  from:5,  weight:3,  hp:2.6,  speed:0.62, scale:0.92, tint:0x7A6A5C, loot:2   }
 ];
+// Hauteur de référence d'un chien dans ce mode, multipliée par l'échelle du
+// type. Vue de haut, un chien trop grand masque le chemin qu'il longe.
+const TOWER_DOG_HEIGHT = 0.95;
+
 // Chien-boss : une vague sur cinq en infini, pour jalonner la progression.
 const TOWER_BOSS_EVERY = 5;
 const TOWER_BOSS_HP = 7;
