@@ -96,6 +96,7 @@ function buildMillLog(barkMat, endTex){
   body.rotation.z = Math.PI/2;
   body.position.y = 0.24;
   body.castShadow = true;
+  body.userData.bark = true; // repéré pour la dorure (voir setMillLogGolden)
   g.add(body);
   const endMat = new THREE.MeshStandardMaterial({ map: endTex, flatShading:true, roughness:0.85 });
   [-1, 1].forEach(side=>{
@@ -142,6 +143,52 @@ function buildCarryStack(){
     g.add(p);
   }
   return g;
+}
+
+// Un employé porte sa charge comme le patron, mais en plus petit — on doit
+// voir d'un coup d'oeil lequel revient chargé et lequel repart les pattes
+// vides, sinon la scierie n'a l'air que d'un ballet sans objet.
+function buildWorkerCat(colorHex){
+  const g = buildHeroCat(colorHex, 0x6B5F4F);
+  g.scale.setScalar(0.95);
+  const load = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xD9B57C, flatShading:true, roughness:0.85 });
+  const geo = new THREE.BoxGeometry(0.34, 0.07, 0.44);
+  for(let i=0; i<MILL_WORKER_CARRY; i++){
+    const p = new THREE.Mesh(geo, mat);
+    p.position.set(0, 0.72 + i*0.075, -0.05);
+    p.castShadow = true;
+    p.visible = false;
+    load.add(p);
+  }
+  g.add(load);
+  g.userData.load = load;
+  return g;
+}
+
+function syncWorkerLoad(w){
+  const load = w.visual && w.visual.userData.load;
+  if(!load) return;
+  load.children.forEach((p, i)=>{ p.visible = i < w.carry; });
+}
+
+// Bascule un rondin en "rondin d'or". Le matériau est CLONÉ par rondin : tous
+// partagent le même à la construction, et le teinter directement les dorerait
+// tous les cinq d'un coup.
+function setMillLogGolden(log, on){
+  log.gold = on;
+  log.goldTimer = on ? MILL_GOLD_LOG_LIFE : 0;
+  log.visual.traverse(o=>{
+    if(!o.isMesh || !o.userData.bark) return;
+    if(!o.userData.ownMat){
+      o.material = o.material.clone();
+      o.userData.ownMat = true;
+    }
+    o.material.color.setHex(on ? 0xE8B84B : 0x8A6743);
+    o.material.metalness = on ? 0.45 : 0;
+    o.material.roughness = on ? 0.4 : 0.95;
+  });
+  if(log.halo) log.halo.visible = on;
 }
 
 function syncCarryStack(){
@@ -282,6 +329,17 @@ function buildMillTree(x, z, scale){
 // Décor d'avant-plan : un tas de planches finies (la production qui
 // s'accumule) et des buissons. Purement décoratif — aucune interaction, donc
 // aucun risque de le confondre avec une dalle ou un rondin.
+let millPlankPiles = [];
+function syncPlankPiles(){
+  // paliers logarithmiques : les premières planches se voient tout de suite,
+  // les millièmes n'ont pas à faire une tour de dix mètres
+  const t = Math.min(1, Math.log10(1 + millTotalEarned) / 4.2);
+  millPlankPiles.forEach(pile=>{
+    const n = Math.max(1, Math.round(t * pile.children.length));
+    pile.children.forEach((p, i)=>{ p.visible = i < n; });
+  });
+}
+
 function buildPlankPile(x, z, n){
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0xD9B57C, flatShading:true, roughness:0.85 });
@@ -378,8 +436,18 @@ function initMillScene(){
     const visual = buildMillLog(barkMat, endTex);
     visual.position.set(lx, 0, lz);
     visual.rotation.y = a;
+    // halo du rondin d'or, masqué tant qu'il n'est pas doré
+    const halo = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.85, 20),
+      new THREE.MeshBasicMaterial({ color: 0xFFD98A, transparent:true, opacity:0.7, side:THREE.DoubleSide })
+    );
+    halo.rotation.x = -Math.PI/2;
+    halo.position.y = 0.02;
+    halo.visible = false;
+    visual.add(halo);
     millScene.add(visual);
-    millLogs.push({ x: lx, z: lz, ready: true, regrow: 0, visual, baseRotZ: 0 });
+    millLogs.push({ x: lx, z: lz, ready: true, regrow: 0, visual, halo,
+                    baseRotZ: 0, claimedBy: null, gold: false, goldTimer: 0 });
   }
 
   // dalles d'amélioration, alignées devant le joueur
@@ -407,8 +475,11 @@ function initMillScene(){
   // la chaîne de production, elle, se lit en largeur. On la borde donc de
   // décor proche plutôt que d'écarter les postes de travail, ce qui aurait
   // rallongé chaque aller-retour du chat.
-  millScene.add(buildPlankPile(1.0, 2.4, 5));
-  millScene.add(buildPlankPile(-1.0, 2.5, 3));
+  // Ces deux tas GRANDISSENT avec la production totale (voir syncPlankPiles) :
+  // c'est la seule trace visible, dans le décor lui-même, de tout ce qui a été
+  // fabriqué depuis le début. Un compteur en haut de l'écran ne donne pas ça.
+  millPlankPiles = [buildPlankPile(1.0, 2.4, 9), buildPlankPile(-1.0, 2.5, 7)];
+  millPlankPiles.forEach(pile=>millScene.add(pile));
   const bushSpots = [[-3.4,2.3,1.0],[-3.9,1.0,0.8],[3.0,2.4,0.95],[3.4,1.2,0.85],[-0.2,2.6,0.7]];
   bushSpots.forEach(([x,z,sc])=>millScene.add(buildBush(x, z, sc)));
   millScene.add(buildMillTree(-4.0, 2.6, 0.75));

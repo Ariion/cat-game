@@ -55,7 +55,7 @@ function showMainMenu(){
   ['screenStart','screenTowerStart','screenMillStart','screenPuzzleStart',
    'screenOptions','screenLeaderboard','screenLose','screenAd','screenPause',
    'screenTowerWin','screenTowerLose','screenChapter','screenShop',
-   'screenPuzzleLevel','screenPuzzleDead']
+   'screenPuzzleLevel','screenPuzzleDead','screenMillOffline']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('towerHud').classList.add('hidden');
@@ -66,6 +66,8 @@ function showMainMenu(){
   document.getElementById('pauseBtnMill').classList.add('hidden');
   document.getElementById('pauseBtnPuzzle').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
+  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('lanePad').classList.add('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('screenMainMenu').classList.remove('hidden');
   updateMetaHud();
@@ -87,8 +89,16 @@ function selectTowerMode(){
 
 function selectMillMode(){
   gameMode = 'mill';
+  // On annonce ce qu'on va RETROUVER, pas un record : la scierie est
+  // persistante, son intérêt est l'état où on l'a laissée.
   const best = document.getElementById('millBestLabel');
-  if(best) best.textContent = millBest > 0 ? t('mill_best_label', { n: millBest }) : '';
+  if(best){
+    let save = null;
+    try{ save = JSON.parse(localStorage.getItem(MILL_SAVE_KEY) || 'null'); }catch(e){}
+    best.textContent = save
+      ? t('mill_save_label', { coins: save.coins || 0, workers: save.workers || 0 })
+      : '';
+  }
   document.getElementById('screenMainMenu').classList.add('hidden');
   document.getElementById('screenMillStart').classList.remove('hidden');
 }

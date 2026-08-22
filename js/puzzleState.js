@@ -70,6 +70,9 @@ function resetPuzzleRun(keepPower){
   document.getElementById('pauseBtnPuzzle').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
+  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('lanePad').classList.remove('hidden');
+  updateLaneButtons();
   updatePuzzleHud();
 }
 
@@ -116,6 +119,7 @@ function showPuzzleDead(cause){
   btn.classList.toggle('disabled', meta.gems < cost);
   document.getElementById('screenPuzzleDead').classList.remove('hidden');
   document.getElementById('pauseBtnPuzzle').classList.add('hidden');
+  document.getElementById('lanePad').classList.add('hidden');
   sfx.lose();
   vibrate([25,15,25]);
 }

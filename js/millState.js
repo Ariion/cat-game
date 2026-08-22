@@ -28,28 +28,56 @@ let millHero = {
   carryStack: null    // pile de planches visible sur le dos
 };
 
+let millWorkers = [];   // chats employés : {id, x, z, state, log, chopTimer, carry, dropTimer, visual, facing}
+let millNextWorkerId = 0;
+let millGoldTimer = 0;
+let millTotalEarned = 0; // pièces produites depuis TOUJOURS (le tas de l'avant-plan s'en sert)
 let millLogs = [];      // {x, z, ready, regrow, visual} — visuels créés une fois par initMillScene()
 let millBeltItems = []; // {x, mesh} — planches en transit sur le tapis
 let millPads = [];      // {id, x, z, level, cost, visual, ...} — idem, créées une fois
 let millLevels = { carry:0, chop:0, belt:0, value:0 };
 
-function resetMillGame(){
+// La Scierie ne se "rejoue" pas, elle SE REPREND. C'était le vrai défaut du
+// mode : on améliorait pendant dix minutes, on fermait l'onglet, et tout
+// disparaissait. Un jeu de gestion dont la gestion s'efface n'a aucune raison
+// d'exister. `remise` à vrai remet volontairement tout à zéro (bouton dédié
+// sur l'écran de départ).
+function resetMillGame(remise){
   millState = 'playing';
-  millCoins = MILL_COINS_START;
-  millEarned = 0;
   millFrame = 0;
   millPaused = false;
-  millLevels = { carry:0, chop:0, belt:0, value:0 };
+  millGoldTimer = 0;
+
+  if(remise){
+    millCoins = MILL_COINS_START;
+    millEarned = 0;
+    millTotalEarned = 0;
+    millLevels = { carry:0, chop:0, belt:0, value:0 };
+    millPads.forEach(p=>{ p.level = 0; p.cost = p.baseCost; });
+    clearMillWorkers();
+    millSave();
+  } else {
+    millLoad();
+  }
 
   if(webglSupported){
     // les planches en transit sont les SEULS objets créés en cours de partie
     millBeltItems.forEach(it=>millScene.remove(it.mesh)); // ressources partagées, rien à libérer
-    millLogs.forEach(l=>{ l.ready = true; l.regrow = 0; l.visual.visible = true; l.visual.rotation.z = l.baseRotZ; });
-    millPads.forEach(p=>{ p.level = 0; p.cost = p.baseCost; redrawMillPadLabel(p); });
+    millLogs.forEach(l=>{
+      l.ready = true; l.regrow = 0; l.claimedBy = null;
+      l.visual.visible = true; l.visual.rotation.z = l.baseRotZ;
+      setMillLogGolden(l, false);
+    });
+    millPads.forEach(p=>redrawMillPadLabel(p));
     resetMillHero();
+    syncPlankPiles();
   }
   millBeltItems = [];
 
+  // le menu principal est un .overlay comme les autres : sans ça il reste
+  // affiché PAR-DESSUS la partie quand elle est lancée autrement que par
+  // sa carte (bouton "Recommencer", reprise…)
+  document.getElementById('screenMainMenu').classList.add('hidden');
   document.getElementById('screenPause').classList.add('hidden');
   document.getElementById('millHud').classList.remove('hidden');
   document.getElementById('battleHud').classList.add('hidden');
@@ -88,11 +116,113 @@ function resetMillHero(){
   syncCarryStack();
 }
 
-function startMillGame(){
+function startMillGame(remise){
   initAudio();
   gameMode = 'mill';
   document.getElementById('screenMillStart').classList.add('hidden');
-  resetMillGame();
+  resetMillGame(remise);
+  if(!remise) collectMillOffline();
+}
+
+// --- sauvegarde ------------------------------------------------------------
+function millSave(){
+  try{
+    localStorage.setItem(MILL_SAVE_KEY, JSON.stringify({
+      coins: millCoins,
+      totalEarned: millTotalEarned,
+      levels: millLevels,
+      workers: millWorkers.length,
+      padLevels: millPads.map(p=>p.level),
+      seen: Date.now()
+    }));
+  }catch(e){}
+}
+
+function millLoad(){
+  let save = null;
+  try{ save = JSON.parse(localStorage.getItem(MILL_SAVE_KEY) || 'null'); }catch(e){}
+  if(!save){
+    // toute première visite
+    millCoins = MILL_COINS_START;
+    millEarned = 0;
+    millTotalEarned = 0;
+    millLevels = { carry:0, chop:0, belt:0, value:0 };
+    clearMillWorkers();
+    return;
+  }
+  millCoins = save.coins || 0;
+  millTotalEarned = save.totalEarned || 0;
+  millEarned = 0; // "gagné cette session", remis à zéro à chaque reprise
+  ['carry','chop','belt','value'].forEach(k=>{ millLevels[k] = (save.levels && save.levels[k]) || 0; });
+  if(Array.isArray(save.padLevels)){
+    millPads.forEach((p, i)=>{
+      p.level = save.padLevels[i] || 0;
+      const growth = p.id === 'worker' ? MILL_WORKER_COST_GROWTH : MILL_PAD_COST_GROWTH;
+      p.cost = Math.round(p.baseCost * Math.pow(growth, p.level));
+    });
+  }
+  clearMillWorkers();
+  for(let i = 0; i < Math.min(MILL_WORKER_MAX, save.workers || 0); i++) hireMillWorker(true);
+}
+
+// --- production hors ligne -------------------------------------------------
+// Le rendez-vous du lendemain. Sans employé il ne se passe RIEN en l'absence
+// du joueur : c'est ce qui donne à la première embauche son poids, elle ne
+// fait pas qu'accélérer, elle change la nature du jeu.
+function collectMillOffline(){
+  let save = null;
+  try{ save = JSON.parse(localStorage.getItem(MILL_SAVE_KEY) || 'null'); }catch(e){}
+  if(!save || !save.seen) return;
+  const elapsed = Math.min(MILL_OFFLINE_CAP_MS, Date.now() - save.seen);
+  if(elapsed < 60000) return; // moins d'une minute : on ne dérange pas le joueur
+  const gain = Math.floor(millCoinsPerSecond() * (elapsed/1000) * MILL_OFFLINE_RATE);
+  if(gain <= 0) return;
+  millCoins += gain;
+  millTotalEarned += gain;
+  millSave();
+  updateMillHud();
+  syncPlankPiles();
+  document.getElementById('millOfflineText').textContent =
+    t('mill_offline_text', { coins: gain, time: formatMillDuration(elapsed) });
+  document.getElementById('screenMillOffline').classList.remove('hidden');
+}
+
+function formatMillDuration(ms){
+  const min = Math.round(ms/60000);
+  if(min < 60) return t('mill_dur_min', { n: min });
+  return t('mill_dur_hour', { n: Math.floor(min/60), m: min%60 });
+}
+
+function closeMillOffline(){
+  document.getElementById('screenMillOffline').classList.add('hidden');
+}
+
+// --- employés --------------------------------------------------------------
+function clearMillWorkers(){
+  if(webglSupported){
+    millWorkers.forEach(w=>{ millScene.remove(w.visual); disposeProceduralGroup(w.visual); });
+  }
+  millWorkers = [];
+  millNextWorkerId = 0;
+  millLogs.forEach(l=>{ l.claimedBy = null; });
+}
+
+function hireMillWorker(silencieux){
+  if(millWorkers.length >= MILL_WORKER_MAX) return;
+  const id = millNextWorkerId++;
+  const color = MILL_WORKER_COLORS[id % MILL_WORKER_COLORS.length];
+  const w = {
+    id, x: MILL_BELT_START_X + (id%3 - 1) * 0.7, z: MILL_DROP_Z + 0.9,
+    state: 'toLog', log: null, chopTimer: 0, carry: 0, dropTimer: 0,
+    facing: 0, visual: null
+  };
+  if(webglSupported){
+    w.visual = buildWorkerCat(color);
+    w.visual.position.set(w.x, 0, w.z);
+    millScene.add(w.visual);
+  }
+  millWorkers.push(w);
+  if(!silencieux) showToast(t('mill_worker_hired', { n: millWorkers.length }));
 }
 
 function updateMillHud(){
@@ -100,6 +230,11 @@ function updateMillHud(){
   if(coinEl) coinEl.textContent = millCoins;
   const carryEl = document.getElementById('millCarry');
   if(carryEl) carryEl.textContent = millHero.carry + ' / ' + millCarryCapacity();
+  const wEl = document.getElementById('millWorkers');
+  if(wEl){
+    wEl.textContent = millWorkers.length;
+    wEl.parentElement.classList.toggle('hidden', millWorkers.length === 0);
+  }
 }
 
 // Pas de défaite dans ce mode : on quitte par le menu. Le score conservé est
@@ -112,6 +247,7 @@ function saveMillBest(){
     millBest = millEarned;
     try{ localStorage.setItem('hordeDeChatsMillBest', String(millBest)); }catch(e){}
   }
+  millSave(); // horodate la sortie : c'est ce "seen" qui alimente le hors-ligne
 }
 
 function pauseMill(){
@@ -124,4 +260,21 @@ function pauseMill(){
 function resumeMill(){
   millPaused = false;
   document.getElementById('screenPause').classList.add('hidden');
+}
+
+// Remettre une scierie à zéro efface des heures de progression : ça ne peut
+// pas tenir en un seul appui. Deuxième appui dans les cinq secondes = confirmé.
+let millResetArmed = 0;
+function confirmMillReset(){
+  const btn = document.querySelector('#screenMillStart [data-i18n="btn_mill_reset"]');
+  if(Date.now() - millResetArmed > 5000){
+    millResetArmed = Date.now();
+    if(btn) btn.textContent = t('btn_mill_reset_confirm');
+    showToast(t('mill_reset_warn'));
+    return;
+  }
+  millResetArmed = 0;
+  if(btn) btn.textContent = t('btn_mill_reset');
+  try{ localStorage.removeItem(MILL_SAVE_KEY); }catch(e){}
+  startMillGame(true);
 }

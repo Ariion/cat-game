@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=41">
+<link rel="stylesheet" href="css/style.css?v=43">
 </head>
 <body>
 
@@ -72,6 +72,10 @@
           <span style="font-size:15px;">&#129717;</span>
           <span class="count" id="millCarry">0 / 4</span>
         </div>
+        <div class="hp-badge hidden">
+          <span style="font-size:15px;">&#128008;</span>
+          <span class="count" id="millWorkers">0</span>
+        </div>
       </div>
       <div class="hud-right">
         <button class="pause-btn hidden" id="pauseBtnMill" onclick="pauseGame()">&#10074;&#10074;</button>
@@ -102,6 +106,28 @@
          jamais à viser une zone précise. -->
     <div class="stick hidden" id="stick">
       <div class="stick-knob" id="stickKnob"></div>
+    </div>
+
+    <!-- CROIX DIRECTIONNELLE (Chatteau Fort). La manette flottante marche,
+         mais elle demande de deviner où poser le pouce et de doser la
+         poussée. Ces quatre touches sont TOUJOURS au même endroit et
+         toujours visibles : on appuie, le chat part, on relâche, il
+         s'arrête. Les deux commandes coexistent — glisser sur le décor
+         fonctionne encore. -->
+    <div class="dpad hidden" id="dpad">
+      <button class="dpad-btn up"    data-dir="up">&#9650;</button>
+      <button class="dpad-btn left"  data-dir="left">&#9664;</button>
+      <button class="dpad-btn right" data-dir="right">&#9654;</button>
+      <button class="dpad-btn down"  data-dir="down">&#9660;</button>
+      <span class="dpad-hub">&#128062;</span>
+    </div>
+
+    <!-- DEUX TOUCHES DE VOIE (Palais des Chats). Le jeu n'a que trois voies :
+         deux grosses touches disent mieux "gauche / droite" qu'un
+         glissement, et elles se visent sans regarder. -->
+    <div class="lane-pad hidden" id="lanePad">
+      <button class="lane-btn" id="laneLeft">&#9664;</button>
+      <button class="lane-btn" id="laneRight">&#9654;</button>
     </div>
 
     <div class="toast hidden" id="toast"></div>
@@ -178,8 +204,19 @@
       <p data-i18n="mill_desc">Va sur les rondins pour les débiter, rapporte les planches sur le tapis, et l'atelier les change en pièces. Pose-toi sur une dalle dorée pour acheter une amélioration.</p>
       <p class="record" id="millBestLabel"></p>
       <div class="menu-buttons">
-        <button class="btn" onclick="startMillGame()" data-i18n="btn_play">Jouer</button>
+        <button class="btn" onclick="startMillGame(false)" data-i18n="btn_mill_resume">Reprendre la scierie</button>
+        <button class="btn ghost" onclick="confirmMillReset()" data-i18n="btn_mill_reset">Tout recommencer</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
+      </div>
+    </div>
+
+    <!-- Le rendez-vous du lendemain : la scierie a tourné pendant l'absence.
+         C'est l'écran qui donne une raison de revenir demain. -->
+    <div class="overlay hidden" id="screenMillOffline">
+      <h1 data-i18n="mill_offline_title">Ta scierie a tourné !</h1>
+      <p id="millOfflineText"></p>
+      <div class="choice-row">
+        <button class="btn" onclick="closeMillOffline()" data-i18n="btn_collect">Encaisser</button>
       </div>
     </div>
 
@@ -323,33 +360,33 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=41"></script>
-<script src="js/vendor/postprocessing.js?v=41"></script>
-<script src="js/config.js?v=41"></script>
-<script src="js/meta.js?v=41"></script>
-<script src="js/biomes.js?v=41"></script>
-<script src="js/i18n.js?v=41"></script>
-<script src="js/audio.js?v=41"></script>
-<script src="js/state.js?v=41"></script>
-<script src="js/towerState.js?v=41"></script>
-<script src="js/millState.js?v=41"></script>
-<script src="js/puzzleState.js?v=41"></script>
-<script src="js/scene3d.js?v=41"></script>
-<script src="js/towerScene3d.js?v=41"></script>
-<script src="js/millScene3d.js?v=41"></script>
-<script src="js/puzzleScene3d.js?v=41"></script>
-<script src="js/render3d.js?v=41"></script>
-<script src="js/towerRender3d.js?v=41"></script>
-<script src="js/millRender3d.js?v=41"></script>
-<script src="js/puzzleRender3d.js?v=41"></script>
-<script src="js/gameplay.js?v=41"></script>
-<script src="js/towerGameplay.js?v=41"></script>
-<script src="js/millGameplay.js?v=41"></script>
-<script src="js/puzzleGameplay.js?v=41"></script>
-<script src="js/postfx.js?v=41"></script>
-<script src="js/shop.js?v=41"></script>
-<script src="js/modes.js?v=41"></script>
-<script src="js/input.js?v=41"></script>
-<script src="js/main.js?v=41"></script>
+<script src="js/vendor/GLTFLoader.js?v=43"></script>
+<script src="js/vendor/postprocessing.js?v=43"></script>
+<script src="js/config.js?v=43"></script>
+<script src="js/meta.js?v=43"></script>
+<script src="js/biomes.js?v=43"></script>
+<script src="js/i18n.js?v=43"></script>
+<script src="js/audio.js?v=43"></script>
+<script src="js/state.js?v=43"></script>
+<script src="js/towerState.js?v=43"></script>
+<script src="js/millState.js?v=43"></script>
+<script src="js/puzzleState.js?v=43"></script>
+<script src="js/scene3d.js?v=43"></script>
+<script src="js/towerScene3d.js?v=43"></script>
+<script src="js/millScene3d.js?v=43"></script>
+<script src="js/puzzleScene3d.js?v=43"></script>
+<script src="js/render3d.js?v=43"></script>
+<script src="js/towerRender3d.js?v=43"></script>
+<script src="js/millRender3d.js?v=43"></script>
+<script src="js/puzzleRender3d.js?v=43"></script>
+<script src="js/gameplay.js?v=43"></script>
+<script src="js/towerGameplay.js?v=43"></script>
+<script src="js/millGameplay.js?v=43"></script>
+<script src="js/puzzleGameplay.js?v=43"></script>
+<script src="js/postfx.js?v=43"></script>
+<script src="js/shop.js?v=43"></script>
+<script src="js/modes.js?v=43"></script>
+<script src="js/input.js?v=43"></script>
+<script src="js/main.js?v=43"></script>
 </body>
 </html>

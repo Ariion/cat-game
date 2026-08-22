@@ -56,6 +56,7 @@ function setPuzzleTargetFromClientX(clientX){
   const rect = canvas.getBoundingClientRect();
   const f = Math.max(0, Math.min(0.999, (clientX - rect.left) / rect.width));
   puzzleHero.targetX = PUZZLE_LANE_X[Math.floor(f * PUZZLE_LANE_X.length)];
+  updateLaneButtons();
 }
 
 // --- manette virtuelle (Chatteau Fort et Scierie) --------------------------
@@ -132,3 +133,112 @@ document.addEventListener('keyup', (e)=>{
   if(e.key==='ArrowLeft' || e.key==='a') keyLeft = false;
   if(e.key==='ArrowRight' || e.key==='d') keyRight = false;
 });
+
+// ===========================================================================
+// Commandes à l'écran : croix directionnelle (Chatteau Fort) et touches de
+// voie (Palais des Chats)
+// ===========================================================================
+// Elles ne REMPLACENT pas le glissement, elles s'y ajoutent : un joueur qui a
+// pris l'habitude de la manette flottante la garde, un joueur qui trouvait ça
+// difficile a maintenant des cibles fixes et visibles. Les deux écrivent dans
+// les mêmes champs, il n'y a donc aucun code de jeu à dédoubler.
+
+// --- croix directionnelle --------------------------------------------------
+const DPAD_VECTORS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+let dpadHeld = {}; // plusieurs touches à la fois = diagonale
+
+function dpadApply(){
+  let x = 0, z = 0;
+  Object.keys(dpadHeld).forEach(dir=>{
+    if(!dpadHeld[dir]) return;
+    x += DPAD_VECTORS[dir][0];
+    z += DPAD_VECTORS[dir][1];
+  });
+  const mag = Math.hypot(x, z);
+  // normalisée : sans ça une diagonale irait 1,41 fois plus vite qu'une
+  // ligne droite, et le chat filerait en biais sans qu'on comprenne pourquoi
+  hero.stickX = mag > 0 ? x/mag : 0;
+  hero.stickZ = mag > 0 ? z/mag : 0;
+}
+
+function bindDpad(){
+  const pad = document.getElementById('dpad');
+  if(!pad) return;
+  pad.querySelectorAll('.dpad-btn').forEach(btn=>{
+    const dir = btn.dataset.dir;
+    const press = (e)=>{
+      e.preventDefault();
+      if(gameMode !== 'tower' || towerState !== 'playing' || towerPaused || inChapterBreak) return;
+      dpadHeld[dir] = true;
+      btn.classList.add('held');
+      dpadApply();
+    };
+    const release = ()=>{
+      if(!dpadHeld[dir]) return;
+      dpadHeld[dir] = false;
+      btn.classList.remove('held');
+      dpadApply();
+    };
+    btn.addEventListener('pointerdown', press);
+    // pointerup ET pointerleave : sans le second, un doigt qui glisse hors de
+    // la touche la laisserait "enfoncée" et le chat partirait tout seul
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+  });
+  // filet de sécurité : un doigt relâché n'importe où libère tout
+  window.addEventListener('pointerup', ()=>{
+    let any = false;
+    Object.keys(dpadHeld).forEach(d=>{ if(dpadHeld[d]) any = true; });
+    if(!any) return;
+    dpadHeld = {};
+    pad.querySelectorAll('.dpad-btn').forEach(b=>b.classList.remove('held'));
+    dpadApply();
+  });
+}
+
+// --- touches de voie -------------------------------------------------------
+function puzzleLaneIndex(){
+  let best = 0, bestD = Infinity;
+  PUZZLE_LANE_X.forEach((x, i)=>{
+    const d = Math.abs(puzzleHero.targetX - x);
+    if(d < bestD){ bestD = d; best = i; }
+  });
+  return best;
+}
+
+function puzzleStep(delta){
+  if(gameMode !== 'puzzle' || puzzleState !== 'playing' || puzzlePaused) return;
+  const i = Math.max(0, Math.min(PUZZLE_LANE_X.length - 1, puzzleLaneIndex() + delta));
+  puzzleHero.targetX = PUZZLE_LANE_X[i];
+  updateLaneButtons();
+}
+
+// Les touches se grisent au bord du plateau : appuyer sans effet donne
+// l'impression que la commande ne répond pas.
+function updateLaneButtons(){
+  const l = document.getElementById('laneLeft'), r = document.getElementById('laneRight');
+  if(!l || !r) return;
+  const i = puzzleLaneIndex();
+  l.disabled = (i === 0);
+  r.disabled = (i === PUZZLE_LANE_X.length - 1);
+}
+
+function bindLanePad(){
+  [['laneLeft', -1], ['laneRight', 1]].forEach(([id, delta])=>{
+    const btn = document.getElementById(id);
+    if(!btn) return;
+    btn.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      btn.classList.add('held');
+      puzzleStep(delta);
+    });
+    const release = ()=>btn.classList.remove('held');
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+  });
+}
+
+bindDpad();
+bindLanePad();

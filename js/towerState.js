@@ -100,6 +100,10 @@ function resetTowerGame(){
   towerLoot = [];
   towerSlots.forEach(s=>{ s.occupied = false; if(s.marker) s.marker.visible = true; });
 
+  // le menu principal est un .overlay comme les autres : sans ça il reste
+  // affiché PAR-DESSUS la partie quand elle est lancée autrement que par
+  // sa carte (bouton "Recommencer", reprise…)
+  document.getElementById('screenMainMenu').classList.add('hidden');
   document.getElementById('screenPause').classList.add('hidden');
   document.getElementById('screenTowerWin').classList.add('hidden');
   document.getElementById('screenTowerLose').classList.add('hidden');
@@ -108,6 +112,8 @@ function resetTowerGame(){
   document.getElementById('pauseBtnTower').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden'); // l'indice "glisse..." est spécifique au mode Bataille
   document.getElementById('meowBtn').classList.remove('hidden');
+  document.getElementById('dpad').classList.remove('hidden');
+  document.getElementById('lanePad').classList.add('hidden');
   updateMeowButton();
   updateTowerHud();
 }
@@ -173,6 +179,7 @@ function showTowerLose(){
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
+  document.getElementById('dpad').classList.add('hidden');
   // sinon le chat du joueur reste planté au milieu du plateau, visible sous
   // l'écran de défaite — le moment doit être net
   if(hero.visual) hero.visual.visible = false;
@@ -189,6 +196,7 @@ function showTowerWin(){
   document.getElementById('screenTowerWin').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
+  document.getElementById('dpad').classList.add('hidden');
   sfx.win();
   vibrate(60);
 }

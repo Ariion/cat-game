@@ -165,8 +165,12 @@ function puzzleSetPower(v){
   updatePuzzleHud();
 }
 
+function puzzleRunSpeed(){
+  return Math.min(PUZZLE_SPEED_MAX, PUZZLE_RUN_SPEED + (puzzleLevel - 1) * PUZZLE_SPEED_PER_LEVEL);
+}
+
 function updatePuzzleHero(){
-  puzzleHero.z -= PUZZLE_RUN_SPEED;
+  puzzleHero.z -= puzzleRunSpeed();
   const dx = puzzleHero.targetX - puzzleHero.x;
   const step = Math.sign(dx) * Math.min(Math.abs(dx), PUZZLE_LATERAL_SPEED);
   puzzleHero.x += step;
@@ -208,6 +212,7 @@ function updatePuzzleItems(){
       if(d < best){ best = d; lane = it; }
     }
     if(lane) resolvePuzzleHit(lane);
+    updateLaneButtons();
     if(puzzleState !== 'playing') return; // mort : on ne résout pas les suivants
   }
   if(puzzleGuard && !puzzleGuard.beaten && puzzleHero.z <= puzzleGuard.z + 0.9){
@@ -263,6 +268,7 @@ function showPuzzleLevelWin(){
   showAdSlot('puzzleAdSlot', 'puzzle');
   document.getElementById('screenPuzzleLevel').classList.remove('hidden');
   document.getElementById('pauseBtnPuzzle').classList.add('hidden');
+  document.getElementById('lanePad').classList.add('hidden');
   sfx.win();
   vibrate(50);
 }
@@ -305,6 +311,7 @@ function puzzleRevive(){
   }
   document.getElementById('screenPuzzleDead').classList.add('hidden');
   document.getElementById('pauseBtnPuzzle').classList.remove('hidden');
+  document.getElementById('lanePad').classList.remove('hidden');
 }
 
 function updatePuzzle(){

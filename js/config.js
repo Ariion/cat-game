@@ -245,11 +245,14 @@ const TOWER_DOGS_PER_WAVE = 6;
 // traverser plusieurs zones de tir redonnent un rôle à chaque emplacement.
 const TOWER_WAVE_HP_GROWTH = 1.55;    // multiplicateur de PV par vague (vague N -> N+1)
 const TOWER_WAVE_SPEED_GROWTH = 1.12; // multiplicateur de vitesse par vague
-const TOWER_DOG_SPAWN_INTERVAL_FRAMES = 45; // délai entre 2 chiens d'une même vague
+// Délai entre deux chiens d'une même vague. Remonté de 45 : le chat doit
+// maintenant TRAVERSER le plateau pour bâtir et améliorer, et à 45 ticks les
+// chiens se succédaient plus vite qu'il ne pouvait faire un aller-retour.
+const TOWER_DOG_SPAWN_INTERVAL_FRAMES = 58;
 const TOWER_WAVE_DELAY_FRAMES = 150;        // pause avant le lancement de la vague suivante
 
 const TOWER_DOG_HP_BASE = 40;
-const TOWER_DOG_SPEED_BASE = 0.028;
+const TOWER_DOG_SPEED_BASE = 0.024; // abaissé avec l'intervalle ci-dessus, même raison
 
 // Le siège s'assombrit vague après vague : on part d'un plein jour paisible
 // pour finir au crépuscule rouge, la lumière rasant de plus en plus bas.
@@ -298,7 +301,10 @@ const TOWER_AMBIANCE_TRANSITION_SECONDS = 2.5;
 // qui érige les tourelles (en se postant sur un emplacement) et qui encaisse
 // le butin lâché par les chiens abattus. Le tap ne pose donc plus rien
 // directement, il indique où le chat doit aller.
-const HERO_SPEED = 0.075;          // vitesse de déplacement (unités/tick)
+// Le chat joueur va un cran plus vite qu'avant : ce n'est pas lui qui devait
+// ralentir, ce sont les chiens (voir TOWER_DOG_SPAWN_INTERVAL_FRAMES). Se
+// sentir lent est le plus sûr moyen de trouver un jeu "compliqué".
+const HERO_SPEED = 0.088;          // vitesse de déplacement (unités/tick)
 const HERO_ARRIVE_RADIUS = 0.12;   // distance en deçà de laquelle la destination est atteinte
 const HERO_PICKUP_RADIUS = 0.62;   // rayon de ramassage du butin
 const HERO_BUILD_RADIUS = 0.55;    // il faut être au moins aussi proche d'un emplacement pour le bâtir
@@ -466,7 +472,7 @@ const MILL_VALUE_STEP = 2;        // pièces en plus par planche et par niveau
 // temps que la jauge se remplisse. Chaque achat renchérit le suivant, sinon
 // la progression n'aurait aucune courbe.
 const MILL_PAD_FRAMES = 40;       // temps de maintien sur une dalle
-const MILL_PAD_RADIUS = 0.58;
+const MILL_PAD_RADIUS = 0.52; // resserré : la rangée porte maintenant quatre dalles
 const MILL_PAD_COST_GROWTH = 1.75;
 // Palier d'atelier : tous les N niveaux d'amélioration cumulés, la partie
 // marque une coupure (récap + emplacement publicitaire), comme les paliers
@@ -479,12 +485,72 @@ const MILL_LEVELS_PER_CHAPTER = 5;
 // dépose, l'engrenage sous le tapis, la bourse devant l'atelier. On comprend
 // donc ce qu'on achète sans lire l'icône — et ça évite d'aligner quatre
 // disques sur une largeur que l'écran portrait n'a pas.
+// Une rangée de cinq dalles NE RENTRE PAS en portrait : mesurée, elle
+// débordait des deux côtés (bords à ±1,2 pour un cadre qui s'arrête à 1,0).
+// Chaque dalle est donc posée près du poste qu'elle améliore, ce qui les
+// répartit en profondeur — l'axe où l'écran a de la place — et dit du même
+// coup ce qu'on achète : la hache à la clairière, l'embauche à côté d'elle,
+// le sac à la zone de dépose, l'engrenage sous le tapis, la bourse devant
+// l'atelier.
+// Trois contraintes, toutes vérifiées à la mesure et toutes apprises en se
+// trompant :
+//  - à moins de 1,72 d'un rondin, la dalle devient INATTEINTABLE : la coupe a
+//    la priorité sur l'achat, donc se poster dessus déclenche un coup de hache
+//    au lieu de l'amélioration. Il faut donc rester à 2,9 du centre de la
+//    clairière (les rondins sont sur un anneau à 1,15).
+//  - derrière l'atelier, une dalle disparaît sous le toit (l'embauche, la plus
+//    importante de toutes, y était invisible).
+//  - deux dalles à moins de 1,54 l'une de l'autre ont des zones qui se
+//    chevauchent et on ne sait plus laquelle on achète.
 const MILL_PADS = [
-  { id:'chop',  x:-2.9, z:-3.6, cost:35, icon:'\uD83E\uDE93' }, // coupe plus rapide
-  { id:'carry', x:-2.3, z: 1.5, cost:25, icon:'\uD83C\uDF92' }, // + capacité de portage
-  { id:'belt',  x: 0.3, z: 1.5, cost:45, icon:'\u2699\uFE0F' }, // tapis plus rapide
-  { id:'value', x: 2.2, z: 1.5, cost:60, icon:'\uD83D\uDCB0' }  // planches mieux payées
+  { id:'chop',   x: 1.3, z:-5.4, cost:35, icon:'\uD83E\uDE93' }, // coupe plus rapide, en bord de clairière
+  { id:'worker', x: 1.3, z:-3.6, cost:70, icon:'\uD83D\uDC08' }, // embaucher un chat bûcheron
+  { id:'carry',  x:-2.3, z:-1.4, cost:25, icon:'\uD83C\uDF92' }, // + capacité de portage, près de la dépose
+  { id:'value',  x: 1.9, z: 0.2, cost:60, icon:'\uD83D\uDCB0' }, // planches mieux payées, devant l'atelier
+  { id:'belt',   x: 0.2, z: 1.2, cost:45, icon:'\u2699\uFE0F' }  // tapis plus rapide, sous le tapis
 ];
+
+// ---------------------------------------------------------------------------
+// CE QUI MANQUAIT À LA SCIERIE
+// ---------------------------------------------------------------------------
+// Telle qu'elle était, on coupait, on portait, on déposait, en boucle, seul,
+// et la partie repartait de zéro à chaque lancement. Autrement dit : du
+// travail sans entreprise. Un jeu de ce genre n'accroche que si la chaîne
+// finit par tourner SANS le joueur, et si ce qu'il a bâti est encore là le
+// lendemain. D'où les trois ajouts ci-dessous.
+
+// 1. LES EMPLOYÉS. C'est le changement principal : chaque chat embauché fait
+//    la boucle tout seul. Le joueur passe d'ouvrier à patron, et regarder sa
+//    scierie tourner devient la récompense.
+const MILL_WORKER_MAX = 6;
+const MILL_WORKER_SPEED = 0.055;   // plus lent que le joueur : embaucher ne rend pas inutile
+const MILL_WORKER_CARRY = 3;
+const MILL_WORKER_CHOP_MULT = 1.4; // ils cognent moins fort que le patron
+const MILL_WORKER_COST_GROWTH = 2.1;
+const MILL_WORKER_COLORS = [0x9C8F7E, 0x4A4A52, 0xC98A5B, 0xE0D6C2, 0x7A6350, 0xB0A48C];
+
+// 2. LA SCIERIE SURVIT À LA SESSION. Sans ça, tout le sens de "améliorer"
+//    disparaît à la fermeture de l'onglet.
+const MILL_SAVE_KEY = 'hordeDeChatsMillSave';
+
+// 3. LA PRODUCTION HORS LIGNE. Le rendez-vous du lendemain : la scierie a
+//    tourné en l'absence du joueur. Plafonnée à deux heures — au-delà, revenir
+//    une fois par semaine rapporterait autant que jouer, et jouer n'aurait
+//    plus d'intérêt.
+const MILL_OFFLINE_CAP_MS = 2 * 60 * 60 * 1000;
+// Mesuré : 6 minutes de jeu actif rapportent ~1 290 pièces/min, les employés
+// seuls ~1 520/min sans le joueur. À 0,45 le hors-ligne rendait 848/min, soit
+// les deux tiers d'une présence — trop proche. À 0,30 il rend ~40 % : de quoi
+// avoir envie de revenir, pas de quoi préférer partir.
+const MILL_OFFLINE_RATE = 0.30;    // fraction du rendement réel : présent > absent
+
+// 4. LE RONDIN D'OR. Un rondin rare, cinq fois plus payant, qui apparaît puis
+//    disparaît : la seule raison de LEVER LES YEUX vers la clairière au lieu
+//    de refaire le même trajet en pilote automatique.
+const MILL_GOLD_LOG_INTERVAL = 900;  // ~15 s entre deux apparitions possibles
+const MILL_GOLD_LOG_CHANCE = 0.55;
+const MILL_GOLD_LOG_LIFE = 480;      // il ne reste pas indéfiniment
+const MILL_GOLD_LOG_VALUE = 5;       // planches rapportées au lieu de MILL_PLANKS_PER_LOG
 
 // Le chat de la scierie se distingue de celui du Chatteau Fort (gris,
 // écharpe rouge) : robe crème, écharpe verte.
@@ -506,7 +572,15 @@ const MILL_BOUNDS = { xMin:-4.2, xMax:3.5, zMin:-7.2, zMax:2.6 };
 const PUZZLE_LANE_X = [-2.35, 0, 2.35];
 const PUZZLE_SEG_LEN = 5.2;          // distance entre deux carrefours
 const PUZZLE_SEGMENTS_PER_LEVEL = 8; // puis la porte du gardien
-const PUZZLE_RUN_SPEED = 0.075;      // avance automatique : le joueur ne gère que la voie
+// Vitesse d'avance. Abaissée de 0,075 : à ce rythme il restait 69 ticks
+// (1,15 s) entre deux carrefours pour LIRE trois nombres, décider, et
+// appuyer. C'est jouable une fois qu'on connaît le jeu, mais c'est la
+// première chose qui rebute. On laisse donc respirer au départ, et on
+// resserre à mesure que les niveaux montent : la tension revient d'elle-même
+// quand le joueur, lui, est prêt.
+const PUZZLE_RUN_SPEED = 0.058;      // avance automatique : le joueur ne gère que la voie
+const PUZZLE_SPEED_PER_LEVEL = 0.0022;
+const PUZZLE_SPEED_MAX = 0.095;
 // Vitesse latérale : mesurée, pas choisie au jugé. À 0,115 il fallait 41 ticks
 // pour traverser les trois voies alors qu'un carrefour n'en dure que 69 :
 // tout changement de voie tardif se terminait happé par la voie du MILIEU, en

@@ -129,7 +129,20 @@ const translations = {
     mission_mill_coins: "Scierie : gagne {n} pièces",
     mission_mill_upgrade: "Scierie : achète {n} améliorations",
     mission_puzzle_level: "Palais : franchis {n} niveaux",
-    mission_puzzle_power: "Palais : atteins ⚡ {n}"
+    mission_puzzle_power: "Palais : atteins ⚡ {n}",
+    btn_mill_resume: "Reprendre la scierie",
+    btn_mill_reset: "Tout recommencer",
+    btn_mill_reset_confirm: "Confirmer ? Tout sera perdu",
+    btn_collect: "Encaisser",
+    mill_reset_warn: "Appuie encore pour tout effacer",
+    mill_save_label: "Ta scierie : 💰 {coins} · {workers} employé(s)",
+    mill_worker_hired: "Un chat embauché ! ({n} en tout)",
+    mill_up_worker: "Nouvel employé — {n} en tout",
+    mill_gold_log: "Un rondin d'or est apparu !",
+    mill_offline_title: "Ta scierie a tourné !",
+    mill_offline_text: "Tes employés ont produit 💰 {coins} pendant ton absence ({time}).",
+    mill_dur_min: "{n} min",
+    mill_dur_hour: "{n} h {m} min"
   },
   en: {
     menu_title: "Cat Horde",
@@ -258,7 +271,20 @@ const translations = {
     mission_mill_coins: "Sawmill: earn {n} coins",
     mission_mill_upgrade: "Sawmill: buy {n} upgrades",
     mission_puzzle_level: "Palace: clear {n} levels",
-    mission_puzzle_power: "Palace: reach ⚡ {n}"
+    mission_puzzle_power: "Palace: reach ⚡ {n}",
+    btn_mill_resume: "Resume the sawmill",
+    btn_mill_reset: "Start over",
+    btn_mill_reset_confirm: "Confirm? Everything will be lost",
+    btn_collect: "Collect",
+    mill_reset_warn: "Tap again to erase everything",
+    mill_save_label: "Your sawmill: 💰 {coins} · {workers} worker(s)",
+    mill_worker_hired: "A cat was hired! ({n} in total)",
+    mill_up_worker: "New worker — {n} in total",
+    mill_gold_log: "A golden log appeared!",
+    mill_offline_title: "Your sawmill kept running!",
+    mill_offline_text: "Your workers produced 💰 {coins} while you were away ({time}).",
+    mill_dur_min: "{n} min",
+    mill_dur_hour: "{n} h {m} min"
   },
   de: {
     menu_title: "Katzenhorde",
@@ -387,7 +413,20 @@ const translations = {
     mission_mill_coins: "Sägewerk: verdiene {n} Münzen",
     mission_mill_upgrade: "Sägewerk: kaufe {n} Verbesserungen",
     mission_puzzle_level: "Palast: schaffe {n} Stufen",
-    mission_puzzle_power: "Palast: erreiche ⚡ {n}"
+    mission_puzzle_power: "Palast: erreiche ⚡ {n}",
+    btn_mill_resume: "Sägewerk fortsetzen",
+    btn_mill_reset: "Neu anfangen",
+    btn_mill_reset_confirm: "Bestätigen? Alles geht verloren",
+    btn_collect: "Einsammeln",
+    mill_reset_warn: "Nochmal tippen, um alles zu löschen",
+    mill_save_label: "Dein Sägewerk: 💰 {coins} · {workers} Arbeiter",
+    mill_worker_hired: "Eine Katze eingestellt! (insgesamt {n})",
+    mill_up_worker: "Neuer Arbeiter — insgesamt {n}",
+    mill_gold_log: "Ein goldener Stamm ist aufgetaucht!",
+    mill_offline_title: "Dein Sägewerk lief weiter!",
+    mill_offline_text: "Deine Arbeiter haben 💰 {coins} produziert, während du weg warst ({time}).",
+    mill_dur_min: "{n} Min",
+    mill_dur_hour: "{n} Std {m} Min"
   },
   es: {
     menu_title: "Horda de gatos",
@@ -516,7 +555,20 @@ const translations = {
     mission_mill_coins: "Aserradero: gana {n} monedas",
     mission_mill_upgrade: "Aserradero: compra {n} mejoras",
     mission_puzzle_level: "Palacio: supera {n} niveles",
-    mission_puzzle_power: "Palacio: alcanza ⚡ {n}"
+    mission_puzzle_power: "Palacio: alcanza ⚡ {n}",
+    btn_mill_resume: "Retomar el aserradero",
+    btn_mill_reset: "Empezar de cero",
+    btn_mill_reset_confirm: "¿Confirmar? Se perderá todo",
+    btn_collect: "Cobrar",
+    mill_reset_warn: "Pulsa otra vez para borrarlo todo",
+    mill_save_label: "Tu aserradero: 💰 {coins} · {workers} empleado(s)",
+    mill_worker_hired: "¡Un gato contratado! ({n} en total)",
+    mill_up_worker: "Nuevo empleado — {n} en total",
+    mill_gold_log: "¡Ha aparecido un tronco de oro!",
+    mill_offline_title: "¡Tu aserradero siguió trabajando!",
+    mill_offline_text: "Tus empleados produjeron 💰 {coins} mientras no estabas ({time}).",
+    mill_dur_min: "{n} min",
+    mill_dur_hour: "{n} h {m} min"
   }
 };
 
