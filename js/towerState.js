@@ -43,6 +43,7 @@ let hero = {
   visual: null,
   facing: 0
 };
+let towerKills = 0;     // éliminations de la partie — sert aux missions communes (meta.js)
 let towerLoot = [];     // {x, z, value, life, visual} — poissons lâchés par les chiens abattus
 
 // Remet à zéro l'état d'une partie de Chatteau Fort (rejouer après une
@@ -65,6 +66,7 @@ function resetTowerGame(){
   towerWaveDelayTimer = 420;
   towerNextTurretCost = TOWER_TURRET_COST_BASE;
   towerFrame = 0;
+  towerKills = 0;
   towerPaused = false;
 
   if(webglSupported){
@@ -165,6 +167,9 @@ function showTowerLose(){
   document.getElementById('towerLoseText').textContent = towerEndless
     ? t('tower_lose_endless', { n: towerWave, best: towerBestWave })
     : t('tower_lose_stats', { n: towerWave, max: TOWER_WAVE_COUNT });
+  addXp(10 + towerWave * 5);
+  reportMission('tower_wave', towerWave);
+  reportMission('tower_kills', towerKills);
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
@@ -177,6 +182,10 @@ function showTowerLose(){
 
 function showTowerWin(){
   towerState = 'win';
+  addXp(40 + towerWave * 5);
+  addGems(3, true); // remporter le mode Histoire paie : c'est la récompense d'une vraie victoire
+  reportMission('tower_wave', towerWave);
+  reportMission('tower_kills', towerKills);
   document.getElementById('screenTowerWin').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');

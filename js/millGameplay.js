@@ -13,6 +13,8 @@ function millChopFrames(){
 }
 function millBeltSpeed(){ return MILL_BELT_SPEED_BASE * (1 + millLevels.belt * MILL_BELT_STEP); }
 function millPlankValue(){ return MILL_PLANK_VALUE_BASE + millLevels.value * MILL_VALUE_STEP; }
+function millTotalLevels(){ return millLevels.carry + millLevels.chop + millLevels.belt + millLevels.value; }
+function millChapter(){ return Math.floor(millTotalLevels() / MILL_LEVELS_PER_CHAPTER); }
 
 // --- déplacement -----------------------------------------------------------
 function updateMillHeroMove(){
@@ -119,6 +121,7 @@ function updateMillBelt(){
       const gain = millPlankValue();
       millCoins += gain;
       millEarned += gain;
+      reportMission('mill_coins', millEarned);
       updateMillHud();
       millPads.forEach(redrawMillPadLabel); // le prix passe en doré dès qu'il devient payable
       sfx.croquette();
@@ -143,10 +146,17 @@ function applyMillUpgrade(pad){
   pad.cost = Math.round(pad.baseCost * Math.pow(MILL_PAD_COST_GROWTH, pad.level));
   redrawMillPadLabel(pad);
   millPads.forEach(redrawMillPadLabel);
+  const totalLevels = millTotalLevels();
+  reportMission('mill_upgrade', totalLevels);
+  addXp(6 + totalLevels);
   showToast(t('mill_up_' + pad.id, { n: pad.level }));
   sfx.win();
   vibrate(30);
   updateMillHud();
+  if(totalLevels % MILL_LEVELS_PER_CHAPTER === 0){
+    addGems(1, true);
+    showChapterBreak('mill');
+  }
 }
 
 function updateMillPads(busyChopping){

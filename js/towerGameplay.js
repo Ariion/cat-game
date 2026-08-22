@@ -642,6 +642,7 @@ function updateTowerDogs(){
 // qui eux sont clonés par instance.
 function disposeTowerDogVisual(g){
   if(g.userData.isRealModel){
+    disposeClonedSkeletons(g); // sinon la texture d'os du clone reste en mémoire vidéo
     g.traverse(o=>{
       if(!o.isMesh || !o.material) return;
       (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>m && m.dispose());
@@ -735,6 +736,8 @@ function applyTowerDogHit(dog, damage, killer){
     const i = towerDogs.indexOf(dog);
     if(i >= 0){
       resolveTowerDog(i, 'killed');
+      towerKills++;
+      reportMission('tower_kills', towerKills);
       if(killer) registerTurretKill(killer);
     }
   }

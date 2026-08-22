@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=40">
+<link rel="stylesheet" href="css/style.css?v=41">
 </head>
 <body>
 
@@ -78,6 +78,19 @@
       </div>
     </div>
 
+    <div class="hud hidden" id="puzzleHud">
+      <div class="hud-left">
+        <div class="horde-badge">
+          <span style="font-size:18px;">&#9889;</span>
+          <span class="count" id="puzzlePower">5</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="progress-wrap" id="puzzleLevelLabel">Niveau 1</div>
+        <button class="pause-btn hidden" id="pauseBtnPuzzle" onclick="pauseGame()">&#10074;&#10074;</button>
+      </div>
+    </div>
+
     <!-- Pouvoir du chat joueur : ralentit les chiens autour de lui. Placé en
          bas à droite, à portée du pouce, loin de la zone où l'on tape pour se
          déplacer. DEHORS du .hud : celui-ci est ancré en haut sans hauteur
@@ -93,8 +106,22 @@
 
     <div class="toast hidden" id="toast"></div>
 
-    <div class="overlay" id="screenMainMenu">
+    <div class="overlay scrollable" id="screenMainMenu">
       <h1 data-i18n="menu_title">Horde de chats</h1>
+      <!-- Bandeau de profil : gemmes et niveau de compte, communs aux quatre
+           jeux. C'est le premier signe visible que ce n'est plus quatre jeux
+           côte à côte mais un seul compte. -->
+      <div class="profile-bar">
+        <button class="profile-gems" onclick="openShop()">
+          <span>&#128142;</span><span class="count" id="gemCount">0</span><span class="plus">+</span>
+        </button>
+        <div class="profile-level">
+          <span class="profile-level-label" data-i18n="profile_level">Niv.</span>
+          <span class="count" id="metaLevel">1</span>
+          <span class="xp-track"><span class="xp-fill" id="metaXpFill"></span></span>
+        </div>
+        <span class="noads-badge hidden" id="menuNoAdsBadge" data-i18n="menu_noads_badge">Sans pub</span>
+      </div>
       <div class="mode-grid">
         <button class="mode-card" onclick="selectBattleMode()">
           <span class="mode-card-icon">&#128049;&#9876;&#65039;</span>
@@ -111,6 +138,14 @@
           <span class="mode-card-title" data-i18n="mode_mill_title">Chat-Scierie</span>
           <span class="mode-card-desc" data-i18n="mode_mill_desc">Coupe le bois, alimente le tapis, agrandis la scierie.</span>
         </button>
+        <button class="mode-card" onclick="selectPuzzleMode()">
+          <span class="mode-card-icon">&#127963;&#65039;&#9889;</span>
+          <span class="mode-card-title" data-i18n="mode_puzzle_title">Palais des Chats</span>
+          <span class="mode-card-desc" data-i18n="mode_puzzle_desc">Choisis ta voie, gonfle ta puissance, franchis le gardien.</span>
+        </button>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn ghost" onclick="openShop()" data-i18n="btn_shop">&#128142; Boutique</button>
       </div>
     </div>
 
@@ -146,6 +181,59 @@
         <button class="btn" onclick="startMillGame()" data-i18n="btn_play">Jouer</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
       </div>
+    </div>
+
+    <div class="overlay hidden" id="screenPuzzleStart">
+      <h1 data-i18n="mode_puzzle_title">Palais des Chats</h1>
+      <p data-i18n="puzzle_desc">Ton chat court tout seul : glisse le doigt pour choisir la voie. Ramasse les +X et les ×N pour gonfler ta puissance, écrase les chiens plus faibles que toi, esquive les autres. Au bout du palais, le gardien.</p>
+      <p class="record" id="puzzleBestLabel"></p>
+      <div class="menu-buttons">
+        <button class="btn" onclick="startPuzzleGame()" data-i18n="btn_play">Jouer</button>
+        <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="screenPuzzleLevel">
+      <h1 id="puzzleLevelTitle">Niveau franchi !</h1>
+      <p id="puzzleLevelStats"></p>
+      <div class="ad-slot" id="puzzleAdSlot">
+        <span class="ad-slot-label" data-i18n="ad_slot_label">Emplacement publicitaire</span>
+      </div>
+      <div class="choice-row">
+        <button class="btn" onclick="puzzleNextLevel()" data-i18n="btn_puzzle_next">Niveau suivant</button>
+        <button class="btn ghost" onclick="goToMenu()" data-i18n="btn_pause_menu">Menu</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="screenPuzzleDead">
+      <h1 data-i18n="puzzle_dead_title">Trop fort pour toi...</h1>
+      <p id="puzzleDeadText"></p>
+      <div class="choice-row">
+        <button class="btn revive" id="puzzleReviveBtn" onclick="puzzleRevive()">&#128142; Revivre</button>
+        <button class="btn retry" onclick="startPuzzleGame()" data-i18n="btn_retry">Recommencer</button>
+        <button class="btn ghost" onclick="goToMenu()" data-i18n="btn_pause_menu">Menu</button>
+      </div>
+    </div>
+
+    <div class="overlay scrollable opaque hidden" id="screenShop">
+      <h1 data-i18n="shop_title">Boutique</h1>
+      <div class="shop-balance">&#128142; <span id="shopGemCount">0</span></div>
+      <p class="options-label small" id="shopProfile"></p>
+
+      <p class="shop-section" data-i18n="shop_section_missions">Missions du jour</p>
+      <div class="mission-list" id="shopMissions"></div>
+
+      <p class="shop-section" data-i18n="shop_section_free">Gemmes gratuites</p>
+      <div class="shop-list" id="shopRewarded"></div>
+
+      <p class="shop-section" data-i18n="shop_section_noads">Sans publicité</p>
+      <div class="shop-list" id="shopNoAds"></div>
+
+      <p class="shop-section" data-i18n="shop_section_packs">Lots de gemmes</p>
+      <div class="shop-list" id="shopPacks"></div>
+      <p class="options-label small" data-i18n="shop_disclaimer">Les lots de gemmes sont des achats simulés : ce prototype web n'encaisse aucun paiement.</p>
+
+      <button class="btn" onclick="closeShop()" data-i18n="btn_back">Retour</button>
     </div>
 
     <div class="overlay hidden" id="screenTowerWin">
@@ -235,27 +323,33 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=40"></script>
-<script src="js/vendor/postprocessing.js?v=40"></script>
-<script src="js/config.js?v=40"></script>
-<script src="js/biomes.js?v=40"></script>
-<script src="js/i18n.js?v=40"></script>
-<script src="js/audio.js?v=40"></script>
-<script src="js/state.js?v=40"></script>
-<script src="js/towerState.js?v=40"></script>
-<script src="js/millState.js?v=40"></script>
-<script src="js/scene3d.js?v=40"></script>
-<script src="js/towerScene3d.js?v=40"></script>
-<script src="js/millScene3d.js?v=40"></script>
-<script src="js/render3d.js?v=40"></script>
-<script src="js/towerRender3d.js?v=40"></script>
-<script src="js/millRender3d.js?v=40"></script>
-<script src="js/gameplay.js?v=40"></script>
-<script src="js/towerGameplay.js?v=40"></script>
-<script src="js/millGameplay.js?v=40"></script>
-<script src="js/postfx.js?v=40"></script>
-<script src="js/modes.js?v=40"></script>
-<script src="js/input.js?v=40"></script>
-<script src="js/main.js?v=40"></script>
+<script src="js/vendor/GLTFLoader.js?v=41"></script>
+<script src="js/vendor/postprocessing.js?v=41"></script>
+<script src="js/config.js?v=41"></script>
+<script src="js/meta.js?v=41"></script>
+<script src="js/biomes.js?v=41"></script>
+<script src="js/i18n.js?v=41"></script>
+<script src="js/audio.js?v=41"></script>
+<script src="js/state.js?v=41"></script>
+<script src="js/towerState.js?v=41"></script>
+<script src="js/millState.js?v=41"></script>
+<script src="js/puzzleState.js?v=41"></script>
+<script src="js/scene3d.js?v=41"></script>
+<script src="js/towerScene3d.js?v=41"></script>
+<script src="js/millScene3d.js?v=41"></script>
+<script src="js/puzzleScene3d.js?v=41"></script>
+<script src="js/render3d.js?v=41"></script>
+<script src="js/towerRender3d.js?v=41"></script>
+<script src="js/millRender3d.js?v=41"></script>
+<script src="js/puzzleRender3d.js?v=41"></script>
+<script src="js/gameplay.js?v=41"></script>
+<script src="js/towerGameplay.js?v=41"></script>
+<script src="js/millGameplay.js?v=41"></script>
+<script src="js/puzzleGameplay.js?v=41"></script>
+<script src="js/postfx.js?v=41"></script>
+<script src="js/shop.js?v=41"></script>
+<script src="js/modes.js?v=41"></script>
+<script src="js/input.js?v=41"></script>
+<script src="js/main.js?v=41"></script>
 </body>
 </html>

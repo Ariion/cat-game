@@ -468,6 +468,12 @@ const MILL_VALUE_STEP = 2;        // pièces en plus par planche et par niveau
 const MILL_PAD_FRAMES = 40;       // temps de maintien sur une dalle
 const MILL_PAD_RADIUS = 0.58;
 const MILL_PAD_COST_GROWTH = 1.75;
+// Palier d'atelier : tous les N niveaux d'amélioration cumulés, la partie
+// marque une coupure (récap + emplacement publicitaire), comme les paliers
+// des deux autres modes infinis. Sans elle, la Scierie était le seul jeu SANS
+// aucune publicité — et vendre "supprimer les pubs de la Scierie" n'aurait
+// donc rien vendu du tout.
+const MILL_LEVELS_PER_CHAPTER = 5;
 // Chaque dalle est posée À CÔTÉ DU POSTE QU'ELLE AMÉLIORE, pas alignée dans
 // un rang de menu : la hache près de la clairière, le sac près de la zone de
 // dépose, l'engrenage sous le tapis, la bourse devant l'atelier. On comprend
@@ -486,3 +492,63 @@ const MILL_HERO_FUR = 0xD9C4A3;
 const MILL_HERO_SCARF = 0x5C8C4A;
 const MILL_HERO_SPEED = 0.082;    // un poil plus vif : ici on fait des allers-retours en continu
 const MILL_BOUNDS = { xMin:-4.2, xMax:3.5, zMin:-7.2, zMax:2.6 };
+
+// ===========================================================================
+// Mode 4 : "Palais des Chats" (choix de chemin, puissance qui enfle)
+// ===========================================================================
+// Le genre exact des publicités que tout le monde a vues : on avance dans un
+// palais, on choisit une voie parmi trois, on ramasse des +X et des ×N pour
+// gonfler sa puissance, et on décide à chaque carrefour quel chien on est de
+// taille à affronter. Toute la tension tient dans un seul chiffre.
+//
+// Ce mode est le PREMIER à consommer des gemmes (revivre après une défaite) :
+// c'est lui qui donne un sens à la boutique. Voir meta.js.
+const PUZZLE_LANE_X = [-2.35, 0, 2.35];
+const PUZZLE_SEG_LEN = 5.2;          // distance entre deux carrefours
+const PUZZLE_SEGMENTS_PER_LEVEL = 8; // puis la porte du gardien
+const PUZZLE_RUN_SPEED = 0.075;      // avance automatique : le joueur ne gère que la voie
+// Vitesse latérale : mesurée, pas choisie au jugé. À 0,115 il fallait 41 ticks
+// pour traverser les trois voies alors qu'un carrefour n'en dure que 69 :
+// tout changement de voie tardif se terminait happé par la voie du MILIEU, en
+// plein transit (toutes les morts des tests tombaient à x ≈ ±1,1, jamais sur
+// une voie choisie). À 0,21 la traversée prend 22 ticks, il reste donc trois
+// fois la marge nécessaire et une mort redevient toujours une décision.
+const PUZZLE_LATERAL_SPEED = 0.21;
+const PUZZLE_HIT_X = 0.92;           // demi-largeur de collision (voies espacées de 2,35)
+const PUZZLE_HIT_Z = 0.62;
+const PUZZLE_START_POWER = 5;
+const PUZZLE_LIVES = 1;              // une erreur = fin de course (on peut revivre en gemmes)
+const PUZZLE_REVIVE_GEMS = 5;
+
+// Croissance attendue de la puissance. Elle sert de MÈTRE-ÉTALON pour
+// dimensionner tout le reste : un chien "battable" vaut une fraction de cette
+// valeur, un piège en vaut un multiple. Sans ce repère, les nombres n'auraient
+// aucun rapport avec ce que le joueur a réellement pu ramasser, et le jeu
+// serait soit trivial soit impossible selon la chance des tirages.
+// Ces fractions ont été RESSERRÉES après mesure : à +30-55 % par butin et un
+// multiplicateur tous les trois carrefours, la puissance atteignait le
+// MILLIARD dès le niveau 1 (mesuré : 1 057 676 903). Les nombres doivent
+// grossir — c'est tout le sel du genre — mais rester lisibles, donc on vise
+// une dizaine de fois par niveau plutôt qu'une centaine.
+const PUZZLE_GOLD_RATIO = [0.16, 0.28];   // +X = expected * ce facteur
+const PUZZLE_FOE_EASY = [0.45, 0.80];     // chien battable
+const PUZZLE_FOE_TRAP = [1.35, 2.30];     // chien qu'il faut esquiver
+const PUZZLE_FOE_REWARD = 0.5;            // on ne gagne qu'une fraction de la puissance du chien abattu
+// Le gardien rapportait sa puissance ENTIÈRE, ce qui doublait le compteur à
+// chaque fin de niveau — à lui seul il fournissait la moitié de l'inflation
+// (mesuré : ×45 par niveau, 8,7 milliards de milliards au niveau 12). Il ne
+// verse plus qu'une prime.
+const PUZZLE_GUARD_REWARD = 0.3;
+const PUZZLE_SAFE_SEGMENTS = 2;           // pas de piège aux tout premiers carrefours du niveau 1
+const PUZZLE_GUARD_RATIO = 0.92;          // gardien de fin de niveau
+const PUZZLE_LEVEL_RAMP = 1.0;            // difficulté additionnelle par niveau (voir puzzleLayoutFor)
+
+// Récompenses de fin de niveau : c'est la source de gemmes la plus régulière
+// des quatre jeux, donc la plus visible dans les missions quotidiennes.
+const PUZZLE_GEMS_PER_LEVEL = 2;
+// L'XP ne doit JAMAIS être indexée sur la puissance : celle-ci est
+// exponentielle, donc une seule bonne partie propulsait le profil au niveau
+// maximum et remplissait la boutique (mesuré : 349 gemmes et niveau 200 en
+// douze parties). Elle se calcule donc sur les NIVEAUX franchis, qui eux
+// croissent linéairement.
+const PUZZLE_XP_PER_LEVEL = 10;

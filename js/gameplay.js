@@ -518,6 +518,13 @@ function showLose(reason){
   document.getElementById('pauseBtn').classList.add('hidden');
   updateHud(); // met à jour le record de temps si dépassé, avant l'affichage du bouton Record
   recordLeaderboardEntry();
+  // Couche commune aux quatre jeux (meta.js) : une partie de Bataille fait
+  // monter le PROFIL et avance les missions du jour, exactement comme les
+  // trois autres. C'est le seul lien : aucune variable de partie n'est
+  // partagée dans l'autre sens.
+  addXp(Math.round(hordeCount * 0.8 + runTime * 0.5));
+  reportMission('battle_horde', hordeCount);
+  reportMission('battle_time', Math.floor(runTime));
 }
 
 // Renommées pauseBattle()/resumeBattle() — pauseGame()/resumeGame() sont
@@ -544,6 +551,10 @@ function resumeBattle(){
 // jusqu'au bout (callback "reward").
 function watchAdAndContinue(){
   document.getElementById('screenLose').classList.add('hidden');
+  // Qui a payé pour retirer les pubs de ce jeu repart IMMÉDIATEMENT : lui
+  // imposer quand même l'écran d'attente reviendrait à ne pas livrer ce
+  // qu'il a acheté.
+  if(hasNoAds('battle')){ continueRun(); return; }
   document.getElementById('screenAd').classList.remove('hidden');
   setTimeout(()=>{
     document.getElementById('screenAd').classList.add('hidden');

@@ -1,12 +1,12 @@
-// Point d'entrée : initialise les trois scènes 3D (un mini-jeu chacune) puis
-// lance la boucle de jeu principale, commune aux trois modes (voir modes.js).
+// Point d'entrée : initialise les quatre scènes 3D (un mini-jeu chacune) puis
+// lance la boucle de jeu principale, commune aux quatre modes (voir modes.js).
 if(!webglSupported){
   const msg = "Ton navigateur ne supporte pas la 3D (WebGL). Essaie un navigateur plus récent.";
-  ['#screenStart p', '#screenTowerStart p', '#screenMillStart p'].forEach(sel=>{
+  ['#screenStart p', '#screenTowerStart p', '#screenMillStart p', '#screenPuzzleStart p'].forEach(sel=>{
     const p = document.querySelector(sel);
     if(p) p.textContent = msg;
   });
-  document.querySelectorAll('#screenStart .btn, #screenTowerStart .btn, #screenMillStart .btn, .mode-card').forEach(btn=>{
+  document.querySelectorAll('#screenStart .btn, #screenTowerStart .btn, #screenMillStart .btn, #screenPuzzleStart .btn, .mode-card').forEach(btn=>{
     btn.setAttribute('disabled', 'true');
   });
 }
@@ -14,12 +14,14 @@ if(!webglSupported){
 initScene();
 initTowerScene();
 initMillScene();
-initPostFX(); // après les trois scènes : a besoin du renderer créé par initScene()
+initPuzzleScene();
+initPostFX(); // après les quatre scènes : a besoin du renderer créé par initScene()
 applyTranslations();
 updateBestScoreDisplays();
 updateMenuResumeButton();
+updateMetaHud();
 showMainMenu();
-window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); onResizeMill(); onResizePostFX(); });
+window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); onResizeMill(); onResizePuzzle(); onResizePostFX(); });
 
 // Pas de temps fixe : update() tourne toujours à un rythme stable
 // (~60 ticks/s) quel que soit le taux de rafraîchissement de l'écran.

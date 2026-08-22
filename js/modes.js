@@ -5,7 +5,7 @@
 // séparés (state.js + gameplay.js pour la Bataille, towerState.js +
 // towerGameplay.js pour le Chatteau Fort, millState.js + millGameplay.js pour
 // la Scierie) — ce fichier ne fait qu'aiguiller, jamais de logique de jeu ici.
-let gameMode = null; // 'battle' | 'tower' | 'mill' | null (écran de menu)
+let gameMode = null; // 'battle' | 'tower' | 'mill' | 'puzzle' | null (écran de menu)
 
 // --- coupures de chapitre -------------------------------------------------
 // Une partie infinie est découpée en chapitres (CHAPTER_PALIERS paliers en
@@ -17,11 +17,17 @@ let inChapterBreak = false;
 function showChapterBreak(mode){
   if(inChapterBreak) return;
   inChapterBreak = true;
-  const chap = (mode === 'battle' ? currentChapter() : towerChapter()) + 1;
+  const chap = (mode === 'battle' ? currentChapter()
+              : mode === 'tower'  ? towerChapter()
+              : millChapter()) + 1;
   document.getElementById('chapterTitle').textContent = t('chapter_title', { n: chap });
-  document.getElementById('chapterStats').textContent = mode === 'battle'
-    ? t('chapter_stats_battle', { horde: hordeCount, cat: catWord(), time: formatTime(runTime) })
-    : t('chapter_stats_tower', { n: towerWave, fish });
+  document.getElementById('chapterStats').textContent =
+      mode === 'battle' ? t('chapter_stats_battle', { horde: hordeCount, cat: catWord(), time: formatTime(runTime) })
+    : mode === 'tower'  ? t('chapter_stats_tower', { n: towerWave, fish })
+    :                     t('chapter_stats_mill', { n: millTotalLevels(), coins: millCoins });
+  // un seul point de décision pour l'emplacement publicitaire des quatre
+  // jeux : voir showAdSlot() dans shop.js
+  showAdSlot('chapterAdSlot', mode);
   document.getElementById('screenChapter').classList.remove('hidden');
   sfx.win();
   vibrate(40);
@@ -46,19 +52,23 @@ function showMainMenu(){
   // screenChapter DOIT figurer ici : sans lui, revenir au menu pendant une
   // coupure laissait l'écran de chapitre affiché PAR-DESSUS le menu principal
   // (et voir endChapterBreak() juste en dessous pour le drapeau de gel).
-  ['screenStart','screenTowerStart','screenMillStart','screenOptions',
-   'screenLeaderboard','screenLose','screenAd','screenPause','screenTowerWin',
-   'screenTowerLose','screenChapter']
+  ['screenStart','screenTowerStart','screenMillStart','screenPuzzleStart',
+   'screenOptions','screenLeaderboard','screenLose','screenAd','screenPause',
+   'screenTowerWin','screenTowerLose','screenChapter','screenShop',
+   'screenPuzzleLevel','screenPuzzleDead']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('towerHud').classList.add('hidden');
   document.getElementById('millHud').classList.add('hidden');
+  document.getElementById('puzzleHud').classList.add('hidden');
   document.getElementById('pauseBtn').classList.add('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('pauseBtnMill').classList.add('hidden');
+  document.getElementById('pauseBtnPuzzle').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('screenMainMenu').classList.remove('hidden');
+  updateMetaHud();
 }
 
 function selectBattleMode(){
@@ -83,6 +93,15 @@ function selectMillMode(){
   document.getElementById('screenMillStart').classList.remove('hidden');
 }
 
+function selectPuzzleMode(){
+  gameMode = 'puzzle';
+  const best = document.getElementById('puzzleBestLabel');
+  if(best) best.textContent = puzzleBestLevel > 0
+    ? t('puzzle_best_label', { level: puzzleBestLevel, power: puzzleFormat(puzzleBestPower) }) : '';
+  document.getElementById('screenMainMenu').classList.add('hidden');
+  document.getElementById('screenPuzzleStart').classList.remove('hidden');
+}
+
 // Abandonne la partie en cours dans n'importe quel mode (sans la
 // sauvegarder — en mode Bataille, si le joueur voulait la garder, il devait
 // cliquer "Sauvegarder" avant) et revient à l'écran de menu principal.
@@ -104,6 +123,11 @@ function goToMenu(){
     // défaite, quitter par le menu EST la fin de partie
     saveMillBest();
     if(millHero.visual) millHero.visual.visible = false;
+  } else if(gameMode === 'puzzle'){
+    puzzlePaused = false;
+    if(puzzleState === 'playing') savePuzzleBest();
+    puzzleState = 'idle';
+    if(puzzleHero.visual) puzzleHero.visual.visible = false;
   }
   showMainMenu();
   updateMenuResumeButton();
@@ -120,12 +144,14 @@ function pauseGame(){
   if(gameMode === 'battle') pauseBattle();
   else if(gameMode === 'tower') pauseTower();
   else if(gameMode === 'mill') pauseMill();
+  else if(gameMode === 'puzzle') pausePuzzle();
 }
 
 function resumeGame(){
   if(gameMode === 'battle') resumeBattle();
   else if(gameMode === 'tower') resumeTower();
   else if(gameMode === 'mill') resumeMill();
+  else if(gameMode === 'puzzle') resumePuzzle();
 }
 
 function update(){
@@ -133,10 +159,12 @@ function update(){
   if(gameMode === 'battle') updateBattle();
   else if(gameMode === 'tower') updateTower();
   else if(gameMode === 'mill') updateMill();
+  else if(gameMode === 'puzzle') updatePuzzle();
 }
 
 function render(){
   if(gameMode === 'battle') renderBattle();
   else if(gameMode === 'tower') renderTower();
   else if(gameMode === 'mill') renderMill();
+  else if(gameMode === 'puzzle') renderPuzzle();
 }

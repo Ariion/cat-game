@@ -106,6 +106,8 @@ function updateMillHud(){
 // le total gagné, pas le solde — sinon dépenser (le geste que le jeu demande
 // justement) ferait baisser son propre record.
 function saveMillBest(){
+  addXp(Math.round(millEarned * 0.05));
+  reportMission('mill_coins', millEarned);
   if(millEarned > millBest){
     millBest = millEarned;
     try{ localStorage.setItem('hordeDeChatsMillBest', String(millBest)); }catch(e){}

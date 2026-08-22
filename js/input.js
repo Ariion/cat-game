@@ -23,6 +23,10 @@ canvas.addEventListener('pointerdown', (e)=>{
   } else if(gameMode === 'mill'){
     if(millState !== 'playing' || millPaused) return;
     startStick(e.clientX, e.clientY);
+  } else if(gameMode === 'puzzle'){
+    if(puzzleState !== 'playing' || puzzlePaused) return;
+    dragging = true;
+    setPuzzleTargetFromClientX(e.clientX);
   }
 });
 canvas.addEventListener('pointermove', (e)=>{
@@ -30,10 +34,29 @@ canvas.addEventListener('pointermove', (e)=>{
     if(dragging) setTargetFromClientX(e.clientX);
   } else if(gameMode === 'tower' || gameMode === 'mill'){
     moveStick(e.clientX, e.clientY);
+  } else if(gameMode === 'puzzle'){
+    if(dragging) setPuzzleTargetFromClientX(e.clientX);
   }
 });
 window.addEventListener('pointerup', ()=>{ dragging = false; endStick(); });
 window.addEventListener('pointercancel', ()=>{ dragging = false; endStick(); });
+
+// --- Palais des Chats : glissement latéral ---------------------------------
+// Le chat avance TOUT SEUL, le doigt ne sert qu'à choisir la voie. C'est le
+// contrôle du mode Bataille (glisser pour se placer) plutôt que la manette
+// des deux autres : ici il n'y a rien à explorer, juste une décision
+// gauche/droite à prendre avant chaque carrefour, et une manette obligerait
+// à pousser en permanence pour rester en ligne droite.
+// Le doigt DÉSIGNE UNE VOIE, il ne pointe pas une position : l'écran est
+// découpé en trois bandes égales. C'est la même leçon que la manette du
+// Chatteau Fort ("je suis obligé de viser") — sur un téléphone, trois grandes
+// cibles valent toujours mieux qu'un curseur continu. Et ça colle exactement
+// à la règle de résolution : on est toujours DANS une voie, jamais entre.
+function setPuzzleTargetFromClientX(clientX){
+  const rect = canvas.getBoundingClientRect();
+  const f = Math.max(0, Math.min(0.999, (clientX - rect.left) / rect.width));
+  puzzleHero.targetX = PUZZLE_LANE_X[Math.floor(f * PUZZLE_LANE_X.length)];
+}
 
 // --- manette virtuelle (Chatteau Fort et Scierie) --------------------------
 // Le déplacement se faisait en TAPANT une destination : il fallait viser, et

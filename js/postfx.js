@@ -30,7 +30,10 @@ const BLOOM_SETTINGS = {
   // Scierie : pas de bloom non plus. Sa scène est en plein jour du début à la
   // fin (herbe claire, planches crème) et ne contient aucune vraie source
   // lumineuse — le bloom n'y aurait rien à souligner, juste du décor à laver.
-  mill: null
+  mill: null,
+  // Palais : marbre blanc et eau claire du sol au plafond, même raison que
+  // les deux autres — il n'y a aucune source lumineuse à souligner.
+  puzzle: null
 };
 
 function initPostFX(){

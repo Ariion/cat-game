@@ -570,6 +570,21 @@ function disposeProceduralGroup(g){
   g.traverse(o=>{ if(o.isMesh && o.geometry) o.geometry.dispose(); });
 }
 
+// FUITE DE MÉMOIRE VIDÉO À NE PAS OUBLIER, valable pour les trois modes qui
+// font apparaître de vrais chiens (Chatteau Fort, Palais, Bataille).
+// SkeletonUtils.clone() donne à chaque clone SON PROPRE squelette, et
+// three.js alloue paresseusement une "texture d'os" par squelette pour
+// envoyer les matrices au nuanceur. Rien ne la libère automatiquement :
+// retirer le chien de la scène et libérer ses matériaux ne suffit PAS.
+// Mesuré : 5 textures perdues par chien, soit une cinquantaine par niveau du
+// Palais et une fuite sans fin en Chatteau Fort infini, où les chiens
+// défilent en continu — de quoi finir par faire tomber l'onglet sur mobile.
+function disposeClonedSkeletons(root){
+  root.traverse(o=>{
+    if(o.isSkinnedMesh && o.skeleton) o.skeleton.dispose();
+  });
+}
+
 // Remplace les chiens procéduraux par les vrais modèles, une fois chargés —
 // appelé une seule fois (voir settle() dans loadDogModels), jamais pendant
 // une partie en cours normalement (le chargement démarre à initScene(),
