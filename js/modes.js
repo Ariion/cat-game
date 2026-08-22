@@ -1,11 +1,11 @@
-// Point de jonction entre les deux mini-jeux (Bataille / Chatteau Fort) :
-// écran de menu principal, choix du mode, et aiguillage d'update()/render()/
-// pauseGame()/resumeGame() vers la bonne implémentation selon le mode actif.
-// Chaque mode garde son état et sa logique complètement séparés (state.js +
-// gameplay.js pour la Bataille, towerState.js + towerGameplay.js pour le
-// Chatteau Fort) — ce fichier ne fait qu'aiguiller, jamais de logique de jeu
-// ici.
-let gameMode = null; // 'battle' | 'tower' | null (écran de menu)
+// Point de jonction entre les trois mini-jeux (Bataille / Chatteau Fort /
+// Chat-Scierie) : écran de menu principal, choix du mode, et aiguillage
+// d'update()/render()/pauseGame()/resumeGame() vers la bonne implémentation
+// selon le mode actif. Chaque mode garde son état et sa logique complètement
+// séparés (state.js + gameplay.js pour la Bataille, towerState.js +
+// towerGameplay.js pour le Chatteau Fort, millState.js + millGameplay.js pour
+// la Scierie) — ce fichier ne fait qu'aiguiller, jamais de logique de jeu ici.
+let gameMode = null; // 'battle' | 'tower' | 'mill' | null (écran de menu)
 
 // --- coupures de chapitre -------------------------------------------------
 // Une partie infinie est découpée en chapitres (CHAPTER_PALIERS paliers en
@@ -46,14 +46,17 @@ function showMainMenu(){
   // screenChapter DOIT figurer ici : sans lui, revenir au menu pendant une
   // coupure laissait l'écran de chapitre affiché PAR-DESSUS le menu principal
   // (et voir endChapterBreak() juste en dessous pour le drapeau de gel).
-  ['screenStart','screenTowerStart','screenOptions','screenLeaderboard',
-   'screenLose','screenAd','screenPause','screenTowerWin','screenTowerLose',
-   'screenChapter']
+  ['screenStart','screenTowerStart','screenMillStart','screenOptions',
+   'screenLeaderboard','screenLose','screenAd','screenPause','screenTowerWin',
+   'screenTowerLose','screenChapter']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('towerHud').classList.add('hidden');
+  document.getElementById('millHud').classList.add('hidden');
   document.getElementById('pauseBtn').classList.add('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
+  document.getElementById('pauseBtnMill').classList.add('hidden');
+  document.getElementById('meowBtn').classList.add('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('screenMainMenu').classList.remove('hidden');
 }
@@ -72,6 +75,14 @@ function selectTowerMode(){
   document.getElementById('screenTowerStart').classList.remove('hidden');
 }
 
+function selectMillMode(){
+  gameMode = 'mill';
+  const best = document.getElementById('millBestLabel');
+  if(best) best.textContent = millBest > 0 ? t('mill_best_label', { n: millBest }) : '';
+  document.getElementById('screenMainMenu').classList.add('hidden');
+  document.getElementById('screenMillStart').classList.remove('hidden');
+}
+
 // Abandonne la partie en cours dans n'importe quel mode (sans la
 // sauvegarder — en mode Bataille, si le joueur voulait la garder, il devait
 // cliquer "Sauvegarder" avant) et revient à l'écran de menu principal.
@@ -86,6 +97,13 @@ function goToMenu(){
     // le chat joueur reste sinon planté au milieu du plateau, visible en
     // arrière-plan des écrans de menu
     if(hero.visual) hero.visual.visible = false;
+  } else if(gameMode === 'mill'){
+    millPaused = false;
+    millState = 'idle';
+    // le score de la Scierie n'est enregistré qu'ici : ce mode n'a pas de
+    // défaite, quitter par le menu EST la fin de partie
+    saveMillBest();
+    if(millHero.visual) millHero.visual.visible = false;
   }
   showMainMenu();
   updateMenuResumeButton();
@@ -101,20 +119,24 @@ function pauseGame(){
   if(saveBtn) saveBtn.classList.toggle('hidden', gameMode !== 'battle'); // pas de sauvegarde en Chatteau Fort (partie finie, pas infinie)
   if(gameMode === 'battle') pauseBattle();
   else if(gameMode === 'tower') pauseTower();
+  else if(gameMode === 'mill') pauseMill();
 }
 
 function resumeGame(){
   if(gameMode === 'battle') resumeBattle();
   else if(gameMode === 'tower') resumeTower();
+  else if(gameMode === 'mill') resumeMill();
 }
 
 function update(){
   if(inChapterBreak) return; // le jeu est figé pendant la coupure
   if(gameMode === 'battle') updateBattle();
   else if(gameMode === 'tower') updateTower();
+  else if(gameMode === 'mill') updateMill();
 }
 
 function render(){
   if(gameMode === 'battle') renderBattle();
   else if(gameMode === 'tower') renderTower();
+  else if(gameMode === 'mill') renderMill();
 }

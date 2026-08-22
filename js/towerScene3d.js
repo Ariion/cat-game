@@ -410,11 +410,16 @@ function buildTurretCat(){
 // sinon on perd son propre personnage dans la mêlée : robe grise (les
 // tourelles sont rousses), écharpe rouge, et il reste DEBOUT sur ses quatre
 // pattes là où les tourelles sont assises.
-function buildHeroCat(){
+// Les deux couleurs sont paramétrables : le mode Scierie réutilise ce chat
+// tel quel, mais il lui faut une robe distincte de celle du Chatteau Fort —
+// sinon on croirait jouer le même personnage dans deux jeux différents. Les
+// valeurs par défaut sont EXACTEMENT celles d'avant, le Chatteau Fort est
+// donc inchangé.
+function buildHeroCat(furHex, scarfHex){
   initTurretCatMaterials();
   const g = new THREE.Group();
-  const furMat = new THREE.MeshStandardMaterial({ color: 0x8C8F9A, flatShading:true, roughness:0.8 });
-  const scarfMat = new THREE.MeshStandardMaterial({ color: 0xC94868, flatShading:true, roughness:0.75 });
+  const furMat = new THREE.MeshStandardMaterial({ color: furHex === undefined ? 0x8C8F9A : furHex, flatShading:true, roughness:0.8 });
+  const scarfMat = new THREE.MeshStandardMaterial({ color: scarfHex === undefined ? 0xC94868 : scarfHex, flatShading:true, roughness:0.75 });
 
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), furMat);
   body.scale.set(1, 0.84, 1.35);
@@ -491,15 +496,19 @@ function buildHeroCat(){
 // Anneau qui se remplit pendant que le chat érige une tourelle. Texture
 // canvas redessinée seulement quand le pourcentage affiché change vraiment
 // (par pas de 5 %), pas à chaque frame.
-let heroRingCanvas, heroRingCtx, heroRingTex, heroRingLastStep = -1;
+// Chaque anneau porte SON canvas dans userData plutôt que dans des variables
+// de module : sinon un second chat construit ailleurs (le mode Scierie
+// réutilise buildHeroCat()) écraserait ces références, et l'anneau du
+// Chatteau Fort se mettrait à dessiner dans le canvas de l'autre mode.
 function buildHeroBuildRing(){
-  heroRingCanvas = document.createElement('canvas');
-  heroRingCanvas.width = 96; heroRingCanvas.height = 96;
-  heroRingCtx = heroRingCanvas.getContext('2d');
-  heroRingTex = new THREE.CanvasTexture(heroRingCanvas);
+  const canvas2 = document.createElement('canvas');
+  canvas2.width = 96; canvas2.height = 96;
+  const ctx2 = canvas2.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas2);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: heroRingTex, transparent:true, depthWrite:false, fog:false
+    map: tex, transparent:true, depthWrite:false, fog:false
   }));
+  sprite.userData = { canvas: canvas2, ctx: ctx2, tex, lastStep: -1 };
   sprite.scale.set(0.62, 0.62, 1);
   sprite.position.set(0, 1.25, 0);
   sprite.renderOrder = 4;
@@ -507,16 +516,18 @@ function buildHeroBuildRing(){
   return sprite;
 }
 
-function setHeroBuildProgress(ratio){
-  if(!hero.visual) return;
-  const ring = hero.visual.userData.buildRing;
+// Remplit l'anneau d'un chat donné. Sert au Chatteau Fort (construction) comme
+// à la Scierie (achat sur une dalle) — d'où le paramètre plutôt qu'un accès
+// direct à un héros particulier.
+function setRingProgress(ring, ratio){
   if(!ring) return;
-  if(ratio <= 0){ ring.visible = false; heroRingLastStep = -1; return; }
+  const ud = ring.userData;
+  if(ratio <= 0){ ring.visible = false; ud.lastStep = -1; return; }
   ring.visible = true;
   const step = Math.round(ratio*20); // 20 paliers = 5 % — inutile de redessiner plus fin
-  if(step === heroRingLastStep) return;
-  heroRingLastStep = step;
-  const c = heroRingCanvas, cx = heroRingCtx, R = 38;
+  if(step === ud.lastStep) return;
+  ud.lastStep = step;
+  const c = ud.canvas, cx = ud.ctx, R = 38;
   cx.clearRect(0,0,c.width,c.height);
   cx.lineWidth = 10;
   cx.strokeStyle = 'rgba(59,50,38,0.55)';
@@ -524,7 +535,12 @@ function setHeroBuildProgress(ratio){
   cx.strokeStyle = '#E3A857';
   cx.lineCap = 'round';
   cx.beginPath(); cx.arc(48, 48, R, -Math.PI/2, -Math.PI/2 + Math.PI*2*Math.min(1, ratio)); cx.stroke();
-  heroRingTex.needsUpdate = true;
+  ud.tex.needsUpdate = true;
+}
+
+function setHeroBuildProgress(ratio){
+  if(!hero.visual) return;
+  setRingProgress(hero.visual.userData.buildRing, ratio);
 }
 
 // Onde du miaulement : un anneau au sol qui s'élargit puis s'efface, pour que

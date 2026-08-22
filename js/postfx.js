@@ -26,7 +26,11 @@ const BLOOM_SETTINGS = {
   // Le bloom reste donc réservé au Chatteau Fort, dont l'ambiance descend
   // jusqu'au crépuscule et s'y prête vraiment.
   battle: null,
-  tower:  { strength: 0.62, radius: 0.42, threshold: 0.82 }
+  tower:  { strength: 0.62, radius: 0.42, threshold: 0.82 },
+  // Scierie : pas de bloom non plus. Sa scène est en plein jour du début à la
+  // fin (herbe claire, planches crème) et ne contient aucune vraie source
+  // lumineuse — le bloom n'y aurait rien à souligner, juste du décor à laver.
+  mill: null
 };
 
 function initPostFX(){

@@ -71,7 +71,16 @@ const translations = {
     tower_win_text: "Les 5 vagues ont été repoussées, bravo !",
     tower_lose_title: "Le chatteau est tombé...",
     tower_lose_stats: "Trop de chiens ont atteint la gamelle — vague {n} / {max}.",
-    tower_pause_stats: "Vague {n} / {max} · 🐟 {fish}"
+    tower_pause_stats: "Vague {n} / {max} · 🐟 {fish}",
+    mode_mill_title: "Chat-Scierie",
+    mode_mill_desc: "Coupe le bois, alimente le tapis, agrandis la scierie.",
+    mill_desc: "Va sur les rondins pour les débiter, rapporte les planches sur le tapis, et l'atelier les change en pièces. Pose-toi sur une dalle dorée pour acheter une amélioration.",
+    mill_best_label: "Record : 💰 {n}",
+    mill_pause_stats: "💰 {coins} en caisse · {earned} gagnées",
+    mill_up_carry: "Sac plus grand — niveau {n}",
+    mill_up_chop: "Hache affûtée — niveau {n}",
+    mill_up_belt: "Tapis accéléré — niveau {n}",
+    mill_up_value: "Planches mieux payées — niveau {n}"
   },
   en: {
     menu_title: "Cat Horde",
@@ -142,7 +151,16 @@ const translations = {
     tower_win_text: "All 5 waves repelled, well done!",
     tower_lose_title: "The castle has fallen...",
     tower_lose_stats: "Too many dogs reached the bowl — wave {n} / {max}.",
-    tower_pause_stats: "Wave {n} / {max} · 🐟 {fish}"
+    tower_pause_stats: "Wave {n} / {max} · 🐟 {fish}",
+    mode_mill_title: "Cat Sawmill",
+    mode_mill_desc: "Chop the wood, feed the belt, grow the sawmill.",
+    mill_desc: "Walk onto the logs to chop them, carry the planks to the belt, and the workshop turns them into coins. Stand on a golden pad to buy an upgrade.",
+    mill_best_label: "Best: 💰 {n}",
+    mill_pause_stats: "💰 {coins} in hand · {earned} earned",
+    mill_up_carry: "Bigger bag — level {n}",
+    mill_up_chop: "Sharper axe — level {n}",
+    mill_up_belt: "Faster belt — level {n}",
+    mill_up_value: "Planks worth more — level {n}"
   },
   de: {
     menu_title: "Katzenhorde",
@@ -213,7 +231,16 @@ const translations = {
     tower_win_text: "Alle 5 Wellen abgewehrt, gut gemacht!",
     tower_lose_title: "Die Burg ist gefallen...",
     tower_lose_stats: "Zu viele Hunde haben den Napf erreicht — Welle {n} / {max}.",
-    tower_pause_stats: "Welle {n} / {max} · 🐟 {fish}"
+    tower_pause_stats: "Welle {n} / {max} · 🐟 {fish}",
+    mode_mill_title: "Katzen-Sägewerk",
+    mode_mill_desc: "Holz hacken, Band füttern, Sägewerk vergrößern.",
+    mill_desc: "Geh zu den Stämmen, um sie zu zersägen, bring die Bretter zum Band, und die Werkstatt macht Münzen daraus. Stell dich auf eine goldene Platte, um zu verbessern.",
+    mill_best_label: "Rekord: 💰 {n}",
+    mill_pause_stats: "💰 {coins} in der Kasse · {earned} verdient",
+    mill_up_carry: "Größerer Sack — Stufe {n}",
+    mill_up_chop: "Schärfere Axt — Stufe {n}",
+    mill_up_belt: "Schnelleres Band — Stufe {n}",
+    mill_up_value: "Bretter bringen mehr — Stufe {n}"
   },
   es: {
     menu_title: "Horda de gatos",
@@ -284,7 +311,16 @@ const translations = {
     tower_win_text: "¡Las 5 oleadas repelidas, bien hecho!",
     tower_lose_title: "El castillo ha caído...",
     tower_lose_stats: "Demasiados perros llegaron al cuenco — oleada {n} / {max}.",
-    tower_pause_stats: "Oleada {n} / {max} · 🐟 {fish}"
+    tower_pause_stats: "Oleada {n} / {max} · 🐟 {fish}",
+    mode_mill_title: "Gato Aserradero",
+    mode_mill_desc: "Corta la madera, alimenta la cinta, agranda el aserradero.",
+    mill_desc: "Ve hasta los troncos para cortarlos, lleva las tablas a la cinta y el taller las convierte en monedas. Colócate en una losa dorada para comprar una mejora.",
+    mill_best_label: "Récord: 💰 {n}",
+    mill_pause_stats: "💰 {coins} en caja · {earned} ganadas",
+    mill_up_carry: "Saco más grande — nivel {n}",
+    mill_up_chop: "Hacha afilada — nivel {n}",
+    mill_up_belt: "Cinta más rápida — nivel {n}",
+    mill_up_value: "Tablas mejor pagadas — nivel {n}"
   }
 };
 

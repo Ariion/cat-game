@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=39">
+<link rel="stylesheet" href="css/style.css?v=40">
 </head>
 <body>
 
@@ -62,6 +62,22 @@
       </div>
     </div>
 
+    <div class="hud hidden" id="millHud">
+      <div class="hud-left">
+        <div class="horde-badge">
+          <span style="font-size:18px;">&#128176;</span>
+          <span class="count" id="millCoins">0</span>
+        </div>
+        <div class="hp-badge">
+          <span style="font-size:15px;">&#129717;</span>
+          <span class="count" id="millCarry">0 / 4</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <button class="pause-btn hidden" id="pauseBtnMill" onclick="pauseGame()">&#10074;&#10074;</button>
+      </div>
+    </div>
+
     <!-- Pouvoir du chat joueur : ralentit les chiens autour de lui. Placé en
          bas à droite, à portée du pouce, loin de la zone où l'on tape pour se
          déplacer. DEHORS du .hud : celui-ci est ancré en haut sans hauteur
@@ -90,6 +106,11 @@
           <span class="mode-card-title" data-i18n="mode_tower_title">Chatteau Fort</span>
           <span class="mode-card-desc" data-i18n="mode_tower_desc">Place des chats-tourelles pour défendre la gamelle.</span>
         </button>
+        <button class="mode-card" onclick="selectMillMode()">
+          <span class="mode-card-icon">&#129717;&#128049;</span>
+          <span class="mode-card-title" data-i18n="mode_mill_title">Chat-Scierie</span>
+          <span class="mode-card-desc" data-i18n="mode_mill_desc">Coupe le bois, alimente le tapis, agrandis la scierie.</span>
+        </button>
       </div>
     </div>
 
@@ -113,6 +134,16 @@
       <div class="menu-buttons">
         <button class="btn" onclick="startTowerGame(false)" data-i18n="btn_tower_story">Histoire &middot; 5 vagues</button>
         <button class="btn secondary" onclick="startTowerGame(true)" data-i18n="btn_tower_endless">Infini</button>
+        <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="screenMillStart">
+      <h1 data-i18n="mode_mill_title">Chat-Scierie</h1>
+      <p data-i18n="mill_desc">Va sur les rondins pour les débiter, rapporte les planches sur le tapis, et l'atelier les change en pièces. Pose-toi sur une dalle dorée pour acheter une amélioration.</p>
+      <p class="record" id="millBestLabel"></p>
+      <div class="menu-buttons">
+        <button class="btn" onclick="startMillGame()" data-i18n="btn_play">Jouer</button>
         <button class="btn ghost" onclick="showMainMenu()" data-i18n="btn_menu_back">&larr; Menu</button>
       </div>
     </div>
@@ -204,23 +235,27 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=39"></script>
-<script src="js/vendor/postprocessing.js?v=39"></script>
-<script src="js/config.js?v=39"></script>
-<script src="js/biomes.js?v=39"></script>
-<script src="js/i18n.js?v=39"></script>
-<script src="js/audio.js?v=39"></script>
-<script src="js/state.js?v=39"></script>
-<script src="js/towerState.js?v=39"></script>
-<script src="js/scene3d.js?v=39"></script>
-<script src="js/towerScene3d.js?v=39"></script>
-<script src="js/render3d.js?v=39"></script>
-<script src="js/towerRender3d.js?v=39"></script>
-<script src="js/gameplay.js?v=39"></script>
-<script src="js/towerGameplay.js?v=39"></script>
-<script src="js/postfx.js?v=39"></script>
-<script src="js/modes.js?v=39"></script>
-<script src="js/input.js?v=39"></script>
-<script src="js/main.js?v=39"></script>
+<script src="js/vendor/GLTFLoader.js?v=40"></script>
+<script src="js/vendor/postprocessing.js?v=40"></script>
+<script src="js/config.js?v=40"></script>
+<script src="js/biomes.js?v=40"></script>
+<script src="js/i18n.js?v=40"></script>
+<script src="js/audio.js?v=40"></script>
+<script src="js/state.js?v=40"></script>
+<script src="js/towerState.js?v=40"></script>
+<script src="js/millState.js?v=40"></script>
+<script src="js/scene3d.js?v=40"></script>
+<script src="js/towerScene3d.js?v=40"></script>
+<script src="js/millScene3d.js?v=40"></script>
+<script src="js/render3d.js?v=40"></script>
+<script src="js/towerRender3d.js?v=40"></script>
+<script src="js/millRender3d.js?v=40"></script>
+<script src="js/gameplay.js?v=40"></script>
+<script src="js/towerGameplay.js?v=40"></script>
+<script src="js/millGameplay.js?v=40"></script>
+<script src="js/postfx.js?v=40"></script>
+<script src="js/modes.js?v=40"></script>
+<script src="js/input.js?v=40"></script>
+<script src="js/main.js?v=40"></script>
 </body>
 </html>

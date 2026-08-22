@@ -409,3 +409,80 @@ const TOWER_TURRET_LEVELS = [
   { killsNeeded: 4,  damage: 30, range: 2.9, fireInterval: 26, scale: 1.8,  accent: 0xD9D9E0 },
   { killsNeeded: 10, damage: 46, range: 3.2, fireInterval: 22, scale: 2.1,  accent: 0xE3A857 }
 ];
+
+// ===========================================================================
+// Mode 3 : "Chat-Scierie" (tycoon à tapis roulant)
+// ===========================================================================
+// Boucle : des rondins poussent dans la clairière -> le chat s'en approche et
+// les débite en planches qu'il porte sur le dos (capacité limitée) -> il les
+// dépose sur le tapis -> le tapis les mène à l'atelier, qui les transforme en
+// pièces -> les pièces s'investissent en marchant sur des dalles.
+// Aucune variable partagée avec les deux autres modes : millState.js /
+// millGameplay.js / millScene3d.js / millRender3d.js, comme pour le Chatteau
+// Fort.
+//
+// IMPLANTATION. L'écran est en PORTRAIT (400x700) : une chaîne de production
+// étalée en largeur, comme dans les publicités de ce genre de jeu vues sur un
+// écran large, n'y tiendrait pas — il faudrait reculer la caméra au point que
+// le chat devienne un point. Les trois étapes sont donc empilées en
+// PROFONDEUR (l'axe que la caméra en plongée comprime le moins) : la
+// clairière au fond, le tapis au milieu, les dalles d'amélioration devant, et
+// l'ensemble tient dans ~9 unités de large.
+// Toutes ces coordonnées ont été RÉGLÉES À LA MESURE, pas à l'estime : on
+// projette les points extrêmes (bord de la clairière, coin droit de
+// l'atelier, bords des dalles) dans le repère écran de la caméra et on
+// vérifie qu'ils tombent bien dans [-0.9, 0.9]. Le premier jet, posé à l'œil,
+// sortait l'atelier de l'écran par la droite (mesuré à 1.07) et rognait les
+// dalles des deux côtés — invisible tant qu'on ne regarde pas une capture en
+// 400x760, exactement le format du téléphone.
+const MILL_CHOP_ZONE = { x: -1.7, z: -5.2, r: 1.85 }; // clairière de coupe, au fond
+const MILL_BELT_START_X = -1.4;   // le tapis va de gauche à droite
+const MILL_BELT_END_X = 1.7;
+const MILL_BELT_Z = -1.0;
+const MILL_DROP_RADIUS = 1.05;    // distance au départ du tapis pour y déposer
+const MILL_DROP_Z = -0.2;         // centre de la zone de dépose, devant le tapis
+const MILL_WORKSHOP_X = 2.5;      // atelier, au bout du tapis
+
+const MILL_LOG_COUNT = 5;         // rondins simultanés dans la clairière
+const MILL_LOG_REGROW_FRAMES = 150;
+const MILL_PLANKS_PER_LOG = 2;
+const MILL_CHOP_FRAMES = 26;      // coups de hache pour débiter un rondin
+const MILL_CARRY_BASE = 4;        // planches portables au départ
+const MILL_DROP_INTERVAL = 7;     // cadence de dépose sur le tapis
+const MILL_BELT_SPEED_BASE = 0.035;
+const MILL_PLANK_VALUE_BASE = 3;  // pièces par planche livrée
+const MILL_COINS_START = 0;
+
+// Pas d'amélioration par niveau. Volontairement généreux : ce mode n'a ni
+// vies ni défaite, son seul moteur est de SENTIR la chaîne accélérer, donc
+// chaque achat doit se voir tout de suite.
+const MILL_CARRY_STEP = 2;        // planches portables en plus par niveau
+const MILL_CHOP_STEP = 2.6;       // ticks de coupe en moins par niveau
+const MILL_CHOP_FRAMES_MIN = 7;
+const MILL_BELT_STEP = 0.35;      // +35 % de vitesse de tapis par niveau
+const MILL_VALUE_STEP = 2;        // pièces en plus par planche et par niveau
+
+// Dalles d'investissement, façon tycoon : on marche dessus et on reste le
+// temps que la jauge se remplisse. Chaque achat renchérit le suivant, sinon
+// la progression n'aurait aucune courbe.
+const MILL_PAD_FRAMES = 40;       // temps de maintien sur une dalle
+const MILL_PAD_RADIUS = 0.58;
+const MILL_PAD_COST_GROWTH = 1.75;
+// Chaque dalle est posée À CÔTÉ DU POSTE QU'ELLE AMÉLIORE, pas alignée dans
+// un rang de menu : la hache près de la clairière, le sac près de la zone de
+// dépose, l'engrenage sous le tapis, la bourse devant l'atelier. On comprend
+// donc ce qu'on achète sans lire l'icône — et ça évite d'aligner quatre
+// disques sur une largeur que l'écran portrait n'a pas.
+const MILL_PADS = [
+  { id:'chop',  x:-2.9, z:-3.6, cost:35, icon:'\uD83E\uDE93' }, // coupe plus rapide
+  { id:'carry', x:-2.3, z: 1.5, cost:25, icon:'\uD83C\uDF92' }, // + capacité de portage
+  { id:'belt',  x: 0.3, z: 1.5, cost:45, icon:'\u2699\uFE0F' }, // tapis plus rapide
+  { id:'value', x: 2.2, z: 1.5, cost:60, icon:'\uD83D\uDCB0' }  // planches mieux payées
+];
+
+// Le chat de la scierie se distingue de celui du Chatteau Fort (gris,
+// écharpe rouge) : robe crème, écharpe verte.
+const MILL_HERO_FUR = 0xD9C4A3;
+const MILL_HERO_SCARF = 0x5C8C4A;
+const MILL_HERO_SPEED = 0.082;    // un poil plus vif : ici on fait des allers-retours en continu
+const MILL_BOUNDS = { xMin:-4.2, xMax:3.5, zMin:-7.2, zMax:2.6 };
