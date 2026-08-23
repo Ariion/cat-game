@@ -821,6 +821,7 @@ function updateTowerWaves(){
   if(towerWave === 0 || waveFullyResolved){
     if(towerWaveDelayTimer > 0){
       towerWaveDelayTimer--;
+      updateCallWaveButton();
       if(towerWaveDelayTimer === 0 && towerState === 'playing') startNextTowerWave();
     }
     return;
@@ -852,4 +853,38 @@ function updateTower(){
     updateTowerAmbiance();       // fondu d'ambiance entre deux vagues
     animateTowerBanners(towerFrame);
   }
+}
+
+
+// --- appel de vague anticipé -----------------------------------------------
+function towerCallBonus(){
+  return Math.min(TOWER_CALL_BONUS_MAX,
+    Math.round(towerWaveDelayTimer / 60 * TOWER_CALL_BONUS_PER_SEC));
+}
+
+// Bouton visible UNIQUEMENT pendant le répit : hors de ce moment il n'aurait
+// rien à déclencher, et un bouton inerte affiché en permanence apprend au
+// joueur à ne plus le regarder.
+function updateCallWaveButton(){
+  const btn = document.getElementById('callWaveBtn');
+  if(!btn) return;
+  const actif = towerState === 'playing' && !towerPaused && !inChapterBreak && towerWaveDelayTimer > 0;
+  btn.classList.toggle('hidden', !actif);
+  if(!actif) return;
+  document.getElementById('callWaveTime').textContent = Math.ceil(towerWaveDelayTimer / 60) + 's';
+  document.getElementById('callWaveBonus').textContent = '+' + towerCallBonus();
+}
+
+function callTowerWave(){
+  if(towerState !== 'playing' || towerPaused || inChapterBreak) return;
+  if(towerWaveDelayTimer <= 0) return;
+  const bonus = towerCallBonus();
+  fish += bonus;
+  towerWaveDelayTimer = 0;
+  updateCallWaveButton();
+  showToast(t('tower_call_wave', { n: bonus }));
+  sfx.croquette();
+  vibrate(25);
+  startNextTowerWave();
+  updateTowerHud();
 }

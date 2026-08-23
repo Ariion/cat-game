@@ -421,6 +421,13 @@ function buildHeroCat(furHex, scarfHex){
   const furMat = new THREE.MeshStandardMaterial({ color: furHex === undefined ? 0x8C8F9A : furHex, flatShading:true, roughness:0.8 });
   const scarfMat = new THREE.MeshStandardMaterial({ color: scarfHex === undefined ? 0xC94868 : scarfHex, flatShading:true, roughness:0.75 });
 
+  // Les deux matériaux sont mémorisés sur le groupe : c'est ce qui permet de
+  // changer la robe du chat APRÈS coup (collection de skins, voir
+  // recolorHeroCat) sans avoir à reconstruire tout le personnage — les héros
+  // des trois modes sont créés une seule fois et gardés en mémoire.
+  g.userData.furMat = furMat;
+  g.userData.scarfMat = scarfMat;
+
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), furMat);
   body.scale.set(1, 0.84, 1.35);
   body.position.y = 0.42;
@@ -491,6 +498,16 @@ function buildHeroCat(furHex, scarfHex){
 
   g.scale.setScalar(1.15);
   return g;
+}
+
+// Change la robe d'un chat déjà construit. Les matériaux étant propres à
+// chaque chat (créés dans buildHeroCat), recolorer l'un ne touche pas les
+// autres — un employé de la scierie garde sa couleur quand le joueur change
+// la sienne.
+function recolorHeroCat(g, furHex, accentHex){
+  if(!g || !g.userData.furMat) return;
+  g.userData.furMat.color.setHex(furHex);
+  if(g.userData.scarfMat) g.userData.scarfMat.color.setHex(accentHex);
 }
 
 // Anneau qui se remplit pendant que le chat érige une tourelle. Texture

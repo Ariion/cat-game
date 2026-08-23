@@ -52,7 +52,7 @@ let towerLoot = [];     // {x, z, value, life, visual} — poissons lâchés par
 // fois pour toutes par initTowerScene()), juste leur occupation.
 function resetTowerGame(){
   towerState = 'playing';
-  fish = TOWER_FISH_START;
+  fish = TOWER_FISH_START + perkTowerBonusFish(); // progression permanente (meta.js)
   towerLives = TOWER_LIVES_START;
   towerWave = 0;
   towerWaveDogsLeft = 0;
@@ -112,9 +112,10 @@ function resetTowerGame(){
   document.getElementById('pauseBtnTower').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden'); // l'indice "glisse..." est spécifique au mode Bataille
   document.getElementById('meowBtn').classList.remove('hidden');
-  document.getElementById('dpad').classList.remove('hidden');
+  document.getElementById('towerStick').classList.remove('hidden');
   document.getElementById('lanePad').classList.add('hidden');
   updateMeowButton();
+  updateCallWaveButton();
   updateTowerHud();
 }
 
@@ -133,7 +134,8 @@ function resetHero(){
   hero.stickX = 0; hero.stickZ = 0;
   hero.facing = 0;
   if(!hero.visual){
-    hero.visual = buildHeroCat();
+    const sk = currentSkin();
+    hero.visual = buildHeroCat(sk.fur, sk.accent);
     towerScene.add(hero.visual);
   }
   hero.visual.visible = true;
@@ -179,7 +181,8 @@ function showTowerLose(){
   document.getElementById('screenTowerLose').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
-  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('callWaveBtn').classList.add('hidden');
+  document.getElementById('towerStick').classList.add('hidden');
   // sinon le chat du joueur reste planté au milieu du plateau, visible sous
   // l'écran de défaite — le moment doit être net
   if(hero.visual) hero.visual.visible = false;
@@ -196,7 +199,8 @@ function showTowerWin(){
   document.getElementById('screenTowerWin').classList.remove('hidden');
   document.getElementById('pauseBtnTower').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
-  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('callWaveBtn').classList.add('hidden');
+  document.getElementById('towerStick').classList.add('hidden');
   sfx.win();
   vibrate(60);
 }

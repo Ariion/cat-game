@@ -103,7 +103,114 @@ function renderShop(){
     ads.appendChild(b);
   });
 
+  renderPerks();
+  renderSkins();
   renderMissions();
+}
+
+// --- progression permanente ------------------------------------------------
+function renderPerks(){
+  const list = document.getElementById('shopPerks');
+  if(!list) return;
+  list.innerHTML = '';
+  PERKS.forEach(def=>{
+    const lvl = perkLevel(def.id);
+    const maxed = lvl >= def.max;
+    const cost = perkCost(def);
+    const b = document.createElement('button');
+    b.className = 'shop-item' + (maxed ? ' owned' : (meta.gems < cost ? ' disabled' : ''));
+    b.innerHTML =
+      '<span class="shop-item-icon">' + def.icon + '</span>' +
+      '<span class="shop-item-main">' +
+        '<span class="shop-item-title">' + t('perk_' + def.id) + '</span>' +
+        '<span class="shop-item-note">' + t('perk_' + def.id + '_desc') + '</span>' +
+        '<span class="pip-row">' + pipRow(lvl, def.max) + '</span>' +
+      '</span>' +
+      '<span class="shop-item-price">' + (maxed ? t('shop_maxed') : cost + ' \uD83D\uDC8E') + '</span>';
+    if(!maxed && meta.gems >= cost) b.onclick = ()=>{ if(buyPerk(def.id)) renderShop(); };
+    list.appendChild(b);
+  });
+}
+
+// Petits points pleins/vides plutôt qu'un "3/5" : on lit le niveau atteint et
+// ce qu'il reste d'un seul coup d'oeil, sans compter.
+function pipRow(lvl, max){
+  let html = '';
+  for(let i=0;i<max;i++) html += '<span class="pip' + (i < lvl ? ' on' : '') + '"></span>';
+  return html;
+}
+
+// --- collection de chats ---------------------------------------------------
+function renderSkins(){
+  const grid = document.getElementById('shopSkins');
+  if(!grid) return;
+  grid.innerHTML = '';
+  const lvl = metaLevel();
+  CAT_SKINS.forEach(sk=>{
+    const owned = skinOwned(sk.id);
+    const equipped = meta.skins.equipped === sk.id;
+    const lockedByLevel = sk.need > 0 && !owned;
+    const b = document.createElement('button');
+    b.className = 'skin-card' + (equipped ? ' equipped' : '') + (owned ? ' owned' : '')
+                + (!owned && !lockedByLevel && meta.gems < sk.price ? ' disabled' : '')
+                + (lockedByLevel ? ' locked' : '');
+    b.innerHTML =
+      '<span class="skin-swatch" style="background:' + hexCss(sk.fur) + ';">' +
+        '<span class="skin-dot" style="background:' + hexCss(sk.accent) + ';"></span>' +
+      '</span>' +
+      '<span class="skin-name">' + t('skin_' + sk.id) + '</span>' +
+      '<span class="skin-tag">' +
+        (equipped ? t('skin_equipped_tag')
+         : owned ? t('skin_use')
+         : lockedByLevel ? t('skin_level', { n: sk.need })
+         : sk.price + ' \uD83D\uDC8E') +
+      '</span>';
+    if(owned && !equipped) b.onclick = ()=>{ equipSkin(sk.id); renderShop(); };
+    else if(!owned && !lockedByLevel && meta.gems >= sk.price) b.onclick = ()=>{ if(buySkin(sk.id)) renderShop(); };
+    grid.appendChild(b);
+  });
+}
+
+function hexCss(h){ return '#' + h.toString(16).padStart(6, '0'); }
+
+// --- récompense quotidienne ------------------------------------------------
+function openDaily(){
+  renderDaily();
+  document.getElementById('screenDaily').classList.remove('hidden');
+}
+
+function closeDaily(){
+  document.getElementById('screenDaily').classList.add('hidden');
+  updateMetaHud();
+}
+
+function renderDaily(){
+  const st = dailyStatus();
+  const row = document.getElementById('dailyRow');
+  row.innerHTML = '';
+  const pos = st.streak % DAILY_REWARDS.length;
+  DAILY_REWARDS.forEach((gain, i)=>{
+    const d = document.createElement('div');
+    // "pris" = les jours déjà encaissés de la série en cours, "aujourd'hui" =
+    // celui qu'on peut prendre maintenant
+    d.className = 'daily-cell' + (i < pos ? ' taken' : '') + (i === pos && st.claimable ? ' today' : '');
+    d.innerHTML = '<span class="daily-day">' + t('daily_day', { n: i+1 }) + '</span>' +
+                  '<span class="daily-gain">' + gain + ' \uD83D\uDC8E</span>';
+    row.appendChild(d);
+  });
+  document.getElementById('dailyStreak').textContent = t('daily_streak', { n: st.streak });
+  const btn = document.getElementById('dailyClaimBtn');
+  btn.classList.toggle('disabled', !st.claimable);
+  btn.textContent = st.claimable ? t('daily_claim') : t('daily_done');
+}
+
+function claimDailyReward(){
+  const gain = claimDaily();
+  if(gain <= 0) return;
+  showToast(t('meta_gems_won', { n: gain }));
+  sfx.win();
+  renderDaily();
+  updateMetaHud();
 }
 
 const MODE_ICON = { battle:'🐱', tower:'🏰', mill:'🪵', puzzle:'🏛️' };

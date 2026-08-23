@@ -285,7 +285,7 @@ function updateBoss(){
 // config.js). La horde reste plus forte en grossissant, juste pas de façon
 // démesurée.
 function attackDamage(){
-  const base = Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
+  const base = attackDamageBase();
   return surgeTimer > 0 ? base * SURGE_MULTIPLIER : base;
 }
 
@@ -293,7 +293,14 @@ function attackDamage(){
 // déchaînement gonflerait aussi la résistance des ennemis créés pendant, et
 // s'annulerait tout seul.
 function attackDamageBase(){
-  return Math.max(1, Math.round(Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR));
+  // perkBattleDamageMult() : progression permanente achetée en gemmes
+  // (meta.js). Elle entre ICI, dans les dégâts de base, donc les PV des
+  // ennemis — qui s'indexent dessus — montent avec : le bonus rend le joueur
+  // plus fort SANS déformer le nombre de tirs nécessaires pour tuer, qui est
+  // la sensation réglée depuis le début.
+  return Math.max(1, Math.round(
+    Math.pow(hordeCount, ATTACK_POWER_EXPONENT) * ATTACK_POWER_FACTOR
+    * perkBattleDamageMult() * (1 + battleBoons.damage)));
 }
 
 // Taille du chat meneur : petit chaton à horde=1, plafonne à
@@ -397,7 +404,11 @@ function updateProjectiles(){
 function updateAttacks(){
   if(attackPulse > 0) attackPulse--;
   attackTimer++;
-  if(attackTimer >= ATTACK_INTERVAL_FRAMES){
+  // Cadence : la carte "firerate" raccourcit l'intervalle. Plancher à 5 ticks
+  // (12 tirs/s) — au-delà les projectiles se chevauchent visuellement et la
+  // cadence ne se VOIT plus, donc l'améliorer cesserait d'être gratifiant.
+  const interval = Math.max(5, ATTACK_INTERVAL_FRAMES / (1 + battleBoons.firerate));
+  if(attackTimer >= interval){
     attackTimer = 0;
     fireProjectile();
   }
@@ -445,7 +456,7 @@ function updateBattle(){
         p.resolved = true;
         // l'aimant élargit la tolérance d'alignement, SAUF pour l'eau — il
         // aide à collecter, jamais à forcer un malus qu'on aurait évité
-        const magnetActive = magnetTimer > 0 && p.kind !== 'water';
+        const magnetActive = (magnetTimer > 0 || battleBoons.magnet) && p.kind !== 'water';
         const hit = Math.abs(playerX - p.x) < (magnetActive ? MAGNET_TOLERANCE : PICKUP_RADIUS);
         if(hit){
           if(p.kind === 'heart'){ growHp(p.amount); }
@@ -461,6 +472,11 @@ function updateBattle(){
           if(currentChapter() > chapBefore){
             surgeTimer = SURGE_DURATION_FRAMES; // récompense sensible du chapitre franchi
             showChapterBreak('battle');
+          } else if(Math.floor((currentPalier()-1) / BATTLE_CARD_PALIERS)
+                  > Math.floor((palierBefore-1) / BATTLE_CARD_PALIERS)){
+            // Jamais EN MÊME TEMPS qu'une coupure de chapitre : deux écrans
+            // superposés, et le joueur ne saurait plus lequel il valide.
+            showBattleCards();
           }
           let toastMsg = t('palier_toast', {n: currentPalier()});
           if(webglSupported && targetBiomeIndex() !== biomeIndex){
@@ -568,5 +584,66 @@ function continueRun(){
   state = 'playing';
   document.getElementById('hint').classList.remove('hidden');
   document.getElementById('pauseBtn').classList.remove('hidden');
+  updateHud();
+}
+
+
+// --- cartes de bonus -------------------------------------------------------
+// Trois cartes tirées sans remise, donc jamais deux fois la même dans un même
+// choix. Le tirage exclut les cartes sans effet possible (un soin quand la vie
+// est pleine ne serait pas un choix, ce serait une case perdue).
+let battleCardOffer = [];
+
+function battleCardUseless(card){
+  if(card.id === 'heal') return hp >= hpMax - 1;
+  if(card.id === 'magnet') return battleBoons.magnet;
+  return false;
+}
+
+function showBattleCards(){
+  const pool = BATTLE_CARDS.filter(c=>!battleCardUseless(c));
+  battleCardOffer = [];
+  const reste = pool.slice();
+  while(battleCardOffer.length < BATTLE_CARD_CHOICES && reste.length){
+    battleCardOffer.push(reste.splice(Math.floor(Math.random()*reste.length), 1)[0]);
+  }
+  const row = document.getElementById('battleCardRow');
+  row.innerHTML = '';
+  battleCardOffer.forEach((c, i)=>{
+    const b = document.createElement('button');
+    b.className = 'boon-card';
+    b.innerHTML = '<span class="boon-icon">' + c.icon + '</span>' +
+                  '<span class="boon-title">' + t('card_' + c.id) + '</span>' +
+                  '<span class="boon-desc">' + t('card_' + c.id + '_desc') + '</span>';
+    b.onclick = ()=>pickBattleCard(i);
+    row.appendChild(b);
+  });
+  // Le jeu est GELÉ pendant le choix (même mécanique que la coupure de
+  // chapitre) : sinon un chien arriverait pendant qu'on lit les cartes.
+  inChapterBreak = true;
+  document.getElementById('screenBattleCards').classList.remove('hidden');
+  sfx.croquette();
+}
+
+function pickBattleCard(i){
+  const c = battleCardOffer[i];
+  if(!c) return;
+  battleCardsTaken++;
+  if(c.id === 'damage') battleBoons.damage += c.value;
+  else if(c.id === 'firerate') battleBoons.firerate += c.value;
+  else if(c.id === 'heal') hp = Math.min(hpMax, hp + hpMax * c.value);
+  else if(c.id === 'maxhp'){
+    const gain = Math.round(hpMax * c.value);
+    hpMax += gain;
+    hp += gain; // le bonus de vie MAX s'accompagne du soin correspondant,
+                // sinon augmenter sa jauge donnerait l'impression d'en perdre
+  }
+  else if(c.id === 'horde') growHorde(c.value);
+  else if(c.id === 'magnet') battleBoons.magnet = true;
+  document.getElementById('screenBattleCards').classList.add('hidden');
+  inChapterBreak = false;
+  showToast(t('card_taken', { name: t('card_' + c.id) }));
+  sfx.win();
+  vibrate(30);
   updateHud();
 }

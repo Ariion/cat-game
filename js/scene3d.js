@@ -656,9 +656,26 @@ function loadCatModel(){
     gato.userData.scaleToBaseHeight = CAT_MODEL_BASE_HEIGHT / naturalHeight;
     catModelMesh = gato;
     upgradeCatToRealModel();
+    // la robe choisie doit survivre au remplacement du chat procédural
+    if(typeof applySkinEverywhere === 'function') applySkinEverywhere();
   }, undefined, err=>{
     console.warn('Modèle 3D du chat indisponible, chat procédural conservé.', err);
   });
+}
+
+// Robe du chat meneur. Deux cas à couvrir : le chat PROCÉDURAL (qui partage
+// le matériau de module catMaterial) et le VRAI modèle une fois chargé (qui
+// porte le sien). Oublier l'un des deux ferait que la robe choisie
+// disparaîtrait au moment où le modèle se substitue au procédural — soit une
+// seconde après l'ouverture de la page.
+function recolorLeaderCat(furHex){
+  if(catMaterial) catMaterial.color.setHex(furHex);
+  if(catModelMesh && catModelMesh.material) catModelMesh.material.color.setHex(furHex);
+  if(leaderGroup && leaderGroup.userData.catVisual){
+    leaderGroup.userData.catVisual.traverse(o=>{
+      if(o.isMesh && o.material && o.material.color) o.material.color.setHex(furHex);
+    });
+  }
 }
 
 function upgradeCatToRealModel(){

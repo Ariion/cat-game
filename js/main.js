@@ -19,6 +19,7 @@ initPostFX(); // après les quatre scènes : a besoin du renderer créé par ini
 applyTranslations();
 updateBestScoreDisplays();
 updateMenuResumeButton();
+applySkinEverywhere(); // la robe choisie doit être là dès l'ouverture
 updateMetaHud();
 showMainMenu();
 window.addEventListener('resize', ()=>{ onResize(); onResizeTower(); onResizeMill(); onResizePuzzle(); onResizePostFX(); });

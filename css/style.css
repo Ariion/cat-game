@@ -503,39 +503,36 @@ canvas{
    Elles sont posées EN DEHORS de .hud (ancré en haut, sans hauteur propre :
    un `bottom` calculé dedans renvoie le bouton se coller en haut — l'erreur
    déjà faite avec le bouton miaulement). */
-.dpad{
+/* Joystick FIXE : sa base ne bouge jamais, on la trouve avec le pouce sans
+   quitter le jeu des yeux. Le pommeau, lui, suit le doigt dans un rayon
+   limité — c'est le dosage que la croix directionnelle ne pouvait pas rendre. */
+.fixed-stick{
   position:absolute;
-  left:14px; bottom:16px;
-  width:150px; height:150px;
+  left:18px; bottom:20px;
+  width:124px; height:124px;
   z-index:5;
   touch-action:none;
-}
-.dpad-btn{
-  position:absolute;
-  width:50px; height:50px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:19px; color: var(--ink);
-  background: rgba(251,243,228,0.9);
-  border:2px solid rgba(255,255,255,0.9);
-  box-shadow: 0 2px 8px rgba(59,50,38,0.25);
-  cursor:pointer;
-  padding:0;
   -webkit-tap-highlight-color: transparent;
 }
-.dpad-btn.up   { left:50px; top:0;    border-radius:14px 14px 4px 4px; }
-.dpad-btn.down { left:50px; top:100px;border-radius:4px 4px 14px 14px; }
-.dpad-btn.left { left:0;    top:50px; border-radius:14px 4px 4px 14px; }
-.dpad-btn.right{ left:100px;top:50px; border-radius:4px 14px 14px 4px; }
-.dpad-btn.held{ background: var(--gold); color:#fff; transform: scale(0.94); }
-.dpad-hub{
-  position:absolute; left:50px; top:50px;
-  width:50px; height:50px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:20px;
-  background: rgba(251,243,228,0.55);
-  border-radius:8px;
-  pointer-events:none;
+.fixed-stick-ring{
+  position:absolute; inset:0;
+  border-radius:50%;
+  border:3px solid rgba(255,255,255,0.85);
+  background: rgba(59,50,38,0.20);
+  box-shadow: 0 3px 12px rgba(59,50,38,0.22);
 }
+.fixed-stick-knob{
+  position:absolute; left:50%; top:50%;
+  width:56px; height:56px; margin-left:-28px; margin-top:-28px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+  border-radius:50%;
+  background: rgba(251,243,228,0.95);
+  border:2px solid rgba(255,255,255,0.95);
+  box-shadow: 0 3px 10px rgba(59,50,38,0.3);
+  transition: background 0.1s;
+}
+.fixed-stick.held .fixed-stick-knob{ background: var(--gold); }
 
 .lane-pad{
   position:absolute;
@@ -561,3 +558,156 @@ canvas{
 }
 .lane-btn.held{ background: var(--gold); color:#fff; transform: scale(0.92); }
 .lane-btn:disabled{ opacity:0.35; }
+
+/* --- progression permanente : jauge en points --- */
+.shop-hint{
+  font-family:'Nunito', sans-serif !important;
+  font-size:11.5px !important; color: var(--ink-soft) !important;
+  align-self:flex-start; text-align:left !important;
+  margin: -4px 0 8px !important; max-width:320px;
+}
+.pip-row{ display:flex; gap:4px; margin-top:3px; }
+.pip{
+  width:9px; height:9px; border-radius:50%;
+  background: rgba(59,50,38,0.18);
+}
+.pip.on{ background: var(--gold); }
+
+/* --- collection de chats --- */
+.skin-grid{
+  display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;
+  width:100%; max-width:320px;
+}
+.skin-card{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  font-family:'Fredoka', sans-serif;
+  background: var(--cream-deep);
+  border:2px solid transparent; border-radius:14px;
+  padding: 9px 5px;
+  cursor:pointer;
+}
+.skin-card.equipped{ border-color: var(--gold); background:#F7E6C4; }
+.skin-card.disabled, .skin-card.locked{ opacity:0.45; cursor:default; }
+.skin-swatch{
+  position:relative;
+  width:38px; height:38px; border-radius:50%;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.12);
+}
+/* la pastille reprend la couleur de l'écharpe : deux robes de fourrure
+   proches se distinguent quand même dans la grille */
+.skin-dot{
+  position:absolute; right:-1px; bottom:-1px;
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid var(--cream-deep);
+}
+.skin-name{ font-size:11px; font-weight:600; color: var(--ink); }
+.skin-tag{ font-size:10.5px; font-weight:600; color: var(--gold-deep); }
+
+/* --- cadeau du jour --- */
+.daily-btn{ position:relative; }
+.daily-dot{
+  position:absolute; top:6px; right:8px;
+  width:10px; height:10px; border-radius:50%;
+  background:#C94868; border:2px solid var(--cream);
+}
+.daily-row{
+  display:grid; grid-template-columns: repeat(4, 1fr); gap:7px;
+  width:100%; max-width:300px; margin-bottom:16px;
+}
+.daily-cell{
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-family:'Fredoka', sans-serif;
+  background: var(--cream-deep); border-radius:12px;
+  padding: 9px 4px;
+  border:2px solid transparent;
+}
+.daily-cell.taken{ opacity:0.45; }
+/* le jour encaissable est le seul en relief : on ne doit pas avoir à
+   chercher où l'on en est dans la série */
+.daily-cell.today{ border-color: var(--gold); background:#F7E6C4; transform: scale(1.06); }
+.daily-day{ font-size:10px; font-weight:600; color: var(--ink-soft); }
+.daily-gain{ font-size:12px; font-weight:700; color: var(--gold-deep); }
+.btn.disabled{ opacity:0.45; box-shadow:none; pointer-events:none; }
+
+/* --- jauge de l'atelier (Scierie) --- */
+.stock-badge{
+  display:flex; align-items:center; gap:6px;
+  background: rgba(251,243,228,0.92);
+  border-radius:999px; padding: 5px 10px;
+  font-family:'Fredoka', sans-serif; font-size:11px; font-weight:600;
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(59,50,38,0.16);
+}
+.stock-track{
+  width:56px; height:7px; border-radius:999px;
+  background: rgba(59,50,38,0.16); overflow:hidden;
+}
+.stock-fill{ display:block; height:100%; width:0; background: var(--good); border-radius:999px; transition: width 0.15s; }
+/* Trois états, trois couleurs : ça passe / ça sature / c'est bouché. Le
+   clignotement n'est réservé qu'à la panne, sinon il ne voudrait plus rien
+   dire quand elle arrive vraiment. */
+.stock-badge.warn .stock-fill{ background: var(--gold); }
+.stock-badge.jam .stock-fill{ background:#C94868; }
+.stock-badge.jam{ animation: stockJam 0.7s ease-in-out infinite; }
+@keyframes stockJam{
+  0%,100%{ box-shadow: 0 2px 6px rgba(59,50,38,0.16); }
+  50%{ box-shadow: 0 0 0 3px rgba(201,72,104,0.45); }
+}
+
+/* --- cartes de bonus (Bataille) --- */
+.boon-row{
+  display:flex; flex-direction:column; gap:10px;
+  width:100%; max-width:300px;
+}
+.boon-card{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  font-family:'Fredoka', sans-serif;
+  background: var(--cream-deep);
+  border:2px solid transparent; border-radius:16px;
+  padding: 13px 14px;
+  cursor:pointer;
+  box-shadow: 0 4px 0 rgba(59,50,38,0.12);
+}
+.boon-card:active{ transform: translateY(3px); box-shadow: 0 1px 0 rgba(59,50,38,0.12); }
+.boon-icon{ font-size:26px; line-height:1; }
+.boon-title{ font-size:15px; font-weight:600; color: var(--ink); }
+.boon-desc{
+  font-family:'Nunito', sans-serif; font-size:12px; font-weight:600;
+  color: var(--good-deep); text-align:center;
+}
+
+/* --- appel de vague (Chatteau Fort) ---
+   Plac&eacute; en haut-centre : le pouce droit tient le miaulement, le gauche le
+   joystick, il ne reste que le haut de l'&eacute;cran pour un troisi&egrave;me bouton — et
+   c'est aussi l&agrave; qu'on regarde la vague arriver. */
+.call-wave{
+  position:absolute;
+  /* 132px et non 86 : le bandeau de messages (.toast) occupe 70-110 px, et
+     l'appel de vague s'y faisait recouvrir juste au moment où le joueur doit
+     le lire (vu en capture). */
+  left:50%; top:132px; transform: translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  font-family:'Fredoka', sans-serif;
+  background: var(--gold);
+  color:#fff; border:2px solid rgba(255,255,255,0.9);
+  border-radius:14px; padding: 7px 14px;
+  box-shadow: 0 3px 10px rgba(59,50,38,0.28);
+  cursor:pointer; z-index:4;
+  -webkit-tap-highlight-color: transparent;
+}
+.call-wave:active{ transform: translateX(-50%) scale(0.95); }
+.call-wave-label{ font-size:13px; font-weight:600; }
+.call-wave-meta{ display:flex; gap:8px; font-size:11px; font-weight:600; opacity:0.95; }
+.call-wave-bonus{ background: rgba(255,255,255,0.25); border-radius:999px; padding:0 6px; }
+
+/* --- bandeau de d&eacute;fi (Palais) --- */
+.challenge-banner{
+  position:absolute; left:50%; top:120px; transform: translateX(-50%);
+  font-family:'Fredoka', sans-serif; font-size:12px; font-weight:600;
+  color:#fff; background: rgba(59,50,38,0.82);
+  border-radius:999px; padding: 5px 13px;
+  white-space:nowrap;
+}
+/* barr&eacute; d&egrave;s qu'il est perdu : continuer à l'afficher intact ferait croire
+   qu'il est encore jouable */
+.challenge-banner.failed{ background: rgba(140,60,80,0.82); text-decoration: line-through; opacity:0.8; }

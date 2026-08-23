@@ -92,6 +92,13 @@ function buildPuzzleBoard(){
   puzzleGuard = null;
 
   puzzleSegments = puzzleGenerateLevel(puzzleLevel, puzzlePower);
+  // Le défi est tiré APRÈS la génération : "prendre tous les multiplicateurs"
+  // n'a de sens que si le niveau en contient, et un défi impossible serait
+  // pire que pas de défi du tout.
+  puzzleChallenge = pickPuzzleChallenge();
+  puzzleChallengeOk = true;
+  puzzleMultsTotal = 0;
+  puzzleMultsTaken = 0;
   const levelGroup = buildPuzzleLevel(puzzleSegments);
 
   puzzleSegments.forEach((seg, i)=>{
@@ -131,11 +138,33 @@ function buildPuzzleBoard(){
       const badge = buildNumberBadge(text, kind);
       badge.position.set(x, lane.type === 'foe' ? 1.9 : 1.15, z);
       levelGroup.add(badge);
+      if(lane.type === 'mult') puzzleMultsTotal++;
       const item = { type: lane.type, value: lane.value, x, z, visual, badge, taken:false };
       row.lanes[li] = item;
       puzzleItems.push(item);
     });
   });
+}
+
+// Tire un défi réalisable pour ce niveau, ou null. Le premier niveau n'en a
+// jamais : on n'ajoute pas une règle avant d'avoir appris la règle de base.
+function pickPuzzleChallenge(){
+  if(puzzleLevel < 2) return null;
+  const possibles = PUZZLE_CHALLENGES.filter(c=>{
+    if(c.id === 'allmult') return puzzleMultsCount() > 0;
+    return true;
+  });
+  if(!possibles.length) return null;
+  return possibles[Math.floor(Math.random()*possibles.length)];
+}
+
+function puzzleMultsCount(){
+  let n = 0;
+  puzzleSegments.forEach(seg=>{
+    if(seg.guard || !seg.lanes) return;
+    seg.lanes.forEach(l=>{ if(l && l.type === 'mult') n++; });
+  });
+  return n;
 }
 
 // Chiens : les vrais modèles GLB dès qu'ils sont chargés, procédural sinon —
@@ -211,6 +240,7 @@ function updatePuzzleItems(){
       const d = Math.abs(puzzleHero.x - it.x);
       if(d < best){ best = d; lane = it; }
     }
+    trackPuzzleChallenge(lane);
     if(lane) resolvePuzzleHit(lane);
     updateLaneButtons();
     if(puzzleState !== 'playing') return; // mort : on ne résout pas les suivants
@@ -226,6 +256,25 @@ function updatePuzzleItems(){
       showPuzzleDead(String(puzzleGuard.power));
     }
   }
+}
+
+// Un défi ne se vérifie qu'ICI, au franchissement : c'est le seul instant où
+// l'on sait ce que le joueur a réellement choisi.
+function trackPuzzleChallenge(lane){
+  if(!puzzleChallenge || !puzzleChallengeOk) return;
+  const id = puzzleChallenge.id;
+  if(id === 'flawless' && !lane) puzzleChallengeOk = false;
+  if(!lane) return;
+  if(id === 'nofight' && lane.type === 'foe') puzzleChallengeOk = false;
+  if(id === 'nogold' && lane.type === 'gold') puzzleChallengeOk = false;
+  if(id === 'allmult' && lane.type === 'mult') puzzleMultsTaken++;
+}
+
+function puzzleChallengeMet(){
+  if(!puzzleChallenge) return false;
+  if(!puzzleChallengeOk) return false;
+  if(puzzleChallenge.id === 'allmult') return puzzleMultsTaken >= puzzleMultsTotal && puzzleMultsTotal > 0;
+  return true;
 }
 
 function resolvePuzzleHit(it){
@@ -261,8 +310,15 @@ function showPuzzleLevelWin(){
   reportMission('puzzle_level', puzzleLevel);
   reportMission('puzzle_power', puzzlePower);
   document.getElementById('puzzleLevelTitle').textContent = t('puzzle_level_done', { n: puzzleLevel });
+  let gems = PUZZLE_GEMS_PER_LEVEL;
+  let defi = '';
+  if(puzzleChallenge){
+    const ok = puzzleChallengeMet();
+    if(ok){ gems += puzzleChallenge.gems; addGems(puzzleChallenge.gems, true); }
+    defi = '\n' + (ok ? '\u2713 ' : '\u2717 ') + t('chal_' + puzzleChallenge.id);
+  }
   document.getElementById('puzzleLevelStats').textContent =
-    t('puzzle_level_reward', { power: puzzleFormat(puzzlePower), gems: PUZZLE_GEMS_PER_LEVEL });
+    t('puzzle_level_reward', { power: puzzleFormat(puzzlePower), gems }) + defi;
   // L'emplacement publicitaire ne s'affiche que si le joueur n'a pas payé
   // pour s'en débarrasser — c'est le seul endroit du mode qui consulte meta.
   showAdSlot('puzzleAdSlot', 'puzzle');
@@ -271,6 +327,20 @@ function showPuzzleLevelWin(){
   document.getElementById('lanePad').classList.add('hidden');
   sfx.win();
   vibrate(50);
+}
+
+// Bandeau du défi, affiché en jeu : un objectif qu'on découvre à la fin
+// n'est pas un objectif, c'est une surprise.
+function updatePuzzleChallengeBanner(){
+  const el = document.getElementById('puzzleChallenge');
+  if(!el) return;
+  if(!puzzleChallenge || puzzleState !== 'playing'){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.classList.toggle('failed', !puzzleChallengeOk);
+  const suffix = (puzzleChallenge.id === 'allmult' && puzzleMultsTotal > 0)
+    ? ' (' + puzzleMultsTaken + '/' + puzzleMultsTotal + ')' : '';
+  el.textContent = (puzzleChallengeOk ? '\uD83C\uDFAF ' : '\u2717 ')
+                 + t('chal_' + puzzleChallenge.id) + suffix;
 }
 
 function puzzleNextLevel(){
@@ -319,4 +389,5 @@ function updatePuzzle(){
   puzzleFrame++;
   updatePuzzleHero();
   updatePuzzleItems();
+  if(puzzleFrame % 15 === 0) updatePuzzleChallengeBanner();
 }

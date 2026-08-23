@@ -143,57 +143,77 @@ document.addEventListener('keyup', (e)=>{
 // difficile a maintenant des cibles fixes et visibles. Les deux écrivent dans
 // les mêmes champs, il n'y a donc aucun code de jeu à dédoubler.
 
-// --- croix directionnelle --------------------------------------------------
-const DPAD_VECTORS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
-let dpadHeld = {}; // plusieurs touches à la fois = diagonale
+// --- joystick fixe (Chatteau Fort) -----------------------------------------
+// Même sortie que la manette flottante (hero.stickX / hero.stickZ), mais une
+// base ancrée : on sait toujours où poser le pouce. Le rayon de course est
+// celui du cercle affiché, donc ce qu'on voit correspond exactement à ce qui
+// est lu — pousser jusqu'au bord donne la vitesse maximale, pas au-delà.
+// Il sert au Chatteau Fort ET à la Scierie : les deux font marcher un chat sur
+// un plateau, donc les deux ont le même besoin. stickTarget() (plus bas) dit
+// dans quel personnage écrire selon le mode actif — c'est la même règle que
+// pour la manette flottante, il n'y a pas deux logiques à maintenir.
+const FIXED_STICK_RADIUS = 44;
+let fixedStickId = null;
 
-function dpadApply(){
-  let x = 0, z = 0;
-  Object.keys(dpadHeld).forEach(dir=>{
-    if(!dpadHeld[dir]) return;
-    x += DPAD_VECTORS[dir][0];
-    z += DPAD_VECTORS[dir][1];
-  });
-  const mag = Math.hypot(x, z);
-  // normalisée : sans ça une diagonale irait 1,41 fois plus vite qu'une
-  // ligne droite, et le chat filerait en biais sans qu'on comprenne pourquoi
-  hero.stickX = mag > 0 ? x/mag : 0;
-  hero.stickZ = mag > 0 ? z/mag : 0;
+function fixedStickUsable(){
+  if(gameMode === 'tower') return towerState === 'playing' && !towerPaused && !inChapterBreak;
+  if(gameMode === 'mill')  return millState === 'playing' && !millPaused && !inChapterBreak;
+  return false;
 }
 
-function bindDpad(){
-  const pad = document.getElementById('dpad');
-  if(!pad) return;
-  pad.querySelectorAll('.dpad-btn').forEach(btn=>{
-    const dir = btn.dataset.dir;
-    const press = (e)=>{
-      e.preventDefault();
-      if(gameMode !== 'tower' || towerState !== 'playing' || towerPaused || inChapterBreak) return;
-      dpadHeld[dir] = true;
-      btn.classList.add('held');
-      dpadApply();
-    };
-    const release = ()=>{
-      if(!dpadHeld[dir]) return;
-      dpadHeld[dir] = false;
-      btn.classList.remove('held');
-      dpadApply();
-    };
-    btn.addEventListener('pointerdown', press);
-    // pointerup ET pointerleave : sans le second, un doigt qui glisse hors de
-    // la touche la laisserait "enfoncée" et le chat partirait tout seul
-    btn.addEventListener('pointerup', release);
-    btn.addEventListener('pointerleave', release);
-    btn.addEventListener('pointercancel', release);
+function fixedStickSet(clientX, clientY){
+  const el = document.getElementById('towerStick');
+  const knob = document.getElementById('towerStickKnob');
+  if(!el || !knob) return;
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  let dx = clientX - cx, dy = clientY - cy;
+  const dist = Math.hypot(dx, dy);
+  const h = stickTarget();
+  if(dist < 6){
+    knob.style.transform = 'translate(0,0)';
+    h.stickX = 0; h.stickZ = 0;
+    return;
+  }
+  const clamped = Math.min(dist, FIXED_STICK_RADIUS);
+  const nx = dx/dist, ny = dy/dist;
+  knob.style.transform = 'translate(' + (nx*clamped) + 'px,' + (ny*clamped) + 'px)';
+  const power = clamped / FIXED_STICK_RADIUS; // course partielle = déplacement plus lent
+  h.stickX = nx * power;
+  h.stickZ = ny * power; // écran vers le bas = +Z monde (la caméra regarde -Z)
+}
+
+function fixedStickRelease(){
+  fixedStickId = null;
+  const el = document.getElementById('towerStick');
+  const knob = document.getElementById('towerStickKnob');
+  if(el) el.classList.remove('held');
+  if(knob) knob.style.transform = 'translate(0,0)';
+  // les DEUX personnages : le doigt peut se lever après un changement de mode
+  hero.stickX = 0; hero.stickZ = 0;
+  millHero.stickX = 0; millHero.stickZ = 0;
+}
+
+function bindFixedStick(){
+  const el = document.getElementById('towerStick');
+  if(!el) return;
+  el.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    if(!fixedStickUsable()) return;
+    fixedStickId = e.pointerId;
+    el.classList.add('held');
+    // capture : le doigt peut sortir du cercle sans que la commande se coupe,
+    // ce qui est exactement ce qu'on attend d'un joystick
+    if(el.setPointerCapture) el.setPointerCapture(e.pointerId);
+    fixedStickSet(e.clientX, e.clientY);
   });
-  // filet de sécurité : un doigt relâché n'importe où libère tout
-  window.addEventListener('pointerup', ()=>{
-    let any = false;
-    Object.keys(dpadHeld).forEach(d=>{ if(dpadHeld[d]) any = true; });
-    if(!any) return;
-    dpadHeld = {};
-    pad.querySelectorAll('.dpad-btn').forEach(b=>b.classList.remove('held'));
-    dpadApply();
+  el.addEventListener('pointermove', (e)=>{
+    if(fixedStickId !== e.pointerId) return;
+    e.preventDefault();
+    fixedStickSet(e.clientX, e.clientY);
+  });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>{
+    el.addEventListener(ev, (e)=>{ if(fixedStickId === e.pointerId) fixedStickRelease(); });
   });
 }
 
@@ -240,5 +260,5 @@ function bindLanePad(){
   });
 }
 
-bindDpad();
+bindFixedStick();
 bindLanePad();

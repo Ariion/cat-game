@@ -23,13 +23,18 @@ let puzzleRows = [];      // {z, resolved, lanes:[item|null x3]} — un carrefou
 let puzzleGuard = null;   // {power, z, visual, badge, beaten}
 let puzzleSegments = [];
 let puzzleRevivesUsed = 0; // pour renchérir la 2e résurrection d'une même course
+// Défi du niveau en cours : tiré au moment où le plateau est construit, suivi
+// pendant la traversée, payé (ou non) au gardien.
+let puzzleChallenge = null;
+let puzzleChallengeOk = true;
+let puzzleMultsTotal = 0, puzzleMultsTaken = 0;
 
 function resetPuzzleRun(keepPower){
   puzzleState = 'playing';
   puzzleFrame = 0;
   puzzlePaused = false;
   if(!keepPower){
-    puzzlePower = PUZZLE_START_POWER;
+    puzzlePower = perkPuzzleStartPower(); // progression permanente (meta.js)
     puzzleLevel = 1;
     puzzleRevivesUsed = 0;
     meta.totals.puzzle++;
@@ -44,7 +49,8 @@ function resetPuzzleRun(keepPower){
       // Robe ROUSSE et non crème : sur un sol de marbre blanc, un chat crème
       // se confondait avec le décor (vu en capture) alors qu'il est la seule
       // chose que le joueur doit suivre des yeux.
-      puzzleHero.visual = buildHeroCat(0xD98244, 0x2F6BB5);
+      const sk = currentSkin();
+      puzzleHero.visual = buildHeroCat(sk.fur, sk.accent);
       puzzleHero.visual.scale.setScalar(1.25);
       puzzleHero.badge = buildNumberBadge(puzzleFormat(puzzlePower), 'hero');
       puzzleHero.badge.position.set(0, 1.5, 0);
@@ -70,7 +76,7 @@ function resetPuzzleRun(keepPower){
   document.getElementById('pauseBtnPuzzle').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
-  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('towerStick').classList.add('hidden');
   document.getElementById('lanePad').classList.remove('hidden');
   updateLaneButtons();
   updatePuzzleHud();

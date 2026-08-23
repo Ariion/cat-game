@@ -25,6 +25,11 @@ let invulnTimer = 0;   // brève invulnérabilité après une reprise sur pub
 let shieldTimer = 0;    // power-up bouclier : invulnérabilité temporaire
 let multishotTimer = 0; // power-up tir en éventail : 3 projectiles au lieu d'1
 let magnetTimer = 0;    // power-up aimant : collecte les bonus sans s'aligner
+// Bonus cumulés par les cartes choisies en cours de partie (voir
+// BATTLE_CARDS). Remis à zéro à chaque nouvelle partie : ce sont des choix DE
+// PARTIE, à ne pas confondre avec la progression permanente de meta.js.
+let battleBoons = { damage:0, firerate:0, maxhp:0, magnet:false };
+let battleCardsTaken = 0;
 let surgeTimer = 0;     // déchaînement de début de chapitre (voir SURGE_MULTIPLIER)
 let paused = false;
 
@@ -59,6 +64,8 @@ function resetGame(){
   shieldTimer = 0;
   multishotTimer = 0;
   magnetTimer = 0;
+  battleBoons = { damage:0, firerate:0, maxhp:0, magnet:false };
+  battleCardsTaken = 0;
   surgeTimer = 0;
   paused = false;
   document.getElementById('screenPause').classList.add('hidden');
@@ -77,6 +84,9 @@ function resetGame(){
 
 function startGame(){
   initAudio();
+  // le menu principal est un .overlay comme les autres : sans ça il reste
+  // affiché PAR-DESSUS la partie lancée autrement que par sa carte
+  document.getElementById('screenMainMenu').classList.add('hidden');
   document.getElementById('screenStart').classList.add('hidden');
   document.getElementById('screenOptions').classList.add('hidden');
   document.getElementById('screenLeaderboard').classList.add('hidden');

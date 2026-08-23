@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=43">
+<link rel="stylesheet" href="css/style.css?v=45">
 </head>
 <body>
 
@@ -76,6 +76,13 @@
           <span style="font-size:15px;">&#128008;</span>
           <span class="count" id="millWorkers">0</span>
         </div>
+        <!-- Jauge de l'atelier : ce que la scie n'a pas encore débité. C'est
+             le cadran du mode — il annonce la saturation AVANT la panne. -->
+        <div class="stock-badge" id="millStockWrap">
+          <span style="font-size:14px;">&#127981;</span>
+          <span class="stock-track"><span class="stock-fill" id="millStockFill"></span></span>
+          <span class="stock-label" id="millStockLabel">0 / 14</span>
+        </div>
       </div>
       <div class="hud-right">
         <button class="pause-btn hidden" id="pauseBtnMill" onclick="pauseGame()">&#10074;&#10074;</button>
@@ -93,6 +100,7 @@
         <div class="progress-wrap" id="puzzleLevelLabel">Niveau 1</div>
         <button class="pause-btn hidden" id="pauseBtnPuzzle" onclick="pauseGame()">&#10074;&#10074;</button>
       </div>
+      <div class="challenge-banner hidden" id="puzzleChallenge"></div>
     </div>
 
     <!-- Pouvoir du chat joueur : ralentit les chiens autour de lui. Placé en
@@ -102,24 +110,32 @@
          au bouton pause, en haut à droite (vu en capture). -->
     <button class="meow-btn hidden ready" id="meowBtn" onclick="triggerMeow()">&#128049;</button>
 
+    <!-- Appel de vague anticip&eacute; : le temps mort entre deux vagues devient
+         une d&eacute;cision (souffler, ou encaisser une prime tout de suite). -->
+    <button class="call-wave hidden" id="callWaveBtn" onclick="callTowerWave()">
+      <span class="call-wave-label" data-i18n="btn_call_wave">Lancer la vague</span>
+      <span class="call-wave-meta">
+        <span id="callWaveTime">7s</span>
+        <span class="call-wave-bonus"><span id="callWaveBonus">+28</span> &#128031;</span>
+      </span>
+    </button>
+
     <!-- Manette flottante : elle apparaît là où le pouce se pose, on n'a donc
          jamais à viser une zone précise. -->
     <div class="stick hidden" id="stick">
       <div class="stick-knob" id="stickKnob"></div>
     </div>
 
-    <!-- CROIX DIRECTIONNELLE (Chatteau Fort). La manette flottante marche,
-         mais elle demande de deviner où poser le pouce et de doser la
-         poussée. Ces quatre touches sont TOUJOURS au même endroit et
-         toujours visibles : on appuie, le chat part, on relâche, il
-         s'arrête. Les deux commandes coexistent — glisser sur le décor
-         fonctionne encore. -->
-    <div class="dpad hidden" id="dpad">
-      <button class="dpad-btn up"    data-dir="up">&#9650;</button>
-      <button class="dpad-btn left"  data-dir="left">&#9664;</button>
-      <button class="dpad-btn right" data-dir="right">&#9654;</button>
-      <button class="dpad-btn down"  data-dir="down">&#9660;</button>
-      <span class="dpad-hub">&#128062;</span>
+    <!-- JOYSTICK FIXE (Chatteau Fort). La croix directionnelle essayée avant
+         donnait quatre directions franches, mais on perdait le dosage et les
+         diagonales naturelles du pouce : le joystick revient, et il est
+         désormais TOUJOURS VISIBLE au même endroit au lieu d'apparaître sous
+         le doigt. On garde donc ce qui manquait (une cible fixe, qu'on trouve
+         sans regarder) sans perdre ce qui marchait (une direction continue).
+         La manette flottante sur le décor reste active en parallèle. -->
+    <div class="fixed-stick hidden" id="towerStick">
+      <span class="fixed-stick-ring"></span>
+      <span class="fixed-stick-knob" id="towerStickKnob">&#128062;</span>
     </div>
 
     <!-- DEUX TOUCHES DE VOIE (Palais des Chats). Le jeu n'a que trois voies :
@@ -171,6 +187,10 @@
         </button>
       </div>
       <div class="menu-buttons">
+        <button class="btn ghost daily-btn" onclick="openDaily()">
+          <span data-i18n="btn_daily">&#127873; Cadeau du jour</span>
+          <span class="daily-dot hidden" id="dailyDot"></span>
+        </button>
         <button class="btn ghost" onclick="openShop()" data-i18n="btn_shop">&#128142; Boutique</button>
       </div>
     </div>
@@ -252,6 +272,17 @@
       </div>
     </div>
 
+    <div class="overlay opaque hidden" id="screenDaily">
+      <h1 data-i18n="daily_title">Cadeau du jour</h1>
+      <p id="dailyStreak"></p>
+      <div class="daily-row" id="dailyRow"></div>
+      <p class="options-label small" data-i18n="daily_note">Reviens chaque jour : la s&eacute;rie repart &agrave; z&eacute;ro si tu sautes un jour.</p>
+      <div class="choice-row">
+        <button class="btn" id="dailyClaimBtn" onclick="claimDailyReward()" data-i18n="daily_claim">Encaisser</button>
+        <button class="btn ghost" onclick="closeDaily()" data-i18n="btn_back">Retour</button>
+      </div>
+    </div>
+
     <div class="overlay scrollable opaque hidden" id="screenShop">
       <h1 data-i18n="shop_title">Boutique</h1>
       <div class="shop-balance">&#128142; <span id="shopGemCount">0</span></div>
@@ -259,6 +290,14 @@
 
       <p class="shop-section" data-i18n="shop_section_missions">Missions du jour</p>
       <div class="mission-list" id="shopMissions"></div>
+
+      <p class="shop-section" data-i18n="shop_section_perks">Am&eacute;liorations permanentes</p>
+      <p class="shop-hint" data-i18n="shop_perks_hint">Gard&eacute;es pour toujours : elles s'appliquent d&egrave;s la prochaine partie, m&ecirc;me apr&egrave;s une d&eacute;faite.</p>
+      <div class="shop-list" id="shopPerks"></div>
+
+      <p class="shop-section" data-i18n="shop_section_skins">Collection de chats</p>
+      <p class="shop-hint" data-i18n="shop_skins_hint">La robe choisie s'applique &agrave; ton chat dans les quatre jeux.</p>
+      <div class="skin-grid" id="shopSkins"></div>
 
       <p class="shop-section" data-i18n="shop_section_free">Gemmes gratuites</p>
       <div class="shop-list" id="shopRewarded"></div>
@@ -320,6 +359,13 @@
       </div>
     </div>
 
+    <!-- Le seul moment du mode Bataille où le joueur décide quelque chose. -->
+    <div class="overlay hidden" id="screenBattleCards">
+      <h1 data-i18n="cards_title">Choisis ton bonus</h1>
+      <p data-i18n="cards_desc">Il te suit jusqu'&agrave; la fin de la partie.</p>
+      <div class="boon-row" id="battleCardRow"></div>
+    </div>
+
     <div class="overlay hidden" id="screenChapter">
       <h1 id="chapterTitle">Chapitre 2</h1>
       <p id="chapterStats"></p>
@@ -360,33 +406,33 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=43"></script>
-<script src="js/vendor/postprocessing.js?v=43"></script>
-<script src="js/config.js?v=43"></script>
-<script src="js/meta.js?v=43"></script>
-<script src="js/biomes.js?v=43"></script>
-<script src="js/i18n.js?v=43"></script>
-<script src="js/audio.js?v=43"></script>
-<script src="js/state.js?v=43"></script>
-<script src="js/towerState.js?v=43"></script>
-<script src="js/millState.js?v=43"></script>
-<script src="js/puzzleState.js?v=43"></script>
-<script src="js/scene3d.js?v=43"></script>
-<script src="js/towerScene3d.js?v=43"></script>
-<script src="js/millScene3d.js?v=43"></script>
-<script src="js/puzzleScene3d.js?v=43"></script>
-<script src="js/render3d.js?v=43"></script>
-<script src="js/towerRender3d.js?v=43"></script>
-<script src="js/millRender3d.js?v=43"></script>
-<script src="js/puzzleRender3d.js?v=43"></script>
-<script src="js/gameplay.js?v=43"></script>
-<script src="js/towerGameplay.js?v=43"></script>
-<script src="js/millGameplay.js?v=43"></script>
-<script src="js/puzzleGameplay.js?v=43"></script>
-<script src="js/postfx.js?v=43"></script>
-<script src="js/shop.js?v=43"></script>
-<script src="js/modes.js?v=43"></script>
-<script src="js/input.js?v=43"></script>
-<script src="js/main.js?v=43"></script>
+<script src="js/vendor/GLTFLoader.js?v=45"></script>
+<script src="js/vendor/postprocessing.js?v=45"></script>
+<script src="js/config.js?v=45"></script>
+<script src="js/meta.js?v=45"></script>
+<script src="js/biomes.js?v=45"></script>
+<script src="js/i18n.js?v=45"></script>
+<script src="js/audio.js?v=45"></script>
+<script src="js/state.js?v=45"></script>
+<script src="js/towerState.js?v=45"></script>
+<script src="js/millState.js?v=45"></script>
+<script src="js/puzzleState.js?v=45"></script>
+<script src="js/scene3d.js?v=45"></script>
+<script src="js/towerScene3d.js?v=45"></script>
+<script src="js/millScene3d.js?v=45"></script>
+<script src="js/puzzleScene3d.js?v=45"></script>
+<script src="js/render3d.js?v=45"></script>
+<script src="js/towerRender3d.js?v=45"></script>
+<script src="js/millRender3d.js?v=45"></script>
+<script src="js/puzzleRender3d.js?v=45"></script>
+<script src="js/gameplay.js?v=45"></script>
+<script src="js/towerGameplay.js?v=45"></script>
+<script src="js/millGameplay.js?v=45"></script>
+<script src="js/puzzleGameplay.js?v=45"></script>
+<script src="js/postfx.js?v=45"></script>
+<script src="js/shop.js?v=45"></script>
+<script src="js/modes.js?v=45"></script>
+<script src="js/input.js?v=45"></script>
+<script src="js/main.js?v=45"></script>
 </body>
 </html>

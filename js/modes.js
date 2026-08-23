@@ -55,7 +55,7 @@ function showMainMenu(){
   ['screenStart','screenTowerStart','screenMillStart','screenPuzzleStart',
    'screenOptions','screenLeaderboard','screenLose','screenAd','screenPause',
    'screenTowerWin','screenTowerLose','screenChapter','screenShop',
-   'screenPuzzleLevel','screenPuzzleDead','screenMillOffline']
+   'screenPuzzleLevel','screenPuzzleDead','screenMillOffline','screenDaily','screenBattleCards']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
   document.getElementById('battleHud').classList.add('hidden');
   document.getElementById('towerHud').classList.add('hidden');
@@ -66,7 +66,8 @@ function showMainMenu(){
   document.getElementById('pauseBtnMill').classList.add('hidden');
   document.getElementById('pauseBtnPuzzle').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
-  document.getElementById('dpad').classList.add('hidden');
+  document.getElementById('towerStick').classList.add('hidden');
+  document.getElementById('callWaveBtn').classList.add('hidden');
   document.getElementById('lanePad').classList.add('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('screenMainMenu').classList.remove('hidden');

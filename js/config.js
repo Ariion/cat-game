@@ -506,8 +506,9 @@ const MILL_PADS = [
   { id:'chop',   x: 1.3, z:-5.4, cost:35, icon:'\uD83E\uDE93' }, // coupe plus rapide, en bord de clairière
   { id:'worker', x: 1.3, z:-3.6, cost:70, icon:'\uD83D\uDC08' }, // embaucher un chat bûcheron
   { id:'carry',  x:-2.3, z:-1.4, cost:25, icon:'\uD83C\uDF92' }, // + capacité de portage, près de la dépose
-  { id:'value',  x: 1.9, z: 0.2, cost:60, icon:'\uD83D\uDCB0' }, // planches mieux payées, devant l'atelier
-  { id:'belt',   x: 0.2, z: 1.2, cost:45, icon:'\u2699\uFE0F' }  // tapis plus rapide, sous le tapis
+  { id:'value',  x:-0.2, z:-2.4, cost:60, icon:'\uD83D\uDCB0' }, // planches mieux payées
+  { id:'belt',   x: 0.2, z: 1.2, cost:45, icon:'\u2699\uFE0F' }, // tapis plus rapide, sous le tapis
+  { id:'shop',   x: 2.0, z:-0.4, cost:55, icon:'\uD83C\uDFED' }  // atelier : cadence de sciage ET capacité de stock
 ];
 
 // ---------------------------------------------------------------------------
@@ -551,6 +552,35 @@ const MILL_GOLD_LOG_INTERVAL = 900;  // ~15 s entre deux apparitions possibles
 const MILL_GOLD_LOG_CHANCE = 0.55;
 const MILL_GOLD_LOG_LIFE = 480;      // il ne reste pas indéfiniment
 const MILL_GOLD_LOG_VALUE = 5;       // planches rapportées au lieu de MILL_PLANKS_PER_LOG
+
+// ---------------------------------------------------------------------------
+// 5. LA CAPACITÉ DE L'ATELIER — le système qui donne enfin des ARBITRAGES
+// ---------------------------------------------------------------------------
+// Jusqu'ici tout achat était bon : plus d'employés, plus de vitesse, plus de
+// valeur, jamais de contrepartie. Un jeu de gestion sans contrainte n'est pas
+// un jeu de gestion, c'est un compteur qui monte.
+//
+// Désormais l'atelier ne transforme pas instantanément : les planches livrées
+// s'entassent dans un STOCK qu'il scie à une cadence finie. Embaucher augmente
+// l'ENTRÉE ; seul l'atelier augmente la SORTIE. Qui embauche sans investir
+// dans l'atelier sature son stock — et là, tout se bloque : le tapis s'arrête,
+// les planches s'accumulent dessus, plus une pièce ne rentre. Il faut donc
+// équilibrer les deux bouts de la chaîne au lieu d'empiler les employés.
+const MILL_STOCK_BASE = 14;          // planches que l'atelier peut garder en attente
+const MILL_STOCK_PER_LEVEL = 9;
+const MILL_PROCESS_BASE = 0.65;      // planches sciées par seconde au départ
+const MILL_PROCESS_PER_LEVEL = 0.55;
+const MILL_JAM_GRACE = 90;           // ticks avant que l'alerte ne devienne une vraie panne
+// Pendant l'embouteillage, la scierie ne produit RIEN : c'est la sanction, et
+// elle doit se sentir. Mais elle se répare toute seule dès que le stock
+// redescend — on ne punit pas le joueur d'une erreur irréversible.
+// Nombre de planches que le tapis peut PHYSIQUEMENT porter, calé sur sa
+// longueur réelle. Le premier réglage (12, choisi à l'estime) ne mordait
+// jamais : chaque planche sciée débloquait le tapis pour un tick, les porteurs
+// en profitaient pour déposer, et il s'en est empilé 90 sur un ruban qui en
+// tient 5 — elles finissaient alignées dans le vide à gauche du tapis. Le
+// plafond est donc absolu et ne dépend plus de l'état du stock.
+const MILL_JAM_BELT_CAPACITY = Math.floor((MILL_BELT_END_X - MILL_BELT_START_X) / 0.62);
 
 // Le chat de la scierie se distingue de celui du Chatteau Fort (gris,
 // écharpe rouge) : robe crème, écharpe verte.
@@ -626,3 +656,51 @@ const PUZZLE_GEMS_PER_LEVEL = 2;
 // douze parties). Elle se calcule donc sur les NIVEAUX franchis, qui eux
 // croissent linéairement.
 const PUZZLE_XP_PER_LEVEL = 10;
+
+// ===========================================================================
+// Cartes de bonus (mode Bataille)
+// ===========================================================================
+// Le mode Bataille était le plus PASSIF des quatre : on glisse le doigt et on
+// regarde. Rien à décider, donc rien à raconter d'une partie à l'autre. Tous
+// les BATTLE_CARD_PALIERS paliers, la partie s'arrête sur trois cartes tirées
+// au sort et il faut en choisir une. C'est le seul moment du mode où le
+// joueur décide quelque chose, et deux parties cessent enfin de se ressembler.
+const BATTLE_CARD_PALIERS = 5;
+const BATTLE_CARD_CHOICES = 3;
+// Les bonus sont PERMANENTS pour la partie en cours (pas des minuteries comme
+// les power-ups ramassés au sol) : c'est ce qui fait qu'un choix se cumule et
+// que la fin de partie est le produit des décisions prises, pas d'un objet
+// ramassé dix secondes plus tôt.
+const BATTLE_CARDS = [
+  { id:'damage',   icon:'\u2694\uFE0F', value:0.18 },  // +18 % de dégâts
+  { id:'firerate', icon:'\u26A1',        value:0.14 },  // +14 % de cadence
+  { id:'heal',     icon:'\u2764\uFE0F', value:0.35 },  // rend 35 % des PV max
+  { id:'maxhp',    icon:'\uD83D\uDEE1\uFE0F', value:0.20 }, // +20 % de PV max, et autant de soin
+  { id:'horde',    icon:'\uD83D\uDC08',  value:6 },     // +6 chats d'un coup
+  { id:'magnet',   icon:'\uD83E\uDDF2',  value:1 }      // aimant permanent
+];
+
+// ===========================================================================
+// Appel de vague anticipé (Chatteau Fort)
+// ===========================================================================
+// Entre deux vagues il ne se passait rien : on attendait. Ce temps mort est
+// pourtant le seul moment où le joueur a le CHOIX — se poser et souffler, ou
+// déclencher tout de suite pour empocher une prime. La prime croît avec le
+// temps qu'il reste à courir : plus on ose tôt, plus on gagne.
+const TOWER_CALL_BONUS_PER_SEC = 4;   // poissons par seconde d'avance
+const TOWER_CALL_BONUS_MAX = 40;
+
+// ===========================================================================
+// Défis de niveau (Palais des Chats)
+// ===========================================================================
+// Le Palais n'avait qu'un score à battre : passé le premier record, plus rien
+// ne distinguait un niveau du suivant. Chaque niveau porte désormais un défi
+// annoncé À L'AVANCE, qui paie en gemmes s'il est tenu. Il ne bloque rien —
+// on peut l'ignorer et finir le niveau quand même — mais il donne une
+// deuxième façon de jouer le même couloir : viser large, ou viser propre.
+const PUZZLE_CHALLENGES = [
+  { id:'nofight',  gems:3 },  // franchir le niveau sans affronter un seul chien
+  { id:'allmult',  gems:3 },  // prendre TOUS les multiplicateurs du niveau
+  { id:'nogold',   gems:2 },  // ne ramasser aucun tas de pièces
+  { id:'flawless', gems:2 }   // ne jamais passer sur une voie vide
+];

@@ -35,7 +35,10 @@ let millTotalEarned = 0; // pièces produites depuis TOUJOURS (le tas de l'avant
 let millLogs = [];      // {x, z, ready, regrow, visual} — visuels créés une fois par initMillScene()
 let millBeltItems = []; // {x, mesh} — planches en transit sur le tapis
 let millPads = [];      // {id, x, z, level, cost, visual, ...} — idem, créées une fois
-let millLevels = { carry:0, chop:0, belt:0, value:0 };
+let millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
+let millStock = 0;      // planches en attente de sciage dans l'atelier
+let millProcessAcc = 0; // reliquat fractionnaire du sciage entre deux ticks
+let millJamTimer = 0;   // depuis combien de ticks le stock est plein
 
 // La Scierie ne se "rejoue" pas, elle SE REPREND. C'était le vrai défaut du
 // mode : on améliorait pendant dix minutes, on fermait l'onglet, et tout
@@ -47,12 +50,17 @@ function resetMillGame(remise){
   millFrame = 0;
   millPaused = false;
   millGoldTimer = 0;
+  // Le stock ne se sauvegarde PAS : reprendre une scierie déjà bouchée serait
+  // une punition pour avoir fermé l'onglet. On repart atelier vide.
+  millStock = 0;
+  millProcessAcc = 0;
+  millJamTimer = 0;
 
   if(remise){
     millCoins = MILL_COINS_START;
     millEarned = 0;
     millTotalEarned = 0;
-    millLevels = { carry:0, chop:0, belt:0, value:0 };
+    millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
     millPads.forEach(p=>{ p.level = 0; p.cost = p.baseCost; });
     clearMillWorkers();
     millSave();
@@ -85,6 +93,8 @@ function resetMillGame(remise){
   document.getElementById('pauseBtnMill').classList.remove('hidden');
   document.getElementById('hint').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden'); // le miaulement est propre au Chatteau Fort
+  document.getElementById('towerStick').classList.remove('hidden');
+  document.getElementById('lanePad').classList.add('hidden');
   updateMillHud();
 }
 
@@ -102,7 +112,8 @@ function resetMillHero(){
   millHero.padId = null;
   millHero.padTimer = 0;
   if(!millHero.visual){
-    millHero.visual = buildHeroCat(MILL_HERO_FUR, MILL_HERO_SCARF);
+    const sk = currentSkin();
+    millHero.visual = buildHeroCat(sk.fur, sk.accent);
     // un cran plus gros qu'au Chatteau Fort : ici la caméra embrasse tout le
     // terrain d'un coup, et à l'échelle d'origine le chat se perdait dedans
     millHero.visual.scale.setScalar(1.35);
@@ -146,14 +157,14 @@ function millLoad(){
     millCoins = MILL_COINS_START;
     millEarned = 0;
     millTotalEarned = 0;
-    millLevels = { carry:0, chop:0, belt:0, value:0 };
+    millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
     clearMillWorkers();
     return;
   }
   millCoins = save.coins || 0;
   millTotalEarned = save.totalEarned || 0;
   millEarned = 0; // "gagné cette session", remis à zéro à chaque reprise
-  ['carry','chop','belt','value'].forEach(k=>{ millLevels[k] = (save.levels && save.levels[k]) || 0; });
+  ['carry','chop','belt','value','shop'].forEach(k=>{ millLevels[k] = (save.levels && save.levels[k]) || 0; });
   if(Array.isArray(save.padLevels)){
     millPads.forEach((p, i)=>{
       p.level = save.padLevels[i] || 0;
@@ -235,6 +246,24 @@ function updateMillHud(){
     wEl.textContent = millWorkers.length;
     wEl.parentElement.classList.toggle('hidden', millWorkers.length === 0);
   }
+  updateMillStockGauge();
+}
+
+// Jauge de stock de l'atelier. C'est LE cadran du mode : il dit, avant la
+// panne, que l'entrée dépasse la sortie. Sans lui l'embouteillage serait une
+// sanction sortie de nulle part.
+function updateMillStockGauge(){
+  const wrap = document.getElementById('millStockWrap');
+  if(!wrap) return;
+  const max = millStockMax();
+  const ratio = Math.min(1, millStock / max);
+  const fill = document.getElementById('millStockFill');
+  if(fill) fill.style.width = Math.round(ratio*100) + '%';
+  const label = document.getElementById('millStockLabel');
+  if(label) label.textContent = Math.floor(millStock) + ' / ' + max;
+  // trois états lisibles d'un coup d'oeil : ça passe, ça sature, c'est bouché
+  wrap.classList.toggle('warn', ratio >= 0.7 && ratio < 1);
+  wrap.classList.toggle('jam', millJamTimer > MILL_JAM_GRACE);
 }
 
 // Pas de défaite dans ce mode : on quitte par le menu. Le score conservé est
