@@ -189,7 +189,17 @@ const translations = {
     chal_nofight: "Aucun chien affronté",
     chal_allmult: "Tous les multiplicateurs",
     chal_nogold: "Aucun tas de pièces",
-    chal_flawless: "Jamais une voie vide"
+    chal_flawless: "Jamais une voie vide",
+    mill_yard_full: "Dépôt plein ! La scie s'arrête",
+    mill_truck_paid: "Camion parti : {n} paquets, 💰 {coins}",
+    mill_truck_empty: "Le camion repart à vide...",
+    mill_loader_hired: "Un chargeur embauché ! ({n} en tout)",
+    mill_payday: "Salaires versés : 💰 {n}",
+    mill_quit: "Salaire impayé — un employé démissionne !",
+    mill_up_yard: "Dépôt agrandi — niveau {n}",
+    mill_up_dock: "Quai amélioré — niveau {n}",
+    mill_up_clearing: "Clairière agrandie — niveau {n}",
+    mill_up_loader: "Chargeur — {n} en tout"
   },
   en: {
     menu_title: "Cat Horde",
@@ -378,7 +388,17 @@ const translations = {
     chal_nofight: "No dog fought",
     chal_allmult: "Every multiplier",
     chal_nogold: "No coin pile",
-    chal_flawless: "Never an empty lane"
+    chal_flawless: "Never an empty lane",
+    mill_yard_full: "Yard full! The saw stops",
+    mill_truck_paid: "Truck left: {n} bundles, 💰 {coins}",
+    mill_truck_empty: "The truck leaves empty...",
+    mill_loader_hired: "A loader was hired! ({n} in total)",
+    mill_payday: "Wages paid: 💰 {n}",
+    mill_quit: "Wages unpaid — a worker quits!",
+    mill_up_yard: "Yard expanded — level {n}",
+    mill_up_dock: "Dock upgraded — level {n}",
+    mill_up_clearing: "Clearing expanded — level {n}",
+    mill_up_loader: "Loader — {n} in total"
   },
   de: {
     menu_title: "Katzenhorde",
@@ -567,7 +587,17 @@ const translations = {
     chal_nofight: "Keinen Hund bekämpft",
     chal_allmult: "Alle Multiplikatoren",
     chal_nogold: "Keinen Münzhaufen",
-    chal_flawless: "Nie eine leere Spur"
+    chal_flawless: "Nie eine leere Spur",
+    mill_yard_full: "Lager voll! Die Säge stoppt",
+    mill_truck_paid: "LKW abgefahren: {n} Bündel, 💰 {coins}",
+    mill_truck_empty: "Der LKW fährt leer ab...",
+    mill_loader_hired: "Ein Lader eingestellt! (insgesamt {n})",
+    mill_payday: "Löhne gezahlt: 💰 {n}",
+    mill_quit: "Lohn nicht gezahlt — ein Arbeiter kündigt!",
+    mill_up_yard: "Lager erweitert — Stufe {n}",
+    mill_up_dock: "Rampe verbessert — Stufe {n}",
+    mill_up_clearing: "Lichtung erweitert — Stufe {n}",
+    mill_up_loader: "Lader — insgesamt {n}"
   },
   es: {
     menu_title: "Horda de gatos",
@@ -756,7 +786,17 @@ const translations = {
     chal_nofight: "Ningún perro enfrentado",
     chal_allmult: "Todos los multiplicadores",
     chal_nogold: "Ningún montón de monedas",
-    chal_flawless: "Nunca una vía vacía"
+    chal_flawless: "Nunca una vía vacía",
+    mill_yard_full: "¡Depósito lleno! La sierra se detiene",
+    mill_truck_paid: "Camión salido: {n} paquetes, 💰 {coins}",
+    mill_truck_empty: "El camión se va vacío...",
+    mill_loader_hired: "¡Un cargador contratado! ({n} en total)",
+    mill_payday: "Salarios pagados: 💰 {n}",
+    mill_quit: "¡Salario impagado — un empleado dimite!",
+    mill_up_yard: "Depósito ampliado — nivel {n}",
+    mill_up_dock: "Muelle mejorado — nivel {n}",
+    mill_up_clearing: "Claro ampliado — nivel {n}",
+    mill_up_loader: "Cargador — {n} en total"
   }
 };
 

@@ -24,6 +24,8 @@ let millHero = {
   dropTimer: 0,       // cadence de dépose sur le tapis
   padId: null,        // dalle d'amélioration en cours d'achat
   padTimer: 0,
+  bundles: 0,         // paquets finis portés du dépôt vers un camion
+  loadTimer: 0,
   visual: null,
   carryStack: null    // pile de planches visible sur le dos
 };
@@ -35,7 +37,15 @@ let millTotalEarned = 0; // pièces produites depuis TOUJOURS (le tas de l'avant
 let millLogs = [];      // {x, z, ready, regrow, visual} — visuels créés une fois par initMillScene()
 let millBeltItems = []; // {x, mesh} — planches en transit sur le tapis
 let millPads = [];      // {id, x, z, level, cost, visual, ...} — idem, créées une fois
-let millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
+let millLevels = { carry:0, chop:0, belt:0, shop:0, yard:0, dock:0, clearing:0 };
+let millBundles = 0;      // paquets finis en attente au dépôt
+let millBundleAcc = 0;    // planches sciées pas encore assemblées en paquet
+let millTrucks = [];      // {dock, x, state, load, timer, visual}
+let millDockTimers = [0, 0]; // prochain camion, par quai
+let millLoaders = [];     // chargeurs : {id, x, z, state, carry, timer, visual, facing}
+let millNextLoaderId = 0;
+let millSalaryTimer = 0;
+let millSalaryDue = 0;    // montant de la prochaine paie, affiché dans le HUD
 let millStock = 0;      // planches en attente de sciage dans l'atelier
 let millProcessAcc = 0; // reliquat fractionnaire du sciage entre deux ticks
 let millJamTimer = 0;   // depuis combien de ticks le stock est plein
@@ -55,14 +65,23 @@ function resetMillGame(remise){
   millStock = 0;
   millProcessAcc = 0;
   millJamTimer = 0;
+  // Le dépôt, les camions et le compte à rebours des paies ne se sauvegardent
+  // PAS : reprendre une scierie déjà bouchée, ou avec une paie qui tombe dans
+  // la seconde, serait une punition pour avoir fermé l'onglet.
+  millBundles = 0;
+  millBundleAcc = 0;
+  millSalaryTimer = MILL_SALARY_INTERVAL;
+  millDockTimers = [MILL_TRUCK_TRAVEL, millTruckInterval()];
+  clearMillTrucks();
 
   if(remise){
     millCoins = MILL_COINS_START;
     millEarned = 0;
     millTotalEarned = 0;
-    millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
+    millLevels = { carry:0, chop:0, belt:0, shop:0, yard:0, dock:0, clearing:0 };
     millPads.forEach(p=>{ p.level = 0; p.cost = p.baseCost; });
     clearMillWorkers();
+    clearMillLoaders();
     millSave();
   } else {
     millLoad();
@@ -79,6 +98,8 @@ function resetMillGame(remise){
     millPads.forEach(p=>redrawMillPadLabel(p));
     resetMillHero();
     syncPlankPiles();
+    syncMillYard(0);
+    growMillClearing();
   }
   millBeltItems = [];
 
@@ -111,6 +132,8 @@ function resetMillHero(){
   millHero.dropTimer = 0;
   millHero.padId = null;
   millHero.padTimer = 0;
+  millHero.bundles = 0;
+  millHero.loadTimer = 0;
   if(!millHero.visual){
     const sk = currentSkin();
     millHero.visual = buildHeroCat(sk.fur, sk.accent);
@@ -119,12 +142,23 @@ function resetMillHero(){
     millHero.visual.scale.setScalar(1.35);
     millHero.carryStack = buildCarryStack();
     millHero.visual.add(millHero.carryStack);
+    millHero.bundleStack = buildBundleStack();
+    millHero.visual.add(millHero.bundleStack);
     millScene.add(millHero.visual);
   }
   millHero.visual.visible = true;
   millHero.visual.position.set(millHero.x, 0, millHero.z);
   setMillHeroProgress(0);
   syncCarryStack();
+  syncHeroBundles();
+}
+
+// Pile de paquets portée par le joueur. Distincte de la pile de planches :
+// deux marchandises différentes, deux allures différentes, sinon on ne sait
+// plus ce qu'on transporte.
+function syncHeroBundles(){
+  if(!millHero.bundleStack) return;
+  millHero.bundleStack.children.forEach((p, i)=>{ p.visible = i < millHero.bundles; });
 }
 
 function startMillGame(remise){
@@ -143,6 +177,7 @@ function millSave(){
       totalEarned: millTotalEarned,
       levels: millLevels,
       workers: millWorkers.length,
+      loaders: millLoaders.length,
       padLevels: millPads.map(p=>p.level),
       seen: Date.now()
     }));
@@ -157,14 +192,16 @@ function millLoad(){
     millCoins = MILL_COINS_START;
     millEarned = 0;
     millTotalEarned = 0;
-    millLevels = { carry:0, chop:0, belt:0, value:0, shop:0 };
+    millLevels = { carry:0, chop:0, belt:0, shop:0, yard:0, dock:0, clearing:0 };
     clearMillWorkers();
+    clearMillLoaders();
     return;
   }
   millCoins = save.coins || 0;
   millTotalEarned = save.totalEarned || 0;
   millEarned = 0; // "gagné cette session", remis à zéro à chaque reprise
-  ['carry','chop','belt','value','shop'].forEach(k=>{ millLevels[k] = (save.levels && save.levels[k]) || 0; });
+  ['carry','chop','belt','shop','yard','dock','clearing']
+    .forEach(k=>{ millLevels[k] = (save.levels && save.levels[k]) || 0; });
   if(Array.isArray(save.padLevels)){
     millPads.forEach((p, i)=>{
       p.level = save.padLevels[i] || 0;
@@ -173,7 +210,9 @@ function millLoad(){
     });
   }
   clearMillWorkers();
+  clearMillLoaders();
   for(let i = 0; i < Math.min(MILL_WORKER_MAX, save.workers || 0); i++) hireMillWorker(true);
+  for(let i = 0; i < Math.min(MILL_LOADER_MAX, save.loaders || 0); i++) hireMillLoader(true);
 }
 
 // --- production hors ligne -------------------------------------------------
@@ -218,6 +257,71 @@ function clearMillWorkers(){
   millLogs.forEach(l=>{ l.claimedBy = null; });
 }
 
+function clearMillTrucks(){
+  if(webglSupported){
+    millTrucks.forEach(tr=>{
+      if(tr.visual){ millScene.remove(tr.visual); disposeProceduralGroup(tr.visual); }
+    });
+  }
+  millTrucks = [];
+}
+
+function clearMillLoaders(){
+  if(webglSupported){
+    millLoaders.forEach(w=>{ millScene.remove(w.visual); disposeProceduralGroup(w.visual); });
+  }
+  millLoaders = [];
+  millNextLoaderId = 0;
+}
+
+function hireMillLoader(silencieux){
+  if(millLoaders.length >= MILL_LOADER_MAX) return;
+  const id = millNextLoaderId++;
+  const w = {
+    id, x: MILL_DOCK_X[0] - 2.4 + (id % 4) * 0.7, z: MILL_DOCK_Z - 2.2,
+    state: 'versDepot', carry: 0, timer: 0, facing: 0, visual: null
+  };
+  if(webglSupported){
+    w.visual = buildWorkerCat(MILL_LOADER_COLORS[id % MILL_LOADER_COLORS.length]);
+    w.visual.position.set(w.x, 0, w.z);
+    millScene.add(w.visual);
+  }
+  millLoaders.push(w);
+  if(!silencieux) showToast(t('mill_loader_hired', { n: millLoaders.length }));
+}
+
+function fireMillLoader(){
+  const w = millLoaders.pop();
+  if(!w) return;
+  if(w.visual){ millScene.remove(w.visual); disposeProceduralGroup(w.visual); }
+}
+
+function fireMillWorker(){
+  const w = millWorkers.pop();
+  if(!w) return;
+  if(w.log) w.log.claimedBy = null;
+  if(w.visual){ millScene.remove(w.visual); disposeProceduralGroup(w.visual); }
+}
+
+// La clairière s'agrandit : les rondins supplémentaires existent déjà en 3D
+// (créés une fois pour toutes par initMillScene), on ne fait que les rendre
+// exploitables. Créer un rondin en cours de partie aurait demandé de gérer sa
+// géométrie et son halo à chaud, pour un résultat identique.
+function growMillClearing(){
+  const n = millLogCount();
+  millLogs.forEach((l, i)=>{
+    l.actif = i < n;
+    if(!l.actif){
+      l.ready = false;
+      l.claimedBy = null;
+      l.visual.visible = false;
+    } else if(!l.ready && l.regrow <= 0){
+      l.ready = true;
+      l.visual.visible = true;
+    }
+  });
+}
+
 function hireMillWorker(silencieux){
   if(millWorkers.length >= MILL_WORKER_MAX) return;
   const id = millNextWorkerId++;
@@ -247,6 +351,26 @@ function updateMillHud(){
     wEl.parentElement.classList.toggle('hidden', millWorkers.length === 0);
   }
   updateMillStockGauge();
+  const bEl = document.getElementById('millBundles');
+  if(bEl) bEl.textContent = millBundles + ' / ' + millYardMax();
+  const yWrap = document.getElementById('millBundleWrap');
+  if(yWrap) yWrap.classList.toggle('jam', millYardFull());
+  const sEl = document.getElementById('millSalary');
+  const sWrap = document.getElementById('millSalaryWrap');
+  if(sEl && sWrap){
+    const du = millSalaryPerPay();
+    sWrap.classList.toggle('hidden', du === 0);
+    sEl.textContent = du;
+    // alerte quand la trésorerie ne couvre plus une paie et demie : la
+    // démission doit se voir venir, pas tomber sans prévenir
+    sWrap.classList.toggle('warn', du > 0 && millCoins < du * MILL_SALARY_WARN_COINS);
+  }
+  const cEl = document.getElementById('millHeroBundles');
+  const cWrap = document.getElementById('millHeroBundleWrap');
+  if(cEl && cWrap){
+    cWrap.classList.toggle('hidden', millHero.bundles === 0);
+    cEl.textContent = millHero.bundles;
+  }
 }
 
 // Jauge de stock de l'atelier. C'est LE cadran du mode : il dit, avant la

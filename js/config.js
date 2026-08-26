@@ -502,13 +502,20 @@ const MILL_LEVELS_PER_CHAPTER = 5;
 //    importante de toutes, y était invisible).
 //  - deux dalles à moins de 1,54 l'une de l'autre ont des zones qui se
 //    chevauchent et on ne sait plus laquelle on achète.
+// Une dalle par MAILLON de la chaîne, posée dans la zone qu'elle agrandit :
+// on comprend ce qu'on achète en regardant où on se trouve. L'ancienne dalle
+// "planches mieux payées" a disparu en tant que telle — le prix de vente
+// dépend désormais du quai, puisque c'est lui qui commercialise.
 const MILL_PADS = [
-  { id:'chop',   x: 1.3, z:-5.4, cost:35, icon:'\uD83E\uDE93' }, // coupe plus rapide, en bord de clairière
-  { id:'worker', x: 1.3, z:-3.6, cost:70, icon:'\uD83D\uDC08' }, // embaucher un chat bûcheron
-  { id:'carry',  x:-2.3, z:-1.4, cost:25, icon:'\uD83C\uDF92' }, // + capacité de portage, près de la dépose
-  { id:'value',  x:-0.2, z:-2.4, cost:60, icon:'\uD83D\uDCB0' }, // planches mieux payées
-  { id:'belt',   x: 0.2, z: 1.2, cost:45, icon:'\u2699\uFE0F' }, // tapis plus rapide, sous le tapis
-  { id:'shop',   x: 2.0, z:-0.4, cost:55, icon:'\uD83C\uDFED' }  // atelier : cadence de sciage ET capacité de stock
+  { id:'clearing', x:-3.4, z:-4.4, cost:70,  icon:'\uD83C\uDF32' }, // + de rondins dans la clairière
+  { id:'chop',     x: 1.3, z:-5.4, cost:35,  icon:'\uD83E\uDE93' }, // coupe plus rapide
+  { id:'worker',   x: 1.3, z:-3.6, cost:70,  icon:'\uD83D\uDC08' }, // embaucher un bûcheron
+  { id:'carry',    x:-2.3, z:-1.4, cost:25,  icon:'\uD83C\uDF92' }, // + capacité de portage
+  { id:'shop',     x: 2.0, z:-0.4, cost:55,  icon:'\uD83C\uDFED' }, // atelier : cadence + stock
+  { id:'belt',     x:-2.6, z: 1.0, cost:45,  icon:'\u2699\uFE0F' }, // tapis plus rapide
+  { id:'yard',     x: 2.7, z: 1.2, cost:80,  icon:'\uD83D\uDCE6' }, // + de place au dépôt
+  { id:'dock',     x:-2.9, z: 2.9, cost:100, icon:'\uD83D\uDE9B' }, // camions plus gros, plus fréquents, mieux payés
+  { id:'loader',   x: 2.9, z: 3.1, cost:120, icon:'\uD83D\uDC31' }  // embaucher un chargeur
 ];
 
 // ---------------------------------------------------------------------------
@@ -587,7 +594,8 @@ const MILL_JAM_BELT_CAPACITY = Math.floor((MILL_BELT_END_X - MILL_BELT_START_X) 
 const MILL_HERO_FUR = 0xD9C4A3;
 const MILL_HERO_SCARF = 0x5C8C4A;
 const MILL_HERO_SPEED = 0.082;    // un poil plus vif : ici on fait des allers-retours en continu
-const MILL_BOUNDS = { xMin:-4.2, xMax:3.5, zMin:-7.2, zMax:2.6 };
+// Le terrain s'étend vers l'avant : il porte maintenant le dépôt et le quai.
+const MILL_BOUNDS = { xMin:-4.0, xMax:3.9, zMin:-7.2, zMax:4.5 };
 
 // ===========================================================================
 // Mode 4 : "Palais des Chats" (choix de chemin, puissance qui enfle)
@@ -716,3 +724,88 @@ const PUZZLE_CHALLENGES = [
 // disparaissent au troisième.
 const PUZZLE_BADGE_FADE_START = PUZZLE_SEG_LEN * 2.2;
 const PUZZLE_BADGE_FADE_END = PUZZLE_SEG_LEN * 3.4;
+
+// ===========================================================================
+// L'EXPLOITATION : dépôt, quai de chargement, camions, salaires
+// ===========================================================================
+// La Scierie s'arrêtait à "planche sciée = pièce encaissée". C'était une usine
+// sans clients : la marchandise se transformait en argent par magie, au moment
+// exact où elle sortait de la scie. D'où le blocage signalé — embaucher trois
+// bûcherons de plus saturait l'atelier et il n'y avait rien à faire de plus
+// que d'attendre.
+//
+// La chaîne compte maintenant QUATRE maillons, chacun avec sa propre file
+// d'attente et son propre goulot :
+//
+//   clairière ── planches ──▶ atelier ── paquets ──▶ dépôt ── chargement ──▶ camion
+//    (rondins)    (tapis)      (scie)                (sol)     (à la patte)   (€)
+//
+// Et surtout : ON N'EST PAYÉ QU'AU DÉPART D'UN CAMION. Entre deux départs, la
+// production ne vaut rien tant qu'elle dort au dépôt — alors que les SALAIRES,
+// eux, tombent quoi qu'il arrive. Voilà le système de finance : des recettes
+// par à-coups, des charges continues, et une faillite possible si la chaîne
+// bloque trop longtemps.
+//
+// Chaque maillon s'agrandit contre paiement, donc "être bloqué" devient
+// toujours une question ouverte : quel maillon est le goulot, en ce moment ?
+
+// --- dépôt (paquets de planches finies) ------------------------------------
+// Mesuré sur sept minutes de jeu : avec 6 planches par paquet, un camion
+// toutes les 15 s et 4 paquets de capacité, le plafond de recette tombait à
+// 234 pièces/minute — cinq fois moins qu'avant l'ajout du circuit, et
+// l'exploitation n'atteignait que deux employés. Le circuit doit ajouter des
+// DÉCISIONS, pas diviser les revenus : ces trois valeurs rouvrent le débit.
+const MILL_PLANKS_PER_BUNDLE = 5;   // planches sciées pour former un paquet
+const MILL_YARD_BASE = 4;           // paquets stockables au départ
+const MILL_YARD_PER_LEVEL = 3;
+const MILL_YARD_Z = 1.7;            // centre du dépôt
+// Grille d'empilement. Resserrée après coup : à 0,95 d'écart sur 4 colonnes,
+// la dalle du dépôt faisait 4,6 unités de large — plus que le tapis roulant,
+// et les paquets y paraissaient aussi gros que le chat.
+const MILL_YARD_COLS = 4;
+const MILL_YARD_SPACING = 0.62;
+
+// --- quai de chargement et camions -----------------------------------------
+// Quai remonté de 4,5 à 3,7 : les camions garés passaient derrière le
+// joystick, en bas à gauche de l'écran. Ce n'est pas le cadrage 3D qui était
+// en cause (ils tenaient dans l'image) mais la superposition avec la commande.
+const MILL_DOCK_Z = 3.7;
+const MILL_DOCK_X = [-1.5, 1.5];    // emplacement du 1er puis du 2e quai
+const MILL_TRUCK_CAPACITY_BASE = 5; // paquets par camion
+const MILL_TRUCK_CAPACITY_PER_LEVEL = 2;
+const MILL_TRUCK_PRICE_BASE = 26;   // pièces par paquet livré
+const MILL_TRUCK_PRICE_PER_LEVEL = 9;
+const MILL_TRUCK_INTERVAL = 660;    // ~11 s entre deux camions sur un même quai
+const MILL_TRUCK_INTERVAL_MIN = 300;
+const MILL_TRUCK_INTERVAL_PER_LEVEL = 90;
+const MILL_TRUCK_WAIT = 1200;       // ~20 s d'attente, puis il repart même à moitié plein
+const MILL_TRUCK_TRAVEL = 90;       // ticks d'arrivée / de départ sur la route
+const MILL_TRUCK_ROAD_X = 9;        // d'où il vient et où il repart
+const MILL_LOAD_INTERVAL = 10;      // cadence de chargement d'un paquet
+
+// --- chargeurs -------------------------------------------------------------
+// Deuxième métier : ils font la navette dépôt -> camion. Sans eux, tout le
+// chargement repose sur le joueur, et une grosse scierie devient injouable à
+// la main — c'est justement ce qui doit pousser à embaucher.
+const MILL_LOADER_MAX = 4;
+const MILL_LOADER_SPEED = 0.062;
+const MILL_LOADER_CARRY = 2;
+const MILL_LOADER_COLORS = [0x6E7F8C, 0xA8926E, 0x8C6E7F, 0x7F8C6E];
+
+// --- salaires --------------------------------------------------------------
+// La contrepartie de l'embauche. Prélevés à intervalle fixe, quoi qu'il se
+// passe : c'est ce qui rend une chaîne bloquée réellement COÛTEUSE au lieu
+// d'être seulement improductive.
+const MILL_SALARY_INTERVAL = 1800;  // ~30 s entre deux paies
+const MILL_WAGE_WORKER = 22;        // par bûcheron et par paie
+const MILL_WAGE_LOADER = 18;        // par chargeur et par paie
+// Impayé = démission. Une seule règle, immédiatement lisible, et qui remet
+// l'exploitation à un niveau qu'elle peut financer au lieu de laisser le
+// joueur s'enfoncer dans une dette dont il ne sortirait jamais.
+const MILL_SALARY_WARN_COINS = 1.5; // on prévient quand il reste moins de 1,5 paie
+
+// --- agrandissement de la clairière ----------------------------------------
+// Le premier goulot rencontré quand on embauche : cinq rondins pour six
+// bûcherons, ils se marchaient dessus en attendant la repousse.
+const MILL_LOG_PER_LEVEL = 2;
+const MILL_LOG_COUNT_MAX = 13;

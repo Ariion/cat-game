@@ -751,3 +751,8 @@ canvas{
 .mode-card[data-game="mill"]  { --game-accent:#A9743C; --game-tint:rgba(169,116,60,0.16);  --game-disc:#F0E0C8; }
 .mode-card[data-game="puzzle"]{ --game-accent:#B08A4E; --game-tint:rgba(176,138,78,0.16);  --game-disc:#F3E9D6; }
 .mode-card-title{ letter-spacing:0.01em; }
+
+/* la masse salariale passe en rouge quand la trésorerie ne couvre plus une
+   paie et demie : une démission ne doit jamais tomber sans prévenir */
+.stock-badge.warn .stock-label{ color: var(--gold-deep); font-weight:700; }
+.stock-badge.jam .stock-label{ color:#C94868; font-weight:700; }
