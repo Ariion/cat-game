@@ -11,11 +11,12 @@ let puzzleScene, puzzleCamera;
 let puzzleLevelGroup = null;   // tout le décor du niveau courant, jeté d'un bloc
 let puzzleMarbleTex = null;
 
+// createStoneTexture() (celle du Chatteau Fort) donnait un moellon gris-sable
+// uniforme : le sol du palais ressemblait à une plage, pas à du marbre. Les
+// dalles de createMarbleTexture() apportent en prime un repère de vitesse —
+// leurs joints défilent, ce qu'un aplat ne pouvait pas faire.
 function puzzleMarbleTexture(){
-  if(!puzzleMarbleTex){
-    puzzleMarbleTex = createStoneTexture(0xF2EAD8, 0xD8CBB0);
-    puzzleMarbleTex.wrapS = puzzleMarbleTex.wrapT = THREE.RepeatWrapping;
-  }
+  if(!puzzleMarbleTex) puzzleMarbleTex = createMarbleTexture();
   return puzzleMarbleTex;
 }
 
@@ -57,6 +58,7 @@ function buildNumberBadge(text, kind){
   sprite.userData = { canvas: c, ctx: c.getContext('2d'), tex, kind, text: null };
   sprite.scale.set(1.5, 0.75, 1);
   sprite.renderOrder = 5;
+  sprite.material.opacity = 1; // modulée à la distance, voir fadeDistantBadge()
   redrawNumberBadge(sprite, text);
   return sprite;
 }
@@ -107,8 +109,10 @@ function redrawNumberBadge(sprite, text){
 function buildMarbleFloor(width, depth){
   const tex = puzzleMarbleTexture().clone();
   tex.needsUpdate = true;
-  tex.repeat.set(Math.max(1, Math.round(width/2)), Math.max(1, Math.round(depth/2)));
-  const mat = new THREE.MeshStandardMaterial({ map: tex, color: 0xEDE2CC, flatShading:true, roughness:0.85 });
+  // une dalle tous les ~1,9 unité : assez fin pour donner l'échelle du chat,
+  // assez large pour ne pas moirer quand le sol s'éloigne
+  tex.repeat.set(Math.max(1, Math.round(width/1.9)), Math.max(1, Math.round(depth/1.9)));
+  const mat = new THREE.MeshStandardMaterial({ map: tex, flatShading:true, roughness:0.85 });
   const g = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(width, 0.5, depth), mat);
   slab.position.y = -0.25;
@@ -177,6 +181,7 @@ function buildColumn(x, z, h){
   cap.position.y = h + 0.31;
   cap.castShadow = true;
   g.add(cap);
+  addContactShadow(g, 0.5, 0.03);
   g.position.set(x, 0, z);
   return g;
 }
@@ -280,6 +285,7 @@ function clearPuzzleLevel(){
       return;
     }
     if(!o.isMesh && !o.isInstancedMesh) return;
+    if(o.userData.sharedResource) return; // ressources communes aux quatre jeux
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     if(o.userData.sharedModel){
       // Géométrie ET textures appartiennent au GLB d'origine, partagé avec

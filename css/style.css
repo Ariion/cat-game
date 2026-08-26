@@ -711,3 +711,43 @@ canvas{
 /* barr&eacute; d&egrave;s qu'il est perdu : continuer à l'afficher intact ferait croire
    qu'il est encore jouable */
 .challenge-banner.failed{ background: rgba(140,60,80,0.82); text-decoration: line-through; opacity:0.8; }
+
+/* ===========================================================================
+   Identité visuelle par jeu (menu principal)
+   ===========================================================================
+   Les quatre cartes étaient strictement identiques : même beige, même
+   typographie, un emoji pour seule différence. On ne reconnaissait pas un jeu,
+   on lisait son nom. Chaque carte porte donc désormais la couleur dominante de
+   SA scène — le vert prairie de la Bataille, le bleu du Chatteau Fort, le bois
+   de la Scierie, le marbre du Palais — et l'emoji est posé sur un disque de
+   cette couleur. Aucune image ajoutée : que du CSS. */
+.mode-card{
+  position:relative;
+  overflow:hidden;
+  border-left: 5px solid var(--game-accent, transparent);
+}
+/* bandeau dégradé sur toute la carte, très léger : il teinte sans nuire à la
+   lisibilité du texte posé dessus */
+.mode-card::before{
+  content:'';
+  position:absolute; inset:0;
+  background: linear-gradient(135deg, var(--game-tint, transparent) 0%, transparent 62%);
+  pointer-events:none;
+}
+.mode-card > *{ position:relative; }
+.mode-card-icon{
+  display:flex; align-items:center; justify-content:center;
+  width:62px; height:62px;
+  border-radius:50%;
+  background: var(--game-disc, rgba(255,255,255,0.65));
+  box-shadow: inset 0 -3px 0 rgba(59,50,38,0.08);
+  /* Le disque contient DEUX emoji : à la taille d'origine (32 px) ils ne
+     tenaient pas côte à côte et se retrouvaient empilés l'un sur l'autre. */
+  font-size:25px !important; line-height:1;
+  white-space:nowrap;
+}
+.mode-card[data-game="battle"]{ --game-accent:#6B8F71; --game-tint:rgba(107,143,113,0.16); --game-disc:#DCEBDA; }
+.mode-card[data-game="tower"] { --game-accent:#4E86B8; --game-tint:rgba(78,134,184,0.16);  --game-disc:#D8E8F3; }
+.mode-card[data-game="mill"]  { --game-accent:#A9743C; --game-tint:rgba(169,116,60,0.16);  --game-disc:#F0E0C8; }
+.mode-card[data-game="puzzle"]{ --game-accent:#B08A4E; --game-tint:rgba(176,138,78,0.16);  --game-disc:#F3E9D6; }
+.mode-card-title{ letter-spacing:0.01em; }

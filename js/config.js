@@ -411,7 +411,7 @@ const TOWER_UPGRADE_COST_GROWTH = 1.45;
 const HERO_UPGRADE_FRAMES = 48; // un peu plus long que bâtir : c'est un choix plus lourd
 
 const TOWER_TURRET_LEVELS = [
-  { killsNeeded: 0,  damage: 20, range: 2.6, fireInterval: 30, scale: 1.55, accent: 0xC9A063 },
+  { killsNeeded: 0,  damage: 20, range: 2.6, fireInterval: 30, scale: 1.55, accent: 0x8C6A3F }, // assombri : le tan d'avant ne portait aucun contraste
   { killsNeeded: 4,  damage: 30, range: 2.9, fireInterval: 26, scale: 1.8,  accent: 0xD9D9E0 },
   { killsNeeded: 10, damage: 46, range: 3.2, fireInterval: 22, scale: 2.1,  accent: 0xE3A857 }
 ];
@@ -704,3 +704,15 @@ const PUZZLE_CHALLENGES = [
   { id:'nogold',   gems:2 },  // ne ramasser aucun tas de pièces
   { id:'flawless', gems:2 }   // ne jamais passer sur une voie vide
 ];
+
+// ---------------------------------------------------------------------------
+// Lisibilité du Palais : estompage des pastilles lointaines
+// ---------------------------------------------------------------------------
+// Mesuré sur une partie réelle : 24 pastilles à l'écran en même temps, dont 15
+// faisant moins de 34 px de large — donc illisibles. Le fond du couloir était
+// une bouillie de chiffres. La publicité dont ce mode s'inspire n'en montre
+// jamais plus de six ; au-delà, un nombre n'informe plus, il encombre.
+// Les pastilles s'effacent donc progressivement au-delà de deux carrefours et
+// disparaissent au troisième.
+const PUZZLE_BADGE_FADE_START = PUZZLE_SEG_LEN * 2.2;
+const PUZZLE_BADGE_FADE_END = PUZZLE_SEG_LEN * 3.4;

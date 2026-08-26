@@ -20,6 +20,7 @@ let puzzleHero = {
 };
 let puzzleItems = [];     // {type, x, z, value, visual, badge, taken}
 let puzzleRows = [];      // {z, resolved, lanes:[item|null x3]} — un carrefour = une LIGNE à franchir
+let puzzleShadowField = null; // toutes les ombres de contact du niveau, en un seul maillage instancié
 let puzzleGuard = null;   // {power, z, visual, badge, beaten}
 let puzzleSegments = [];
 let puzzleRevivesUsed = 0; // pour renchérir la 2e résurrection d'une même course

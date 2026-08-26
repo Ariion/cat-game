@@ -391,6 +391,28 @@ function buildTurretCat(){
     g.add(paw);
   });
 
+  // MARQUES SUR LE CRÂNE. Vu de la plongée du jeu, on ne voit du chat que le
+  // dessus de sa tête : le museau, le nez et les yeux, tous placés à l'avant,
+  // sont hors de vue. Sans ces rayures, la tourelle se lit comme une poire
+  // orange posée sur un socle (constaté en capture). Elles ne servent qu'à
+  // l'angle de caméra réel du jeu, pas à une jolie vue de face.
+  [-0.09, 0, 0.09].forEach((off, i)=>{
+    const stripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.045, 0.02, 0.20 - Math.abs(off)*0.6), turretDarkMat);
+    stripe.position.set(off, 1.09, -0.02 - Math.abs(off)*0.25);
+    stripe.rotation.x = -0.25;
+    g.add(stripe);
+  });
+  // dos rayé lui aussi, pour que la silhouette vue de dessus reste "chat"
+  [-0.10, 0.10].forEach(off=>{
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.22), turretDarkMat);
+    back.position.set(off, 0.63, -0.13);
+    back.rotation.x = 0.5;
+    g.add(back);
+  });
+
+  addContactShadow(g, 0.46);
+
   // queue enroulée à plat autour du train arrière : lisible vue de dessus,
   // là où une queue dressée se confondait avec un piquet
   const tail = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.055, 8, 20, Math.PI*1.2), turretFurMat);
@@ -490,6 +512,8 @@ function buildHeroCat(furHex, scarfHex){
   g.add(tail);
 
   g.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+
+  addContactShadow(g, 0.42);
 
   // anneau de progression de construction, au-dessus de la tête
   const ring = buildHeroBuildRing();
@@ -764,7 +788,9 @@ function animateTowerBanners(frame){
 // Arbres, rochers et touffes qui bordent le chemin, façon petite vallée —
 // purement décoratif (aucune incidence sur portée/collision), mais c'est ce
 // qui remplit le cadre autour du tracé.
+let towerSceneryShadowSpots = [];
 function buildTowerScenery(){
+  towerSceneryShadowSpots = [];
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x9B9186, flatShading:true, roughness:0.95 });
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7A5C3E, flatShading:true, roughness:0.9 });
   const leafMatA = new THREE.MeshStandardMaterial({ color: 0x5E8A56, flatShading:true, roughness:0.85 });
@@ -804,14 +830,18 @@ function buildTowerScenery(){
       leaves.scale.set(1, 0.85 + Math.random()*0.3, 1);
       tree.add(leaves);
       tree.position.set(x, 0, z);
-      tree.scale.setScalar(0.8 + Math.random()*0.7);
+      const treeScale = 0.8 + Math.random()*0.7;
+      tree.scale.setScalar(treeScale);
+      towerSceneryShadowSpots.push([x, z, 0.55 * treeScale]);
       tree.rotation.y = Math.random()*Math.PI*2;
       tree.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
       towerScene.add(tree);
     } else if(r < 0.55){
       const rock = new THREE.Mesh(rockGeo, rockMat);
       rock.position.set(x, 0.14, z);
-      rock.scale.set(0.7+Math.random()*0.8, 0.5+Math.random()*0.6, 0.7+Math.random()*0.8);
+      const rw = 0.7+Math.random()*0.8;
+      rock.scale.set(rw, 0.5+Math.random()*0.6, 0.7+Math.random()*0.8);
+      towerSceneryShadowSpots.push([x, z, 0.32 * rw]);
       rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
       rock.castShadow = true;
       towerScene.add(rock);
@@ -829,6 +859,22 @@ function buildTowerScenery(){
 // Barre de vie flottante au-dessus d'un chien — même technique que
 // buildPowerLabel()/redrawPowerLabel() dans scene3d.js (texture canvas,
 // redessinée seulement quand la valeur affichée change).
+// Ancre au sol tout ce qui est posé : socles des emplacements, gamelle,
+// maison, tours de garde, et chaque élément de décor. Un seul appel de dessin
+// pour l'ensemble (voir buildContactShadowField).
+function buildTowerContactShadows(){
+  const spots = [];
+  towerSlots.forEach(s=>spots.push([s.x, s.z, 0.62]));
+  const last = TOWER_PATH[TOWER_PATH.length - 1];
+  spots.push([last.x, last.z, 0.8]);
+  spots.push([last.x + TOWER_HOUSE_OFFSET.x, last.z + TOWER_HOUSE_OFFSET.z, 1.5]);
+  const first = TOWER_PATH[0];
+  [-0.95, 0.95].forEach(off=>spots.push([first.x + off, first.z, 0.5]));
+  towerSceneryShadowSpots.forEach(sp=>spots.push(sp));
+  const field = buildContactShadowField(spots);
+  if(field) towerScene.add(field);
+}
+
 function buildTowerDogHpBar(){
   const c = document.createElement('canvas');
   c.width = 64; c.height = 10;
@@ -983,8 +1029,15 @@ function initTowerScene(){
   sunGlow.position.set(7, 6, -34);
   towerScene.add(sunGlow);
 
+  // Sol TEXTURÉ et non plus un aplat : c'est la plus grande surface de
+  // l'écran, et elle était vide. La teinte d'ambiance (qui change au fil des
+  // vagues, du plein jour au crépuscule) est appliquée PAR-DESSUS la texture
+  // via .color — le fondu d'ambiance continue donc de fonctionner tel quel.
+  const grassTex = createGrassTexture().clone();
+  grassTex.needsUpdate = true;
+  grassTex.repeat.set(11, 12);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 44), (towerGroundMat =
-    new THREE.MeshStandardMaterial({ color: amb0.ground, flatShading:true, roughness:1 })));
+    new THREE.MeshStandardMaterial({ map: grassTex, color: amb0.ground, flatShading:true, roughness:1 })));
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -6);
   ground.receiveShadow = true;
@@ -1058,6 +1111,9 @@ function initTowerScene(){
   });
 
   buildTowerScenery(); // après les slots : le décor s'écarte du chemin ET des emplacements
+  buildTowerContactShadows();
+  // remplit la bande de ciel vide du haut de l'écran (voir textures.js)
+  addHorizonTreelines(towerScene, -27.4, 64, 0x93B3A4, 0x63896F); // le sol s'arrête à z = -28
 
   towerRaycaster = new THREE.Raycaster();
   towerPointerNDC = new THREE.Vector2();

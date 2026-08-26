@@ -100,7 +100,14 @@ function buildPuzzleBoard(){
   puzzleMultsTotal = 0;
   puzzleMultsTaken = 0;
   const levelGroup = buildPuzzleLevel(puzzleSegments);
+  // Ombres de contact de TOUS les objets du niveau en un seul InstancedMesh.
+  // Une par objet coûtait 24 appels de dessin — 10 % du budget du mode — pour
+  // des objets qui ne bougent jamais de leur carrefour. On note l'indice de
+  // chaque instance dans l'objet : ramasser un coffre doit aussi effacer son
+  // ombre (voir hidePuzzleShadow).
+  const spotsOmbres = [];
 
+  puzzleShadowField = null;
   puzzleSegments.forEach((seg, i)=>{
     const z = puzzleSegmentZ(i);
     if(seg.guard){
@@ -110,6 +117,7 @@ function buildPuzzleBoard(){
       const visual = spawnPuzzleDog(seg.power, true);
       visual.position.set(0, 0, z);
       levelGroup.add(visual);
+      spotsOmbres.push([0, z, 0.9]);
       const badge = buildNumberBadge(puzzleFormat(seg.power), 'guard');
       badge.scale.set(2.1, 1.05, 1);
       badge.position.set(0, 2.6, z);
@@ -139,11 +147,26 @@ function buildPuzzleBoard(){
       badge.position.set(x, lane.type === 'foe' ? 1.9 : 1.15, z);
       levelGroup.add(badge);
       if(lane.type === 'mult') puzzleMultsTotal++;
-      const item = { type: lane.type, value: lane.value, x, z, visual, badge, taken:false };
+      const item = { type: lane.type, value: lane.value, x, z, visual, badge, taken:false,
+                     shadowIndex: spotsOmbres.length };
+      spotsOmbres.push([x, z, lane.type === 'foe' ? 0.45 : (lane.type === 'mult' ? 0.55 : 0.42)]);
       row.lanes[li] = item;
       puzzleItems.push(item);
     });
   });
+
+  puzzleShadowField = buildContactShadowField(spotsOmbres);
+  if(puzzleShadowField) levelGroup.add(puzzleShadowField);
+}
+
+// Efface l'ombre d'un objet ramassé, en réduisant son instance à zéro : c'est
+// la contrepartie du regroupement en InstancedMesh — on ne peut pas
+// simplement retirer un objet de la scène, il faut annuler sa matrice.
+const puzzleZeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+function hidePuzzleShadow(it){
+  if(!puzzleShadowField || it.shadowIndex === undefined) return;
+  puzzleShadowField.setMatrixAt(it.shadowIndex, puzzleZeroMatrix);
+  puzzleShadowField.instanceMatrix.needsUpdate = true;
 }
 
 // Tire un défi réalisable pour ce niveau, ou null. Le premier niveau n'en a
@@ -228,9 +251,13 @@ function updatePuzzleHero(){
 function updatePuzzleItems(){
   for(const it of puzzleItems){
     if(it.taken) continue;
-    if(it.badge) it.badge.position.y += Math.sin((puzzleFrame + it.z*7) * 0.06) * 0.002;
+    if(it.badge){
+      it.badge.position.y += Math.sin((puzzleFrame + it.z*7) * 0.06) * 0.002;
+      fadeDistantBadge(it.badge, puzzleHero.z - it.z);
+    }
     if(it.type !== 'foe') it.visual.rotation.y += 0.02;
   }
+  if(puzzleGuard && !puzzleGuard.beaten) fadeDistantBadge(puzzleGuard.badge, puzzleHero.z - puzzleGuard.z);
   for(const row of puzzleRows){
     if(row.resolved || puzzleHero.z > row.z) continue;
     row.resolved = true;
@@ -277,6 +304,20 @@ function puzzleChallengeMet(){
   return true;
 }
 
+// Une pastille trop loin devant n'apporte rien : on ne peut plus rien en
+// faire avant deux carrefours, et elle recouvre celles qui comptent. Elle
+// s'efface donc — et `visible = false` au bout, pour ne même plus la dessiner.
+function fadeDistantBadge(badge, dist){
+  if(!badge) return;
+  let a = 1;
+  if(dist > PUZZLE_BADGE_FADE_START){
+    a = 1 - (dist - PUZZLE_BADGE_FADE_START) / (PUZZLE_BADGE_FADE_END - PUZZLE_BADGE_FADE_START);
+    a = Math.max(0, Math.min(1, a));
+  }
+  badge.visible = a > 0.02;
+  if(badge.visible) badge.material.opacity = a;
+}
+
 function resolvePuzzleHit(it){
   it.taken = true;
   if(it.type === 'gold'){
@@ -300,6 +341,7 @@ function resolvePuzzleHit(it){
   }
   it.visual.visible = false;
   if(it.badge) it.badge.visible = false;
+  hidePuzzleShadow(it);
 }
 
 function showPuzzleLevelWin(){
@@ -373,6 +415,7 @@ function puzzleRevive(){
       it.taken = true;
       it.visual.visible = false;
       if(it.badge) it.badge.visible = false;
+      hidePuzzleShadow(it);
     });
   });
   if(puzzleGuard && !puzzleGuard.beaten && Math.abs(puzzleGuard.z - puzzleHero.z) < PUZZLE_SEG_LEN){

@@ -54,16 +54,23 @@ const BIOMES = [
   },
   { // 3 — Désert
     name: "desert",
-    skySteps: [0x7FAAD1, 0xE8C48A, 0xF3D9A6, 0xF7E8C8],
-    fog: 0xEFD3A0,
-    ground: 0xD9B375,
-    mountainFar: 0xC2A06E, mountainNear: 0xA9824F,
-    foliageA: 0x8C9B4A, foliageB: 0xB58A4A,
-    grass: 0xC0A25E,
-    hemiSky: 0xfff2d0, hemiGround: 0xab8752,
+    // Ce biome était MONOCHROME : sol, montagnes, ciel, brume et poussière
+    // partageaient la même teinte ambrée et la même valeur, si bien que le
+    // chat lui-même disparaissait dans le décor (constaté en capture). Les
+    // montagnes passent donc à un brun-mauve désaturé (elles se détachent du
+    // sable au lieu de s'y fondre), le sol descend d'un cran en luminosité,
+    // et la poussière devient claire pour se lire comme des grains qui
+    // accrochent la lumière plutôt que comme du bruit de la même couleur.
+    skySteps: [0x6E9BC6, 0xD8B384, 0xEDD3A2, 0xF7E8C8],
+    fog: 0xE7CFA6,
+    ground: 0xC49B62,
+    mountainFar: 0xBBA39B, mountainNear: 0x8E6C5C,
+    foliageA: 0x7C8B44, foliageB: 0xA87C42,
+    grass: 0xAE8F50,
+    hemiSky: 0xfff2d0, hemiGround: 0x9c7a4a,
     sun: 0xffe6b0,
     // poussière portée par le vent, surtout horizontale
-    weather: { color: 0xE8C48A, opacity: 0.4, fallSpeed: 0.003, driftSpeed: 0.022, size: 0.045 },
+    weather: { color: 0xFFF3DC, opacity: 0.5, fallSpeed: 0.003, driftSpeed: 0.022, size: 0.04 },
     // la chaleur les rend plus agressifs : ennemis plus rapides
     gameplayMods: { moveLerpMult: 1, enemySpeedMult: 1.25, fogDensityMult: 1 }
   }

@@ -361,13 +361,25 @@ function redrawTurretRankLabel(sprite, level){
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = level === 1 ? '#3B3226' : '#FFF6E2'; // le rang II est argenté : texte sombre pour rester lisible
+  // La couleur du texte se DÉDUIT de la luminance du fond, au lieu d'un test
+  // codé en dur sur le rang. L'ancienne règle ("sombre seulement au rang II")
+  // laissait un texte blanc sur le tan clair du rang I et sur l'or du rang
+  // III : le chiffre existait mais ne se voyait pas, les tourelles avaient
+  // toutes l'air de porter une pastille vide (constaté en capture). Un
+  // contour renforce le tout, quel que soit le grade extrapolé en infini.
+  const lum = (((accent >> 16) & 255) * 0.299 + ((accent >> 8) & 255) * 0.587 + (accent & 255) * 0.114) / 255;
+  const clair = lum < 0.55;
   // Chiffres romains pour les 3 grades dessinés, puis le NOMBRE au-delà :
   // en infini les grades ne sont plus bornés, et un tableau de 3 entrées
   // renvoyait undefined (la tourelle affichait 'I' à vie).
   const roman = ['I', 'II', 'III'][level];
   const txt = roman || String(level + 1);
   ctx.font = (txt.length > 2 ? '800 24px' : '800 30px') + ' Fredoka, sans-serif';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = clair ? 'rgba(30,24,16,0.85)' : 'rgba(255,246,226,0.9)';
+  ctx.strokeText(txt, c.width/2, c.height/2 + 1);
+  ctx.fillStyle = clair ? '#FFF6E2' : '#3B3226';
   ctx.fillText(txt, c.width/2, c.height/2 + 1);
   ud.tex.needsUpdate = true;
 }
@@ -571,6 +583,7 @@ function spawnTowerDog(indexInWave){
     }
   }
   visual.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  addContactShadow(visual, dogHeight * 0.42);
   const start = TOWER_PATH[0];
   visual.position.set(start.x, 0, start.z);
   towerScene.add(visual);

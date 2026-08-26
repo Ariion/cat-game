@@ -163,6 +163,7 @@ function buildWorkerCat(colorHex){
   }
   g.add(load);
   g.userData.load = load;
+  addContactShadow(g, 0.40);
   return g;
 }
 
@@ -400,8 +401,12 @@ function initMillScene(){
   millScene.add(millSunLight);
   millScene.add(millSunLight.target);
 
+  const grassTex = createGrassTexture().clone();
+  grassTex.needsUpdate = true;
+  grassTex.repeat.set(11, 12);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 44),
-    new THREE.MeshStandardMaterial({ color: 0x8FBF6A, flatShading:true, roughness:1 }));
+    // la texture est en luminance : c'est .color qui donne le vert
+    new THREE.MeshStandardMaterial({ map: grassTex, color: 0x9FCF76, flatShading:true, roughness:1 }));
   ground.rotation.x = -Math.PI/2;
   ground.position.set(0, 0, -4);
   ground.receiveShadow = true;
@@ -468,7 +473,8 @@ function initMillScene(){
     [-4.4,-6.4,1.0], [4.0,-5.6,0.95], [-4.6,-3.2,0.9], [4.4,-2.8,0.9],
     [-4.6,0.4,0.85], [4.4,0.8,0.85]
   ];
-  treeSpots.forEach(([x,z,sc])=>millScene.add(buildMillTree(x, z, sc)));
+  const millShadowSpots = [];
+  treeSpots.forEach(([x,z,sc])=>{ millScene.add(buildMillTree(x, z, sc)); millShadowSpots.push([x, z, 0.55*sc]); });
 
   // AVANT-PLAN. Sans lui le tiers bas de l'écran était une nappe d'herbe vide
   // (vérifié en capture) : le format portrait donne beaucoup de hauteur, et
@@ -482,15 +488,21 @@ function initMillScene(){
   millPlankPiles.forEach(pile=>millScene.add(pile));
   const bushSpots = [[-3.4,2.3,1.0],[-3.9,1.0,0.8],[3.0,2.4,0.95],[3.4,1.2,0.85],[-0.2,2.6,0.7]];
   bushSpots.forEach(([x,z,sc])=>millScene.add(buildBush(x, z, sc)));
-  millScene.add(buildMillTree(-4.0, 2.6, 0.75));
-  millScene.add(buildMillTree(3.9, 2.7, 0.7));
+  millScene.add(buildMillTree(-4.0, 2.6, 0.75)); millShadowSpots.push([-4.0, 2.6, 0.41]);
+  millScene.add(buildMillTree(3.9, 2.7, 0.7));   millShadowSpots.push([3.9, 2.7, 0.39]);
   // Bande la plus proche, HORS de la zone où le chat peut aller (MILL_BOUNDS
   // s'arrête à z = 2.6) : elle ne sert qu'à occuper le bas du cadre, que le
   // format portrait laissait en herbe nue sur près d'un quart de la hauteur.
   const closeSpots = [[-3.2,4.0,1.05],[-1.4,4.6,0.9],[0.9,4.4,1.0],[2.8,4.1,0.95]];
-  closeSpots.forEach(([x,z,sc])=>millScene.add(buildMillTree(x, z, sc)));
+  closeSpots.forEach(([x,z,sc])=>{ millScene.add(buildMillTree(x, z, sc)); millShadowSpots.push([x, z, 0.55*sc]); });
   [[-2.3,3.5,1.1],[-0.3,3.7,0.95],[1.9,3.5,1.0],[3.4,3.6,0.9],[-4.0,3.6,0.9]]
-    .forEach(([x,z,sc])=>millScene.add(buildBush(x, z, sc)));
+    .forEach(([x,z,sc])=>{ millScene.add(buildBush(x, z, sc)); millShadowSpots.push([x, z, 0.5*sc]); });
+  millShadowSpots.push([MILL_WORKSHOP_X, MILL_BELT_Z, 1.3]);
+  millLogs.forEach(l=>millShadowSpots.push([l.x, l.z, 0.55]));
+  millShadowSpots.push([1.0, 2.4, 0.75], [-1.0, 2.5, 0.7]);
+  const millField = buildContactShadowField(millShadowSpots);
+  if(millField) millScene.add(millField);
+  addHorizonTreelines(millScene, -25.4, 60, 0x8CAE93, 0x5A8259); // le sol s'arrête à z = -26
 
   onResizeMill();
 }

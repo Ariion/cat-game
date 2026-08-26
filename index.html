@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=45">
+<link rel="stylesheet" href="css/style.css?v=47">
 </head>
 <body>
 
@@ -165,22 +165,22 @@
         <span class="noads-badge hidden" id="menuNoAdsBadge" data-i18n="menu_noads_badge">Sans pub</span>
       </div>
       <div class="mode-grid">
-        <button class="mode-card" onclick="selectBattleMode()">
+        <button class="mode-card" data-game="battle" onclick="selectBattleMode()">
           <span class="mode-card-icon">&#128049;&#9876;&#65039;</span>
           <span class="mode-card-title" data-i18n="mode_battle_title">Bataille de Chats</span>
           <span class="mode-card-desc" data-i18n="mode_battle_desc">Cours, agrandis ta horde et repousse les chiens.</span>
         </button>
-        <button class="mode-card" onclick="selectTowerMode()">
+        <button class="mode-card" data-game="tower" onclick="selectTowerMode()">
           <span class="mode-card-icon">&#127984;&#128031;</span>
           <span class="mode-card-title" data-i18n="mode_tower_title">Chatteau Fort</span>
           <span class="mode-card-desc" data-i18n="mode_tower_desc">Place des chats-tourelles pour défendre la gamelle.</span>
         </button>
-        <button class="mode-card" onclick="selectMillMode()">
+        <button class="mode-card" data-game="mill" onclick="selectMillMode()">
           <span class="mode-card-icon">&#129717;&#128049;</span>
           <span class="mode-card-title" data-i18n="mode_mill_title">Chat-Scierie</span>
           <span class="mode-card-desc" data-i18n="mode_mill_desc">Coupe le bois, alimente le tapis, agrandis la scierie.</span>
         </button>
-        <button class="mode-card" onclick="selectPuzzleMode()">
+        <button class="mode-card" data-game="puzzle" onclick="selectPuzzleMode()">
           <span class="mode-card-icon">&#127963;&#65039;&#9889;</span>
           <span class="mode-card-title" data-i18n="mode_puzzle_title">Palais des Chats</span>
           <span class="mode-card-desc" data-i18n="mode_puzzle_desc">Choisis ta voie, gonfle ta puissance, franchis le gardien.</span>
@@ -406,33 +406,34 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=45"></script>
-<script src="js/vendor/postprocessing.js?v=45"></script>
-<script src="js/config.js?v=45"></script>
-<script src="js/meta.js?v=45"></script>
-<script src="js/biomes.js?v=45"></script>
-<script src="js/i18n.js?v=45"></script>
-<script src="js/audio.js?v=45"></script>
-<script src="js/state.js?v=45"></script>
-<script src="js/towerState.js?v=45"></script>
-<script src="js/millState.js?v=45"></script>
-<script src="js/puzzleState.js?v=45"></script>
-<script src="js/scene3d.js?v=45"></script>
-<script src="js/towerScene3d.js?v=45"></script>
-<script src="js/millScene3d.js?v=45"></script>
-<script src="js/puzzleScene3d.js?v=45"></script>
-<script src="js/render3d.js?v=45"></script>
-<script src="js/towerRender3d.js?v=45"></script>
-<script src="js/millRender3d.js?v=45"></script>
-<script src="js/puzzleRender3d.js?v=45"></script>
-<script src="js/gameplay.js?v=45"></script>
-<script src="js/towerGameplay.js?v=45"></script>
-<script src="js/millGameplay.js?v=45"></script>
-<script src="js/puzzleGameplay.js?v=45"></script>
-<script src="js/postfx.js?v=45"></script>
-<script src="js/shop.js?v=45"></script>
-<script src="js/modes.js?v=45"></script>
-<script src="js/input.js?v=45"></script>
-<script src="js/main.js?v=45"></script>
+<script src="js/vendor/GLTFLoader.js?v=47"></script>
+<script src="js/vendor/postprocessing.js?v=47"></script>
+<script src="js/textures.js?v=47"></script>
+<script src="js/config.js?v=47"></script>
+<script src="js/meta.js?v=47"></script>
+<script src="js/biomes.js?v=47"></script>
+<script src="js/i18n.js?v=47"></script>
+<script src="js/audio.js?v=47"></script>
+<script src="js/state.js?v=47"></script>
+<script src="js/towerState.js?v=47"></script>
+<script src="js/millState.js?v=47"></script>
+<script src="js/puzzleState.js?v=47"></script>
+<script src="js/scene3d.js?v=47"></script>
+<script src="js/towerScene3d.js?v=47"></script>
+<script src="js/millScene3d.js?v=47"></script>
+<script src="js/puzzleScene3d.js?v=47"></script>
+<script src="js/render3d.js?v=47"></script>
+<script src="js/towerRender3d.js?v=47"></script>
+<script src="js/millRender3d.js?v=47"></script>
+<script src="js/puzzleRender3d.js?v=47"></script>
+<script src="js/gameplay.js?v=47"></script>
+<script src="js/towerGameplay.js?v=47"></script>
+<script src="js/millGameplay.js?v=47"></script>
+<script src="js/puzzleGameplay.js?v=47"></script>
+<script src="js/postfx.js?v=47"></script>
+<script src="js/shop.js?v=47"></script>
+<script src="js/modes.js?v=47"></script>
+<script src="js/input.js?v=47"></script>
+<script src="js/main.js?v=47"></script>
 </body>
 </html>

@@ -167,15 +167,38 @@ function createPickupTexture(kind, amount){
 // Texture de sol NEUTRE (nuances de gris) : la couleur vient uniquement du
 // matériau (groundMat.color), ce qui permet de changer de biome en douceur
 // par un simple fondu de couleur, sans jamais régénérer cette texture.
+// Texture en LUMINANCE : elle est multipliée par la couleur de sol du biome
+// courant, elle ne porte donc que le relief, jamais la teinte.
+// Elle portait une allée claire et quelques touffes, et rien d'autre : à
+// pleine vitesse le sol défilait sans qu'AUCUN repère ne passe, si bien que
+// la course paraissait immobile. D'où les deux ajouts ci-dessous — des bords
+// d'allée nets, et des traverses régulières qui donnent la vitesse.
 function createGroundTexture(){
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
   const cx = c.getContext('2d');
-  cx.fillStyle = '#c9c9c9';
+  cx.fillStyle = '#b9b9b9';
   cx.fillRect(0,0,256,256);
   // allée centrale plus claire
   cx.fillStyle = '#eeeeee';
   cx.fillRect(96, 0, 64, 256);
+  // bords de l'allée : la limite se voit, donc l'écart au centre aussi
+  cx.fillStyle = 'rgba(60,52,40,0.35)';
+  cx.fillRect(92, 0, 5, 256);
+  cx.fillRect(159, 0, 5, 256);
+  // traverses régulières : ce sont ELLES qui donnent la sensation de vitesse
+  cx.fillStyle = 'rgba(70,60,46,0.16)';
+  for(let i=0;i<4;i++) cx.fillRect(97, i*64 + 26, 62, 9);
+  // gravier de part et d'autre
+  cx.fillStyle = 'rgba(60,52,40,0.22)';
+  for(let i=0;i<160;i++){
+    const bord = Math.random() < 0.5;
+    const x = bord ? Math.random()*90 : 166 + Math.random()*90;
+    const y = Math.random()*256;
+    cx.beginPath();
+    cx.ellipse(x, y, 1.5 + Math.random()*2.5, 1 + Math.random()*1.8, Math.random()*Math.PI, 0, Math.PI*2);
+    cx.fill();
+  }
   // touffes décoratives, plus sombres
   cx.fillStyle = 'rgba(40,40,40,0.28)';
   for(let i=0;i<40;i++){
@@ -1197,6 +1220,11 @@ function initScene(){
   leaderGroup.add(catVisual);
   leaderGroup.userData.catVisual = catVisual;
   leaderGroup.userData.legs = catVisual.userData.legs;
+  // Ombre de contact, comme dans les trois autres jeux. Enfant du groupe,
+  // elle grandit donc avec le chat sans une ligne de synchronisation — et
+  // c'est elle qui le décolle du sol quand la robe et le décor se ressemblent
+  // (le biome Désert était le cas critique).
+  addContactShadow(leaderGroup, 0.55);
   leaderGroup.scale.setScalar(leaderScale()); // petit chaton au départ — voir syncLeader() pour la croissance
   leaderGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
   scene.add(leaderGroup);
