@@ -247,3 +247,54 @@ function addHorizonTreelines(scene, z, width, loinHex, presHex){
   scene.add(pres);
   return [loin, pres];
 }
+
+// --- planches de ponton ----------------------------------------------------
+// Le sol du Palais restait le même du niveau 1 au niveau 20. Cette texture
+// sert au décor "ponton" : des lattes dans le sens de la marche, dont les
+// joints défilent — le meilleur repère de vitesse qu'on puisse donner à une
+// course en ligne droite. En LUMINANCE, comme l'herbe, pour que la teinte de
+// l'ambiance pilote la couleur.
+let plankTextureCache = null;
+function createPlankTexture(){
+  if(plankTextureCache) return plankTextureCache;
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const x = c.getContext('2d');
+  x.fillStyle = '#DED5C4';
+  x.fillRect(0, 0, S, S);
+  const lattes = 4, larg = S / lattes;
+  for(let i = 0; i < lattes; i++){
+    // chaque latte a sa nuance : sans ça le platelage fait tôle ondulée
+    const t = 0.86 + ((i * 7) % 5) / 22;
+    x.fillStyle = 'rgba(255,255,255,' + (t - 0.8).toFixed(2) + ')';
+    x.fillRect(i*larg, 0, larg, S);
+    // veinage
+    x.strokeStyle = 'rgba(120,104,80,0.22)';
+    x.lineWidth = 1;
+    for(let k = 0; k < 5; k++){
+      const px = i*larg + 6 + Math.random()*(larg-12);
+      x.beginPath();
+      x.moveTo(px, 0);
+      x.bezierCurveTo(px+6, S/3, px-6, 2*S/3, px+2, S);
+      x.stroke();
+    }
+    // joint entre lattes
+    x.fillStyle = 'rgba(80,66,48,0.45)';
+    x.fillRect(i*larg, 0, 3, S);
+  }
+  // traverses : les clous et les jointures perpendiculaires
+  x.fillStyle = 'rgba(80,66,48,0.30)';
+  for(let y = 0; y < S; y += S/2) x.fillRect(0, y, S, 3);
+  x.fillStyle = 'rgba(60,50,38,0.4)';
+  for(let i = 0; i < lattes; i++){
+    for(let y = 8; y < S; y += S/2){
+      x.beginPath(); x.arc(i*larg + 8, y, 2, 0, Math.PI*2); x.fill();
+      x.beginPath(); x.arc((i+1)*larg - 8, y, 2, 0, Math.PI*2); x.fill();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  plankTextureCache = tex;
+  return tex;
+}

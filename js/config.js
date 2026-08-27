@@ -809,3 +809,50 @@ const MILL_SALARY_WARN_COINS = 1.5; // on prévient quand il reste moins de 1,5 
 // bûcherons, ils se marchaient dessus en attendant la repousse.
 const MILL_LOG_PER_LEVEL = 2;
 const MILL_LOG_COUNT_MAX = 13;
+
+// ===========================================================================
+// Palais des Chats : la TROUPE, les portiques, la mêlée, les barrages
+// ===========================================================================
+// Le mode reprenait le genre "foule qui grossit" avec un SEUL chat portant une
+// pastille chiffrée. Le nombre était juste, mais il ne procurait rien : tout
+// le plaisir de ce genre tient à voir sa troupe doubler physiquement en
+// franchissant un portique, puis se jeter dans la troupe adverse.
+//
+// La puissance reste le nombre exact (elle grimpe de façon exponentielle et
+// aucune foule ne pourrait la représenter), mais elle s'accompagne désormais
+// d'une TROUPE VISIBLE plafonnée, à l'échelle logarithmique — exactement ce
+// que font ces jeux : le compteur affiche 999, on voit une cinquantaine de
+// personnages.
+const PUZZLE_CROWD_MAX = 26;         // chats affichés au maximum
+const PUZZLE_CROWD_PER_DECADE = 5.2; // chats gagnés quand la puissance est multipliée par 10
+const PUZZLE_CROWD_SPACING = 0.44;
+const PUZZLE_CROWD_LERP = 0.14;      // les suiveurs rattrapent leur place en douceur
+const PUZZLE_CROWD_SPREAD = 0.95;    // demi-largeur de la formation, en unités
+
+// --- mêlée -----------------------------------------------------------------
+// Un affrontement était instantané : nombre >= nombre, l'objet disparaît. Il
+// n'y avait aucun INSTANT. La course ralentit donc brièvement au contact, le
+// temps qu'on voie les deux troupes se rentrer dedans.
+const PUZZLE_MELEE_FRAMES = 26;
+const PUZZLE_MELEE_SLOWDOWN = 0.32;  // fraction de la vitesse d'avance pendant la mêlée
+const PUZZLE_DEFEAT_FRAMES = 55;     // la troupe se fait dévorer avant l'écran de défaite
+
+// --- barrages --------------------------------------------------------------
+// Troisième verbe, à côté de "ramasser" et "esquiver" : DÉFONCER. Un barrage
+// se franchit toujours si l'on est assez fort, mais il COÛTE sa valeur en
+// puissance — là où un chien vaincu en rapporte. C'est donc parfois la voie
+// la moins mauvaise, jamais la meilleure.
+const PUZZLE_BARRIER_RATIO = [0.25, 0.55]; // coût = expected * ce facteur
+const PUZZLE_BARRIER_CHANCE = 0.30;        // fréquence des carrefours à barrage
+
+// --- ambiances -------------------------------------------------------------
+// Le couloir était identique du niveau 1 au niveau 20. Trois décors alternent
+// désormais, dont le ponton de bois au-dessus de l'eau turquoise.
+const PUZZLE_AMBIANCES = [
+  { id:'palais', sol:0xF0E7D2, eau:0x53BDD6, ciel:0x8FD3E8, brume:0xBFE6F0,
+    poteau:0xF5EEDD, rampe:0xF0E7D4, accent:0xE3A857 },
+  { id:'ponton', sol:0xC49A63, eau:0x2FBFD4, ciel:0x7FD0E6, brume:0xB8E6EE,
+    poteau:0xA8724A, rampe:0xC0392B, accent:0xE8B84B },
+  { id:'jardin', sol:0xCFC8A8, eau:0x5FA88C, ciel:0xA8DCC0, brume:0xCFE8D8,
+    poteau:0xD8D2BC, rampe:0x6B8F5A, accent:0xD9884A }
+];

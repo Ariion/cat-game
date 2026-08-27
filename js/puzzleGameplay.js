@@ -24,6 +24,7 @@ function puzzleMakeSegment(expected, level, index){
   const gold = ()=>({ type:'gold', value: Math.max(1, Math.round(expected * puzzleRand(PUZZLE_GOLD_RATIO))) });
   const mult = ()=>({ type:'mult', value: 2 });
   const easyFoe = ()=>({ type:'foe', value: Math.max(1, Math.round(expected * puzzleRand(PUZZLE_FOE_EASY))) });
+  const barrage = ()=>({ type:'barrier', value: Math.max(1, Math.round(expected * puzzleRand(PUZZLE_BARRIER_RATIO))) });
   const trapFoe = ()=>({ type:'foe', value: Math.max(2, Math.round(expected * puzzleRand(PUZZLE_FOE_TRAP) * trapBoost)) });
 
   const trap = safe ? easyFoe : trapFoe;
@@ -38,6 +39,13 @@ function puzzleMakeSegment(expected, level, index){
     lanes[0] = trap(); lanes[1] = easyFoe(); lanes[2] = trap();
   } else {                // le multiplicateur est gardé : gros gain, gros risque
     lanes[0] = mult(); lanes[1] = easyFoe(); lanes[2] = trap();
+  }
+  // Un barrage remplace parfois une voie de butin : il ne tue pas (si l'on est
+  // assez fort) mais il coûte, ce qui en fait une troisième réponse possible à
+  // un carrefour — ni ramasser, ni esquiver : forcer le passage.
+  if(!safe && Math.random() < PUZZLE_BARRIER_CHANCE){
+    const i = lanes.findIndex(l=>l && l.type === 'gold');
+    if(i >= 0) lanes[i] = barrage();
   }
   // mélange des voies : sinon le multiplicateur serait toujours à gauche
   for(let i = lanes.length - 1; i > 0; i--){
@@ -54,6 +62,8 @@ function puzzleMakeSegment(expected, level, index){
       if(l.type === 'gold') return expected + l.value;
       if(l.type === 'mult') return expected * l.value;
       if(l.type === 'foe' && l.value <= expected) return expected + l.value * PUZZLE_FOE_REWARD;
+      // un barrage franchissable reste survivable, même s'il appauvrit
+      if(l.type === 'barrier' && l.value < expected) return expected - l.value;
       return null; // voie mortelle : elle ne compte pas dans la médiane
     })
     .filter(v=>v !== null)
@@ -87,6 +97,10 @@ function puzzleSegmentZ(i){ return -(i + 1) * PUZZLE_SEG_LEN - 3; }
 
 function buildPuzzleBoard(){
   puzzleItems.forEach(it=>{ if(it.visual) puzzleScene.remove(it.visual); });
+  // Les éclats de mêlée vivent DANS le groupe du niveau : celui-ci est jeté
+  // et ses maillages libérés juste en dessous, donc garder leurs références
+  // ferait manipuler des géométries déjà détruites à la frame suivante.
+  puzzleClashes = [];
   puzzleItems = [];
   puzzleRows = [];
   puzzleGuard = null;
@@ -130,26 +144,37 @@ function buildPuzzleBoard(){
     seg.lanes.forEach((lane, li)=>{
       if(!lane) return;
       const x = PUZZLE_LANE_X[li];
-      let visual, kind;
+      let visual, kind, hauteurBadge;
       if(lane.type === 'foe'){
         visual = spawnPuzzleDog(lane.value, false);
         kind = 'foe';
+        hauteurBadge = 1.9;
+      } else if(lane.type === 'barrier'){
+        visual = buildPuzzleBarrier();
+        kind = 'barrier';
+        hauteurBadge = 1.5;
       } else {
-        visual = buildTreasure(lane.type);
+        // gold ET mult passent par un PORTIQUE qu'on traverse
+        visual = buildPuzzleGate(lane.type);
         kind = lane.type === 'mult' ? 'mult' : 'gain';
+        // AU-DESSUS du linteau (qui culmine à 1,72) et pas à sa hauteur : la
+        // pastille y était coupée en deux et on ne lisait que le haut des
+        // chiffres — "+6,9 K" se lisait "+6" (vu en capture).
+        hauteurBadge = 2.08;
       }
       visual.position.set(x, 0, z);
       levelGroup.add(visual);
       const text = lane.type === 'mult' ? ('×' + lane.value)
                  : lane.type === 'gold' ? ('+' + puzzleFormat(lane.value))
+                 : lane.type === 'barrier' ? ('−' + puzzleFormat(lane.value))
                  : puzzleFormat(lane.value);
       const badge = buildNumberBadge(text, kind);
-      badge.position.set(x, lane.type === 'foe' ? 1.9 : 1.15, z);
+      badge.position.set(x, hauteurBadge, z);
       levelGroup.add(badge);
       if(lane.type === 'mult') puzzleMultsTotal++;
       const item = { type: lane.type, value: lane.value, x, z, visual, badge, taken:false,
                      shadowIndex: spotsOmbres.length };
-      spotsOmbres.push([x, z, lane.type === 'foe' ? 0.45 : (lane.type === 'mult' ? 0.55 : 0.42)]);
+      spotsOmbres.push([x, z, lane.type === 'foe' ? 0.45 : 0.8]);
       row.lanes[li] = item;
       puzzleItems.push(item);
     });
@@ -218,7 +243,11 @@ function puzzleSetPower(v){
 }
 
 function puzzleRunSpeed(){
-  return Math.min(PUZZLE_SPEED_MAX, PUZZLE_RUN_SPEED + (puzzleLevel - 1) * PUZZLE_SPEED_PER_LEVEL);
+  const base = Math.min(PUZZLE_SPEED_MAX, PUZZLE_RUN_SPEED + (puzzleLevel - 1) * PUZZLE_SPEED_PER_LEVEL);
+  // La course ralentit au contact : sans ce temps mort, un affrontement se
+  // résolvait dans la même image que la collision et il n'y avait AUCUN
+  // instant à regarder — juste un objet qui disparaissait.
+  return puzzleMeleeTimer > 0 ? base * PUZZLE_MELEE_SLOWDOWN : base;
 }
 
 function updatePuzzleHero(){
@@ -232,6 +261,36 @@ function updatePuzzleHero(){
   v.rotation.z = -step * 1.6;
   animateLegs(v.userData.legs, puzzleFrame * 0.36, 0.6);
   if(puzzleHero.hitFlash > 0) puzzleHero.hitFlash--;
+  updatePuzzleCrowd(puzzleCrowdCount(puzzlePower), puzzleHero.x, puzzleHero.z, puzzleFrame);
+}
+
+// --- défaite : la troupe se fait dévorer ------------------------------------
+// La mort était instantanée : l'écran de défaite s'affichait dans la même
+// image que la collision. Ici la course s'arrête, les chats disparaissent un
+// par un dans le chien qui vient de gagner, et l'écran ne vient qu'après. On
+// VOIT ce qui s'est passé au lieu de le lire.
+function startPuzzleDefeat(it, cause){
+  if(puzzleDefeatTimer > 0) return;
+  puzzleDefeatTimer = PUZZLE_DEFEAT_FRAMES;
+  puzzleDefeatFoe = { cause, x: it ? it.x : puzzleHero.x, z: it ? it.z : puzzleHero.z };
+  spawnPuzzleClash(puzzleDefeatFoe.x, puzzleDefeatFoe.z, 0xC94868);
+  sfx.hit ? sfx.hit() : sfx.lose();
+  vibrate([30, 25, 30]);
+}
+
+function updatePuzzleDefeat(){
+  puzzleDefeatTimer--;
+  const t = puzzleDefeatTimer / PUZZLE_DEFEAT_FRAMES;
+  const n = Math.round(puzzleCrowdCount(puzzlePower) * t);
+  updatePuzzleCrowd(n, puzzleHero.x, puzzleHero.z, puzzleFrame);
+  if(puzzleFrame % 6 === 0 && n > 0){
+    spawnPuzzleClash(puzzleDefeatFoe.x, puzzleDefeatFoe.z, 0xC94868);
+  }
+  updatePuzzleClashes();
+  if(puzzleDefeatTimer <= 0){
+    updatePuzzleCrowd(0, puzzleHero.x, puzzleHero.z, puzzleFrame);
+    showPuzzleDead(puzzleDefeatFoe.cause);
+  }
 }
 
 // UN CARREFOUR SE FRANCHIT, IL NE SE TRAVERSE PAS.
@@ -278,9 +337,10 @@ function updatePuzzleItems(){
       puzzleGuard.visual.visible = false;
       puzzleGuard.badge.visible = false;
       puzzleSetPower(puzzlePower + puzzleGuard.power * PUZZLE_GUARD_REWARD);
+      spawnPuzzleClash(0, puzzleGuard.z, 0xFFD9E3);
       showPuzzleLevelWin();
     } else {
-      showPuzzleDead(String(puzzleGuard.power));
+      startPuzzleDefeat({ x: 0, z: puzzleGuard.z }, puzzleFormat(puzzleGuard.power));
     }
   }
 }
@@ -318,6 +378,41 @@ function fadeDistantBadge(badge, dist){
   if(badge.visible) badge.material.opacity = a;
 }
 
+// Étincelles de mêlée : quelques éclats projetés au point de contact. Ils
+// vivent dans le groupe du niveau, donc ils partent avec lui.
+function spawnPuzzleClash(x, z, colorHex){
+  if(!puzzleLevelGroup) return;
+  for(let i = 0; i < 9; i++){
+    const m = new THREE.Mesh(
+      new THREE.TetrahedronGeometry(0.09),
+      new THREE.MeshBasicMaterial({ color: colorHex, transparent:true, opacity:0.95 }));
+    m.position.set(x + (Math.random()-0.5)*0.7, 0.5 + Math.random()*0.6, z + (Math.random()-0.5)*0.5);
+    puzzleLevelGroup.add(m);
+    puzzleClashes.push({
+      mesh: m, vie: 22,
+      vx: (Math.random()-0.5)*0.09, vy: 0.05 + Math.random()*0.06, vz: (Math.random()-0.5)*0.06
+    });
+  }
+}
+
+function updatePuzzleClashes(){
+  for(let i = puzzleClashes.length - 1; i >= 0; i--){
+    const c = puzzleClashes[i];
+    c.mesh.position.x += c.vx;
+    c.mesh.position.y += c.vy;
+    c.mesh.position.z += c.vz;
+    c.vy -= 0.006;
+    c.mesh.rotation.x += 0.22; c.mesh.rotation.y += 0.18;
+    c.mesh.material.opacity = Math.max(0, c.vie / 22);
+    if(--c.vie <= 0){
+      puzzleLevelGroup && puzzleLevelGroup.remove(c.mesh);
+      c.mesh.geometry.dispose();
+      c.mesh.material.dispose();
+      puzzleClashes.splice(i, 1);
+    }
+  }
+}
+
 function resolvePuzzleHit(it){
   it.taken = true;
   if(it.type === 'gold'){
@@ -328,20 +423,41 @@ function resolvePuzzleHit(it){
     sfx.win();
     vibrate(25);
     showToast(t('puzzle_mult_toast', { n: it.value }));
+  } else if(it.type === 'barrier'){
+    if(puzzlePower > it.value){
+      // on passe en force, et ça se paie
+      puzzleSetPower(puzzlePower - it.value);
+      puzzleMeleeTimer = PUZZLE_MELEE_FRAMES;
+      spawnPuzzleClash(it.x, it.z, 0xE8A87C);
+      sfx.hit ? sfx.hit() : sfx.croquette();
+      vibrate([18, 10, 18]);
+    } else {
+      it.taken = false;
+      startPuzzleDefeat(it, puzzleFormat(it.value));
+      return;
+    }
   } else { // chien
     if(puzzlePower >= it.value){
       puzzleSetPower(puzzlePower + it.value * PUZZLE_FOE_REWARD);
+      puzzleMeleeTimer = PUZZLE_MELEE_FRAMES;
+      spawnPuzzleClash(it.x, it.z, 0xFFE0A8);
       sfx.croquette();
       vibrate(15);
     } else {
       it.taken = false; // il reste debout : c'est lui qui a gagné
-      showPuzzleDead(String(it.value));
+      startPuzzleDefeat(it, puzzleFormat(it.value));
       return;
     }
   }
-  it.visual.visible = false;
+  // Un PORTIQUE ne disparaît pas : on vient de le traverser, il reste debout
+  // derrière soi. Seule sa membrane s'éteint, pour dire qu'il est consommé.
+  if(it.visual.userData.membrane){
+    it.visual.userData.membrane.visible = false;
+  } else {
+    it.visual.visible = false;
+    hidePuzzleShadow(it);
+  }
   if(it.badge) it.badge.visible = false;
-  hidePuzzleShadow(it);
 }
 
 function showPuzzleLevelWin(){
@@ -400,7 +516,11 @@ function puzzleRevive(){
   if(!spendGems(cost)){ showToast(t('meta_not_enough_gems')); return; }
   puzzleRevivesUsed++;
   puzzleState = 'playing';
+  puzzleDefeatTimer = 0;
+  puzzleDefeatFoe = null;
+  puzzleMeleeTimer = 0;
   puzzleHero.z += 2.2;
+  resetPuzzleCrowd(puzzleHero.x, puzzleHero.z);
   puzzleHero.hitFlash = 90;
   // tout ce qui se trouve autour du point de mort est désamorcé, sinon on
   // ressuscite dans le même chien
@@ -430,7 +550,12 @@ function puzzleRevive(){
 function updatePuzzle(){
   if(puzzleState !== 'playing' || puzzlePaused) return;
   puzzleFrame++;
+  // La défaite prend la main sur tout le reste : la course est finie, il ne
+  // reste que la troupe à faire disparaître.
+  if(puzzleDefeatTimer > 0){ updatePuzzleDefeat(); return; }
+  if(puzzleMeleeTimer > 0) puzzleMeleeTimer--;
   updatePuzzleHero();
   updatePuzzleItems();
+  updatePuzzleClashes();
   if(puzzleFrame % 15 === 0) updatePuzzleChallengeBanner();
 }

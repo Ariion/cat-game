@@ -29,6 +29,10 @@ let puzzleRevivesUsed = 0; // pour renchérir la 2e résurrection d'une même co
 let puzzleChallenge = null;
 let puzzleChallengeOk = true;
 let puzzleMultsTotal = 0, puzzleMultsTaken = 0;
+let puzzleMeleeTimer = 0;     // ralentissement au contact
+let puzzleClashes = [];       // éclats de la mêlée
+let puzzleDefeatTimer = 0;    // la troupe se fait dévorer avant l'écran de défaite
+let puzzleDefeatFoe = null;
 
 function resetPuzzleRun(keepPower){
   puzzleState = 'playing';
@@ -44,6 +48,10 @@ function resetPuzzleRun(keepPower){
   puzzleHero.x = 0; puzzleHero.z = 0;
   puzzleHero.targetX = 0;
   puzzleHero.hitFlash = 0;
+  puzzleMeleeTimer = 0;
+  puzzleDefeatTimer = 0;
+  puzzleDefeatFoe = null;
+  puzzleClashes = [];
 
   if(webglSupported){
     if(!puzzleHero.visual){
@@ -62,6 +70,8 @@ function resetPuzzleRun(keepPower){
     puzzleHero.visual.position.set(0, 0, 0);
     puzzleHero.visual.rotation.y = Math.PI; // il court vers -Z, dos à la caméra
     redrawNumberBadge(puzzleHero.badge, puzzleFormat(puzzlePower));
+    resetPuzzleCrowd(0, 0);
+    updatePuzzleCrowd(puzzleCrowdCount(puzzlePower), 0, 0, 0);
     buildPuzzleBoard();
   }
 
