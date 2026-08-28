@@ -5,6 +5,34 @@ la demande. Ils apportent de la CONNAISSANCE (règles, bonnes pratiques), pas
 des fichiers 3D ni des effets tout faits : aucun d'eux ne rend le jeu plus
 beau tout seul.
 
+## Skills DU PROJET (écrites ici)
+
+Le catalogue de plugins disponible ne contient rien pour Three.js, la 3D web
+ni le game design — vérifié, zéro résultat. Ces six skills ont donc été
+écrites à partir de ce que ce projet a appris **en se trompant** : chaque
+règle vient d'un défaut réel, mesuré et corrigé, pas d'une théorie.
+
+| Skill | Ce qu'elle évite de revivre |
+|---|---|
+| `cadrage-portrait/` | Éléments hors cadre, rangées trop larges pour un écran vertical, projections fausses faute de rendu préalable |
+| `zones-interactives/` | Dalles inatteignables, conflits de priorité, chevauchements — la même famille de bugs est revenue trois fois |
+| `banc-de-mesure/` | Affirmer un réglage sans l'avoir mesuré ; et les bots mal écrits qui accusent le jeu |
+| `budget-rendu/` | 488 appels de dessin, et les trois fuites de mémoire vidéo du projet (squelettes clonés, matériaux, ressources partagées détruites) |
+| `direction-artistique/` | Sols en aplat, objets qui flottent, chiffres illisibles, monochrome — et une piste testée puis écartée |
+| `design-mobile/` | Commandes qui obligent à viser, rythme trop serré, boucles sans arbitrage, monétisation malhonnête |
+| `architecture-jeux/` | Mélange d'état entre modes, cache non incrémenté, écrans qui se superposent, traductions dépareillées |
+
+Elles sont volontairement **spécifiques et chiffrées**. Une règle sans le
+chiffre qui l'a motivée se re-discute à chaque fois.
+
+## Plugins du catalogue
+
+Recherché pour ce projet : le catalogue contient `design` (critique, système de
+design, accessibilité), `unity` (monétisation et live-ops transposables — les
+skills de code sont propres à Unity) et `figma`. Rien pour Three.js. Le
+marketplace GitHub `jeffallan/claude-skills` n'est pas ajoutable depuis cet
+environnement.
+
 ## Installé ici
 
 ### `three-best-practices/`
