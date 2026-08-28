@@ -67,6 +67,11 @@ function showMainMenu(){
   document.getElementById('pauseBtnPuzzle').classList.add('hidden');
   document.getElementById('meowBtn').classList.add('hidden');
   document.getElementById('towerStick').classList.add('hidden');
+  // On quitte peut-être en plein glissement : sans ça, l'élan gardé dans
+  // l'objet repartirait au prochain lancement et le chat s'échapperait tout
+  // seul pendant une demi-seconde.
+  hero.vx = 0; hero.vz = 0; hero.stickX = 0; hero.stickZ = 0;
+  millHero.vx = 0; millHero.vz = 0; millHero.stickX = 0; millHero.stickZ = 0;
   document.getElementById('callWaveBtn').classList.add('hidden');
   document.getElementById('lanePad').classList.add('hidden');
   document.getElementById('hint').classList.add('hidden');

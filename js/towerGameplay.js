@@ -50,15 +50,21 @@ function updateHeroMove(){
   // dessous — il ne sert plus au joueur, mais les bots de test s'en servent
   // et il reste utile pour recentrer le chat par code.
   const mag = Math.hypot(hero.stickX, hero.stickZ);
-  if(mag > 0.001){
+  // moveWithStick() (input.js) applique la poussée à la VITESSE, avec inertie
+  // et virage progressif — c'est là que se joue la sensation. On continue de
+  // l'appeler même à la manette relâchée, le temps que le chat finisse de
+  // glisser jusqu'à l'arrêt.
+  if(mag > 0.001 || Math.hypot(hero.vx || 0, hero.vz || 0) > 0.0006){
     hero.moving = false;
-    hero.x += hero.stickX * HERO_SPEED;
-    hero.z += hero.stickZ * HERO_SPEED;
-    hero.facing = Math.atan2(hero.stickX, hero.stickZ);
-    hero.x = Math.max(-6.5, Math.min(6.5, hero.x));
-    hero.z = Math.max(-13.5, Math.min(5.5, hero.z));
+    moveWithStick(hero, HERO_SPEED, TOWER_BOUNDS);
     return;
   }
+
+  // Purge AVANT le retour anticipé : le plancher d'arrêt de moveWithStick est
+  // par axe, le seuil ci-dessus est sur la norme. Un reliquat pouvait donc
+  // tomber entre les deux et n'être plus jamais nettoyé — le chat dérivait
+  // alors d'un cheveu par frame, indéfiniment, sans que personne ne pousse.
+  hero.vx = 0; hero.vz = 0;
 
   if(!hero.moving) return;
   const dx = hero.tx - hero.x, dz = hero.tz - hero.z;

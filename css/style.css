@@ -348,26 +348,6 @@ canvas{
 .meow-btn:not(.ready){ font-size:17px; }
 .meow-btn:active{ transform: scale(0.93); }
 
-/* Manette virtuelle du Chatteau Fort. Discrète (le jeu reste visible dessous)
-   et flottante : son centre est le point où le doigt s'est posé. */
-.stick{
-  position:absolute;
-  width:116px; height:116px;
-  margin-left:-58px; margin-top:-58px;   /* centrée sur le point de contact */
-  border-radius:50%;
-  border:2px solid rgba(255,255,255,0.55);
-  background: rgba(59,50,38,0.16);
-  pointer-events:none;
-  z-index:4;
-}
-.stick-knob{
-  position:absolute; left:50%; top:50%;
-  width:52px; height:52px; margin-left:-26px; margin-top:-26px;
-  border-radius:50%;
-  background: rgba(255,255,255,0.82);
-  box-shadow: 0 2px 8px rgba(59,50,38,0.3);
-}
-
 /* ===========================================================================
    Couche commune aux quatre jeux : profil, boutique, missions
    =========================================================================== */
@@ -503,17 +483,32 @@ canvas{
    Elles sont posées EN DEHORS de .hud (ancré en haut, sans hauteur propre :
    un `bottom` calculé dedans renvoie le bouton se coller en haut — l'erreur
    déjà faite avec le bouton miaulement). */
-/* Joystick FIXE : sa base ne bouge jamais, on la trouve avec le pouce sans
-   quitter le jeu des yeux. Le pommeau, lui, suit le doigt dans un rayon
-   limité — c'est le dosage que la croix directionnelle ne pouvait pas rendre. */
+/* Manette : au repos en bas à gauche (on sait où elle est), mais elle se
+   replace sous le pouce où qu'il se pose. Le pommeau suit le doigt dans un
+   rayon limité — c'est ce dosage que la croix directionnelle ne rendait pas.
+   Le diamètre vaut EXACTEMENT deux fois STICK_RADIUS_PX (config.js) : le
+   pommeau vient alors se poser sur le bord de l'anneau à fond de course. Avec
+   un anneau plus petit que la course, il en sortait — on croyait la manette
+   cassée alors qu'elle répondait très bien. Les deux valeurs vont ensemble. */
 .fixed-stick{
   position:absolute;
-  left:18px; bottom:20px;
-  width:124px; height:124px;
+  /* positionnée par le code en left/top, centrée sur son point d'ancrage */
+  left:88px; top:668px;
+  width:152px; height:152px;
+  margin-left:-76px; margin-top:-76px;
   z-index:5;
+  /* Elle ne capte AUCUN événement : c'est un retour visuel, pas une cible.
+     Tous les appuis sont lus sur le canvas, donc on peut prendre la manette
+     n'importe où — y compris à l'endroit exact où l'anneau se trouve. */
+  pointer-events:none;
   touch-action:none;
-  -webkit-tap-highlight-color: transparent;
+  opacity:0.55;
+  transition: left 0.22s ease, top 0.22s ease, opacity 0.15s;
 }
+/* pendant qu'on tient la manette, elle doit suivre le pouce SANS retard :
+   la transition est coupée, et rétablie au relâchement pour le retour */
+.fixed-stick.grabbed{ transition:none; }
+.fixed-stick.held{ opacity:1; }
 .fixed-stick-ring{
   position:absolute; inset:0;
   border-radius:50%;
@@ -523,7 +518,7 @@ canvas{
 }
 .fixed-stick-knob{
   position:absolute; left:50%; top:50%;
-  width:56px; height:56px; margin-left:-28px; margin-top:-28px;
+  width:50px; height:50px; margin-left:-25px; margin-top:-25px;
   display:flex; align-items:center; justify-content:center;
   font-size:22px;
   border-radius:50%;

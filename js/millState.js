@@ -16,6 +16,7 @@ let millPaused = false;
 // posé sur le plateau en même temps sans jamais se marcher dessus.
 let millHero = {
   x: -0.4, z: 0.6,
+  vx: 0, vz: 0,       // vitesse lissée (inertie) — voir moveWithStick()
   stickX: 0, stickZ: 0,
   facing: 0,
   carry: 0,           // planches sur le dos
@@ -125,6 +126,7 @@ function resetMillHero(){
   // seconde, sans que le joueur ait rien demandé.
   millHero.x = -0.4; millHero.z = 0.6;
   millHero.stickX = 0; millHero.stickZ = 0;
+  millHero.vx = 0; millHero.vz = 0;
   millHero.facing = 0;
   millHero.carry = 0;
   millHero.chopLog = null;

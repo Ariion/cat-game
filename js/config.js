@@ -343,8 +343,48 @@ const MEOW_COOLDOWN_FRAMES = 720; // 12 s de recharge
 // atteindre une tourelle précise pour l'améliorer relevait de l'adresse plus
 // que de la stratégie. Un joystick flottant rend le contrôle direct — on
 // pose le pouce n'importe où et on pousse dans la direction voulue.
-const STICK_RADIUS_PX = 58;   // amplitude au-delà de laquelle on va à pleine vitesse
-const STICK_DEADZONE_PX = 7;  // en deçà, on considère que le doigt ne bouge pas
+// AMPLITUDE de la manette. Remontée de 58 à 76 : sur 58 px, le moindre
+// tremblement du pouce faisait varier la poussée de 15 %, et le chat
+// tressautait. Plus la course est longue, plus le dosage est fin.
+const STICK_RADIUS_PX = 76;   // À GARDER ÉGAL au rayon de .fixed-stick (css/style.css)
+const STICK_DEADZONE_PX = 6;  // en deçà, on considère que le doigt ne bouge pas
+// Course VISUELLE du pommeau, volontairement plus courte que la course de
+// lecture : à fond, le bord extérieur du pommeau (25 px de rayon) vient
+// affleurer l'intérieur de l'anneau (76 px de rayon) au lieu d'en déborder de
+// moitié. La lecture du doigt, elle, garde bien ses 76 px de finesse.
+const STICK_KNOB_TRAVEL_PX = 51;
+
+// --- SENSATION DE DÉPLACEMENT ----------------------------------------------
+// Le chat appliquait la poussée DIRECTEMENT à sa position : la vitesse passait
+// de zéro au maximum en une image, et retombait à zéro tout aussi sec au
+// relâchement. Aucun poids, aucune inertie — c'est la première cause du
+// "horrible à contrôler". Et son orientation était recalculée à chaque image
+// (`facing = atan2(...)`), donc il pivotait instantanément : le moindre
+// micro-mouvement du pouce le faisait tourner sur lui-même.
+const HERO_ACCEL = 0.20;      // rattrapage de la vitesse visée, par tick
+const HERO_TURN_RATE = 0.25;  // rattrapage de l'orientation visée, par tick
+
+// Position de repos de la manette, en pixels depuis le coin bas gauche du
+// cadre. Elle y retourne au relâchement : on sait toujours où elle est, mais
+// on n'est jamais obligé d'y poser le pouce (voir stickBegin dans input.js).
+const STICK_HOME_X = 88;
+const STICK_HOME_Y = 92;
+
+// Limites de marche du Chatteau Fort. Elles étaient écrites en dur dans
+// updateHeroMove() ; elles sont ici pour que le déplacement partagé des deux
+// modes puisse les recevoir en paramètre.
+//
+// Le rectangle NE SUFFIT PAS. La caméra est inclinée : à x = ±6,5 le chat
+// tient largement dans l'image au fond du terrain, mais au premier plan il
+// sort de l'écran par le côté (mesuré à 1,8 en coordonnées normalisées, soit
+// presque une largeur d'écran dehors). On perdait le chat de vue en poussant
+// vers l'avant — pas la meilleure façon de trouver le déplacement naturel.
+// D'où le resserrement en perspective : la demi-largeur autorisée diminue à
+// mesure qu'on se rapproche de la caméra (z croissant). Les deux coefficients
+// viennent d'un relevé de la zone réellement visible, profondeur par
+// profondeur, avec une marge pour que le chat soit entier et pas rogné.
+const TOWER_BOUNDS = { xMin:-6.5, xMax:6.5, zMin:-13.5, zMax:4.2,
+                       halfW0:4.2, halfWSlope:0.20 };
 
 // La caméra suit doucement le chat au lieu d'être rivée au plateau. Volontai-
 // rement PARTIELLE (un quart du déplacement) : centrer le chat ferait perdre
@@ -595,7 +635,8 @@ const MILL_HERO_FUR = 0xD9C4A3;
 const MILL_HERO_SCARF = 0x5C8C4A;
 const MILL_HERO_SPEED = 0.082;    // un poil plus vif : ici on fait des allers-retours en continu
 // Le terrain s'étend vers l'avant : il porte maintenant le dépôt et le quai.
-const MILL_BOUNDS = { xMin:-4.0, xMax:3.9, zMin:-7.2, zMax:4.5 };
+const MILL_BOUNDS = { xMin:-4.0, xMax:3.9, zMin:-7.2, zMax:4.5,
+                      halfW0:4.1, halfWSlope:0.185 }; // cf. TOWER_BOUNDS
 
 // ===========================================================================
 // Mode 4 : "Palais des Chats" (choix de chemin, puissance qui enfle)

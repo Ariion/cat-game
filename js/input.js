@@ -1,7 +1,8 @@
 // Contrôles : selon le mode actif (voir gameMode dans modes.js). En Bataille,
 // déplacement continu (pas de couloirs binaires) — on glisse le doigt et le
-// chat suit, ou on maintient les flèches du clavier. En Chatteau Fort, un
-// tap pose une tourelle sur l'emplacement libre visé (pas de glissement).
+// chat suit, ou on maintient les flèches du clavier. En Chatteau Fort et à la
+// Scierie, on pilote un chat à la manette (plus bas). Au Palais, le doigt ne
+// choisit qu'une voie parmi trois.
 let keyLeft = false;
 let keyRight = false;
 let dragging = false;
@@ -17,12 +18,10 @@ canvas.addEventListener('pointerdown', (e)=>{
     if(state !== 'playing') return;
     dragging = true;
     setTargetFromClientX(e.clientX);
-  } else if(gameMode === 'tower'){
-    if(towerState !== 'playing' || towerPaused || inChapterBreak) return;
-    startStick(e.clientX, e.clientY);
-  } else if(gameMode === 'mill'){
-    if(millState !== 'playing' || millPaused) return;
-    startStick(e.clientX, e.clientY);
+  } else if(gameMode === 'tower' || gameMode === 'mill'){
+    stickBegin(e.clientX, e.clientY, e.pointerId);
+    // capture : le doigt peut sortir du canvas sans que la commande se coupe
+    if(canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
   } else if(gameMode === 'puzzle'){
     if(puzzleState !== 'playing' || puzzlePaused) return;
     dragging = true;
@@ -33,13 +32,13 @@ canvas.addEventListener('pointermove', (e)=>{
   if(gameMode === 'battle'){
     if(dragging) setTargetFromClientX(e.clientX);
   } else if(gameMode === 'tower' || gameMode === 'mill'){
-    moveStick(e.clientX, e.clientY);
+    stickMove(e.clientX, e.clientY, e.pointerId);
   } else if(gameMode === 'puzzle'){
     if(dragging) setPuzzleTargetFromClientX(e.clientX);
   }
 });
-window.addEventListener('pointerup', ()=>{ dragging = false; endStick(); });
-window.addEventListener('pointercancel', ()=>{ dragging = false; endStick(); });
+window.addEventListener('pointerup', (e)=>{ dragging = false; stickEnd(e.pointerId); });
+window.addEventListener('pointercancel', (e)=>{ dragging = false; stickEnd(e.pointerId); });
 
 // --- Palais des Chats : glissement latéral ---------------------------------
 // Le chat avance TOUT SEUL, le doigt ne sert qu'à choisir la voie. C'est le
@@ -59,162 +58,183 @@ function setPuzzleTargetFromClientX(clientX){
   updateLaneButtons();
 }
 
-// --- manette virtuelle (Chatteau Fort et Scierie) --------------------------
-// Le déplacement se faisait en TAPANT une destination : il fallait viser, et
-// rejoindre une tourelle précise pour l'améliorer tenait de l'adresse plus que
-// de la stratégie. Ici le contrôle est direct : la manette naît sous le pouce,
-// on pousse, le chat va dans cette direction.
+// ===========================================================================
+// LA MANETTE — une seule, mobile, qui se prend n'importe où
+// ===========================================================================
+// Il y en avait DEUX en concurrence : un joystick fixe en bas à gauche et une
+// manette flottante sur le reste du décor. Le pouce posé sur l'anneau donnait
+// un comportement, le même pouce un centimètre plus loin en donnait un autre.
+// C'est la première raison pour laquelle le chat était "une horreur à
+// contrôler" : le contrôle changeait de nature selon l'endroit touché.
 //
-// La caméra du mode n'a AUCUN lacet (elle est posée en +Z et regarde vers -Z),
-// donc la correspondance écran -> monde est directe : droite = +X, haut = -Z.
-// Si la caméra venait à pivoter, il faudrait projeter la direction dans son
-// repère au lieu de cette équivalence.
-// Les deux modes à chat pilotable ont chacun LEUR objet de personnage
-// (hero pour le Chatteau Fort, millHero pour la Scierie) : la manette écrit
-// dans celui du mode actif plutôt que dans une variable partagée, sinon les
-// deux mini-jeux se remettraient à partager de l'état, ce qu'on a justement
-// évité partout ailleurs.
-let stickActive = false, stickOx = 0, stickOy = 0;
+// Il n'en reste qu'une. L'anneau est TOUJOURS VISIBLE, posé au repos en bas à
+// gauche pour qu'on sache qu'il existe — mais toucher N'IMPORTE OÙ sur le jeu
+// l'amène sous le pouce. On ne vise donc jamais rien, et on garde quand même
+// un repère. L'anneau ne capte aucun événement (pointer-events: none) : c'est
+// un retour visuel, pas une cible.
+//
+// Trois réglages font la sensation, et aucun n'était là :
+//   1. ORIGINE MOBILE  — au-delà du rayon, l'origine suit le pouce, sinon un
+//      long glissement finit par pointer dans une direction qu'on n'a pas
+//      choisie ;
+//   2. INERTIE         — la vitesse rattrape sa cible au lieu de sauter (voir
+//      moveWithStick, plus bas) ;
+//   3. VIRAGE PROGRESSIF — le chat tourne vers sa direction au lieu de pivoter
+//      d'un bloc à chaque frémissement du pouce.
+let stickPointerId = null;
+let stickOx = 0, stickOy = 0;   // origine courante, en coordonnées écran
 
 function stickTarget(){
   return gameMode === 'mill' ? millHero : hero;
 }
 
-function startStick(clientX, clientY){
-  const el = document.getElementById('stick');
-  if(!el) return;
-  stickActive = true;
-  const rect = canvas.getBoundingClientRect();
-  stickOx = clientX; stickOy = clientY;
-  el.style.left = (clientX - rect.left) + 'px';
-  el.style.top  = (clientY - rect.top) + 'px';
-  el.classList.remove('hidden');
-  setKnob(0, 0);
-  const h = stickTarget();
-  h.stickX = 0; h.stickZ = 0;
-}
-
-function moveStick(clientX, clientY){
-  if(!stickActive) return;
-  let dx = clientX - stickOx, dy = clientY - stickOy;
-  const dist = Math.hypot(dx, dy);
-  const h = stickTarget();
-  if(dist < STICK_DEADZONE_PX){ setKnob(0,0); h.stickX = 0; h.stickZ = 0; return; }
-  const clamped = Math.min(dist, STICK_RADIUS_PX);
-  const nx = dx/dist, ny = dy/dist;
-  setKnob(nx*clamped, ny*clamped);
-  const power = clamped / STICK_RADIUS_PX; // course partielle = déplacement plus lent
-  h.stickX = nx * power;
-  h.stickZ = ny * power; // écran vers le bas = +Z monde (la caméra regarde -Z)
-}
-
-function endStick(){
-  if(!stickActive) return;
-  stickActive = false;
-  const el = document.getElementById('stick');
-  if(el) el.classList.add('hidden');
-  // remis à zéro sur LES DEUX personnages : le doigt peut se lever après un
-  // retour au menu, et un chat resterait alors à pousser tout seul
-  hero.stickX = 0; hero.stickZ = 0;
-  millHero.stickX = 0; millHero.stickZ = 0;
-}
-
-function setKnob(x, y){
-  const k = document.getElementById('stickKnob');
-  if(k) k.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-}
-
-document.addEventListener('keydown', (e)=>{
-  if(gameMode !== 'battle') return;
-  if(e.key==='ArrowLeft' || e.key==='a') keyLeft = true;
-  if(e.key==='ArrowRight' || e.key==='d') keyRight = true;
-});
-document.addEventListener('keyup', (e)=>{
-  if(e.key==='ArrowLeft' || e.key==='a') keyLeft = false;
-  if(e.key==='ArrowRight' || e.key==='d') keyRight = false;
-});
-
-// ===========================================================================
-// Commandes à l'écran : croix directionnelle (Chatteau Fort) et touches de
-// voie (Palais des Chats)
-// ===========================================================================
-// Elles ne REMPLACENT pas le glissement, elles s'y ajoutent : un joueur qui a
-// pris l'habitude de la manette flottante la garde, un joueur qui trouvait ça
-// difficile a maintenant des cibles fixes et visibles. Les deux écrivent dans
-// les mêmes champs, il n'y a donc aucun code de jeu à dédoubler.
-
-// --- joystick fixe (Chatteau Fort) -----------------------------------------
-// Même sortie que la manette flottante (hero.stickX / hero.stickZ), mais une
-// base ancrée : on sait toujours où poser le pouce. Le rayon de course est
-// celui du cercle affiché, donc ce qu'on voit correspond exactement à ce qui
-// est lu — pousser jusqu'au bord donne la vitesse maximale, pas au-delà.
-// Il sert au Chatteau Fort ET à la Scierie : les deux font marcher un chat sur
-// un plateau, donc les deux ont le même besoin. stickTarget() (plus bas) dit
-// dans quel personnage écrire selon le mode actif — c'est la même règle que
-// pour la manette flottante, il n'y a pas deux logiques à maintenir.
-const FIXED_STICK_RADIUS = 44;
-let fixedStickId = null;
-
-function fixedStickUsable(){
+function stickUsable(){
   if(gameMode === 'tower') return towerState === 'playing' && !towerPaused && !inChapterBreak;
   if(gameMode === 'mill')  return millState === 'playing' && !millPaused && !inChapterBreak;
   return false;
 }
 
-function fixedStickSet(clientX, clientY){
-  const el = document.getElementById('towerStick');
-  const knob = document.getElementById('towerStickKnob');
-  if(!el || !knob) return;
-  const r = el.getBoundingClientRect();
-  const cx = r.left + r.width/2, cy = r.top + r.height/2;
-  let dx = clientX - cx, dy = clientY - cy;
-  const dist = Math.hypot(dx, dy);
+function stickEl(){ return document.getElementById('towerStick'); }
+
+// Position de repos, calculée depuis le cadre : il est mis à l'échelle selon
+// l'écran, une constante en pixels ne suffirait pas.
+function stickHomeXY(){
+  const frame = document.getElementById('frame');
+  const r = frame.getBoundingClientRect();
+  return { x: STICK_HOME_X, y: r.height - STICK_HOME_Y };
+}
+
+function stickPlace(x, y){
+  const el = stickEl();
+  if(!el) return;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+}
+
+function stickGoHome(){
+  const h = stickHomeXY();
+  stickPlace(h.x, h.y);
+}
+
+function stickKnob(dx, dy){
+  const k = document.getElementById('towerStickKnob');
+  if(k) k.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+}
+
+function stickBegin(clientX, clientY, pointerId){
+  if(!stickUsable()) return;
+  const el = stickEl();
+  if(!el) return;
+  stickPointerId = pointerId;
+  stickOx = clientX; stickOy = clientY;
+  const r = document.getElementById('frame').getBoundingClientRect();
+  el.classList.add('held', 'grabbed'); // `grabbed` coupe la transition : sous
+                                       // le pouce, l'anneau doit être INSTANTANÉ
+  stickPlace(clientX - r.left, clientY - r.top);
+  stickKnob(0, 0);
   const h = stickTarget();
-  if(dist < 6){
-    knob.style.transform = 'translate(0,0)';
+  h.stickX = 0; h.stickZ = 0;
+}
+
+// Le pointerId est FILTRÉ : un deuxième doigt posé ailleurs (pour appuyer sur
+// un bouton d'interface, ou simplement posé sur l'écran) envoyait ses propres
+// pointermove, qui pilotaient la manette à la place du pouce. Le chat partait
+// alors dans une direction que personne n'avait demandée.
+function stickMove(clientX, clientY, pointerId){
+  if(stickPointerId === null) return;
+  if(pointerId !== undefined && pointerId !== stickPointerId) return;
+  if(!stickUsable()){ stickEnd(stickPointerId); return; }
+  let dx = clientX - stickOx, dy = clientY - stickOy;
+  let dist = Math.hypot(dx, dy);
+  const h = stickTarget();
+
+  if(dist < STICK_DEADZONE_PX){
+    stickKnob(0, 0);
     h.stickX = 0; h.stickZ = 0;
     return;
   }
-  const clamped = Math.min(dist, FIXED_STICK_RADIUS);
+
   const nx = dx/dist, ny = dy/dist;
-  knob.style.transform = 'translate(' + (nx*clamped) + 'px,' + (ny*clamped) + 'px)';
-  const power = clamped / FIXED_STICK_RADIUS; // course partielle = déplacement plus lent
+  // ORIGINE MOBILE : au-delà du rayon, l'origine se fait tirer par le pouce.
+  // Sans ça, un glissement de trois centimètres finit par désigner une
+  // direction très différente de celle du geste — le doigt part loin de son
+  // point de départ et c'est ce vecteur-là qui compte, pas le mouvement.
+  if(dist > STICK_RADIUS_PX){
+    stickOx = clientX - nx * STICK_RADIUS_PX;
+    stickOy = clientY - ny * STICK_RADIUS_PX;
+    const r = document.getElementById('frame').getBoundingClientRect();
+    stickPlace(stickOx - r.left, stickOy - r.top);
+    dist = STICK_RADIUS_PX;
+  }
+
+  const kt = STICK_KNOB_TRAVEL_PX / STICK_RADIUS_PX;
+  stickKnob(nx*dist*kt, ny*dist*kt);
+  const power = dist / STICK_RADIUS_PX; // course partielle = déplacement plus lent
   h.stickX = nx * power;
   h.stickZ = ny * power; // écran vers le bas = +Z monde (la caméra regarde -Z)
 }
 
-function fixedStickRelease(){
-  fixedStickId = null;
-  const el = document.getElementById('towerStick');
-  const knob = document.getElementById('towerStickKnob');
-  if(el) el.classList.remove('held');
-  if(knob) knob.style.transform = 'translate(0,0)';
-  // les DEUX personnages : le doigt peut se lever après un changement de mode
+function stickEnd(pointerId){
+  if(stickPointerId === null) return;
+  if(pointerId !== undefined && pointerId !== stickPointerId) return;
+  stickPointerId = null;
+  const el = stickEl();
+  if(el){
+    el.classList.remove('held', 'grabbed'); // la transition reprend : l'anneau
+    stickGoHome();                          // glisse doucement à sa place
+  }
+  stickKnob(0, 0);
+  // remis à zéro sur LES DEUX personnages : le doigt peut se lever après un
+  // changement de mode, et un chat resterait alors à pousser tout seul
   hero.stickX = 0; hero.stickZ = 0;
   millHero.stickX = 0; millHero.stickZ = 0;
 }
 
-function bindFixedStick(){
-  const el = document.getElementById('towerStick');
-  if(!el) return;
-  el.addEventListener('pointerdown', (e)=>{
-    e.preventDefault();
-    if(!fixedStickUsable()) return;
-    fixedStickId = e.pointerId;
-    el.classList.add('held');
-    // capture : le doigt peut sortir du cercle sans que la commande se coupe,
-    // ce qui est exactement ce qu'on attend d'un joystick
-    if(el.setPointerCapture) el.setPointerCapture(e.pointerId);
-    fixedStickSet(e.clientX, e.clientY);
-  });
-  el.addEventListener('pointermove', (e)=>{
-    if(fixedStickId !== e.pointerId) return;
-    e.preventDefault();
-    fixedStickSet(e.clientX, e.clientY);
-  });
-  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>{
-    el.addEventListener(ev, (e)=>{ if(fixedStickId === e.pointerId) fixedStickRelease(); });
-  });
+// ---------------------------------------------------------------------------
+// Intégration du déplacement, commune aux deux modes à chat pilotable.
+// C'est ICI que se joue la sensation, pas dans la lecture du doigt.
+//
+// La poussée ne s'applique plus à la POSITION mais à la VITESSE, qui rattrape
+// progressivement sa cible : le chat démarre avec un peu de poids et glisse
+// une fraction de seconde au relâchement, au lieu de s'allumer et s'éteindre.
+// Et il tourne VERS sa direction par le chemin le plus court, au lieu d'y
+// sauter — c'est ce qui faisait qu'il tournoyait sur place au moindre
+// tremblement du pouce.
+//
+// Renvoie la fraction de vitesse atteinte (0 à 1), dont les modes se servent
+// pour animer les pattes et le rebond de marche.
+function moveWithStick(h, speed, bounds){
+  const cibleVx = h.stickX * speed;
+  const cibleVz = h.stickZ * speed;
+  h.vx = (h.vx || 0) + (cibleVx - (h.vx || 0)) * HERO_ACCEL;
+  h.vz = (h.vz || 0) + (cibleVz - (h.vz || 0)) * HERO_ACCEL;
+  // sous le millième d'unité par tick, on est à l'arrêt : sans ce plancher le
+  // chat dériverait indéfiniment d'un cheveu
+  if(Math.abs(h.vx) < 0.0004) h.vx = 0;
+  if(Math.abs(h.vz) < 0.0004) h.vz = 0;
+
+  h.x += h.vx;
+  h.z += h.vz;
+  h.x = Math.max(bounds.xMin, Math.min(bounds.xMax, h.x));
+  h.z = Math.max(bounds.zMin, Math.min(bounds.zMax, h.z));
+  // Puis le resserrement en perspective (voir TOWER_BOUNDS dans config.js) :
+  // au premier plan le cadre est bien plus étroit en unités monde qu'au fond,
+  // et le rectangle seul laissait le chat sortir de l'écran par le côté.
+  if(bounds.halfW0){
+    const lim = bounds.halfW0 - bounds.halfWSlope * h.z;
+    if(h.x >  lim){ h.x =  lim; h.vx = 0; }
+    if(h.x < -lim){ h.x = -lim; h.vx = 0; }
+  }
+
+  const v = Math.hypot(h.vx, h.vz);
+  if(v > 0.0006){
+    const cible = Math.atan2(h.vx, h.vz);
+    let d = cible - h.facing;
+    while(d > Math.PI) d -= Math.PI*2;   // par le chemin le plus court : sans
+    while(d < -Math.PI) d += Math.PI*2;  // ça, un demi-tour part à l'envers
+    h.facing += d * HERO_TURN_RATE;
+  }
+  return Math.min(1, v / speed);
 }
 
 // --- touches de voie -------------------------------------------------------
@@ -260,5 +280,6 @@ function bindLanePad(){
   });
 }
 
-bindFixedStick();
+stickGoHome();
 bindLanePad();
+window.addEventListener('resize', stickGoHome);

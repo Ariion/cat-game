@@ -32,6 +32,9 @@ try{ towerBestWave = parseInt(localStorage.getItem('hordeDeChatsTowerBest') || '
 // le butin lâché par les chiens.
 let hero = {
   x: 0, z: 0,           // position courante
+  vx: 0, vz: 0,         // vitesse courante — lissée vers la vitesse visée par
+                        // la manette (voir moveWithStick() dans input.js), c'est
+                        // elle qui donne l'inertie et l'arrêt en douceur
   tx: 0, tz: 0,         // destination visée
   moving: false,
   stunTimer: 0,         // bousculé par un chien : immobilisé
@@ -132,6 +135,7 @@ function resetHero(){
   hero.buildTimer = 0;
   hero.meowCooldown = 0;
   hero.stickX = 0; hero.stickZ = 0;
+  hero.vx = 0; hero.vz = 0;
   hero.facing = 0;
   if(!hero.visual){
     const sk = currentSkin();

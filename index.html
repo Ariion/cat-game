@@ -18,7 +18,7 @@
   vendor/postprocessing.js si on les reconstruit — seul vendor/three.min.js
   ne change jamais).
 -->
-<link rel="stylesheet" href="css/style.css?v=49">
+<link rel="stylesheet" href="css/style.css?v=50">
 </head>
 <body>
 
@@ -135,19 +135,14 @@
       </span>
     </button>
 
-    <!-- Manette flottante : elle apparaît là où le pouce se pose, on n'a donc
-         jamais à viser une zone précise. -->
-    <div class="stick hidden" id="stick">
-      <div class="stick-knob" id="stickKnob"></div>
-    </div>
-
-    <!-- JOYSTICK FIXE (Chatteau Fort). La croix directionnelle essayée avant
-         donnait quatre directions franches, mais on perdait le dosage et les
-         diagonales naturelles du pouce : le joystick revient, et il est
-         désormais TOUJOURS VISIBLE au même endroit au lieu d'apparaître sous
-         le doigt. On garde donc ce qui manquait (une cible fixe, qu'on trouve
-         sans regarder) sans perdre ce qui marchait (une direction continue).
-         La manette flottante sur le décor reste active en parallèle. -->
+    <!-- MANETTE (Chatteau Fort et Scierie). Il n'y en a plus qu'UNE : avoir
+         en même temps un joystick fixe en bas à gauche et une manette
+         flottante sur le décor faisait changer le contrôle de nature selon
+         l'endroit où le pouce se posait. Celle-ci est au repos en bas à
+         gauche (on la trouve sans regarder), mais elle se REPLACE sous le
+         pouce où qu'il se pose, et son centre se fait tirer si on glisse
+         au-delà du rayon : on garde donc le doigt et le chat au même
+         endroit relatif, quelle que soit la longueur du geste. -->
     <div class="fixed-stick hidden" id="towerStick">
       <span class="fixed-stick-ring"></span>
       <span class="fixed-stick-knob" id="towerStickKnob">&#128062;</span>
@@ -421,34 +416,34 @@
 </div>
 
 <script src="js/vendor/three.min.js"></script>
-<script src="js/vendor/GLTFLoader.js?v=49"></script>
-<script src="js/vendor/postprocessing.js?v=49"></script>
-<script src="js/textures.js?v=49"></script>
-<script src="js/config.js?v=49"></script>
-<script src="js/meta.js?v=49"></script>
-<script src="js/biomes.js?v=49"></script>
-<script src="js/i18n.js?v=49"></script>
-<script src="js/audio.js?v=49"></script>
-<script src="js/state.js?v=49"></script>
-<script src="js/towerState.js?v=49"></script>
-<script src="js/millState.js?v=49"></script>
-<script src="js/puzzleState.js?v=49"></script>
-<script src="js/scene3d.js?v=49"></script>
-<script src="js/towerScene3d.js?v=49"></script>
-<script src="js/millScene3d.js?v=49"></script>
-<script src="js/puzzleScene3d.js?v=49"></script>
-<script src="js/render3d.js?v=49"></script>
-<script src="js/towerRender3d.js?v=49"></script>
-<script src="js/millRender3d.js?v=49"></script>
-<script src="js/puzzleRender3d.js?v=49"></script>
-<script src="js/gameplay.js?v=49"></script>
-<script src="js/towerGameplay.js?v=49"></script>
-<script src="js/millGameplay.js?v=49"></script>
-<script src="js/puzzleGameplay.js?v=49"></script>
-<script src="js/postfx.js?v=49"></script>
-<script src="js/shop.js?v=49"></script>
-<script src="js/modes.js?v=49"></script>
-<script src="js/input.js?v=49"></script>
-<script src="js/main.js?v=49"></script>
+<script src="js/vendor/GLTFLoader.js?v=50"></script>
+<script src="js/vendor/postprocessing.js?v=50"></script>
+<script src="js/textures.js?v=50"></script>
+<script src="js/config.js?v=50"></script>
+<script src="js/meta.js?v=50"></script>
+<script src="js/biomes.js?v=50"></script>
+<script src="js/i18n.js?v=50"></script>
+<script src="js/audio.js?v=50"></script>
+<script src="js/state.js?v=50"></script>
+<script src="js/towerState.js?v=50"></script>
+<script src="js/millState.js?v=50"></script>
+<script src="js/puzzleState.js?v=50"></script>
+<script src="js/scene3d.js?v=50"></script>
+<script src="js/towerScene3d.js?v=50"></script>
+<script src="js/millScene3d.js?v=50"></script>
+<script src="js/puzzleScene3d.js?v=50"></script>
+<script src="js/render3d.js?v=50"></script>
+<script src="js/towerRender3d.js?v=50"></script>
+<script src="js/millRender3d.js?v=50"></script>
+<script src="js/puzzleRender3d.js?v=50"></script>
+<script src="js/gameplay.js?v=50"></script>
+<script src="js/towerGameplay.js?v=50"></script>
+<script src="js/millGameplay.js?v=50"></script>
+<script src="js/puzzleGameplay.js?v=50"></script>
+<script src="js/postfx.js?v=50"></script>
+<script src="js/shop.js?v=50"></script>
+<script src="js/modes.js?v=50"></script>
+<script src="js/input.js?v=50"></script>
+<script src="js/main.js?v=50"></script>
 </body>
 </html>

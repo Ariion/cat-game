@@ -68,22 +68,17 @@ function millChapter(){ return Math.floor(millTotalLevels() / MILL_LEVELS_PER_CH
 
 // --- déplacement -----------------------------------------------------------
 function updateMillHeroMove(){
-  const mag = Math.hypot(millHero.stickX, millHero.stickZ);
-  if(mag > 0.001){
-    millHero.x += millHero.stickX * MILL_HERO_SPEED;
-    millHero.z += millHero.stickZ * MILL_HERO_SPEED;
-    millHero.facing = Math.atan2(millHero.stickX, millHero.stickZ);
-  }
-  millHero.x = Math.max(MILL_BOUNDS.xMin, Math.min(MILL_BOUNDS.xMax, millHero.x));
-  millHero.z = Math.max(MILL_BOUNDS.zMin, Math.min(MILL_BOUNDS.zMax, millHero.z));
+  // Même intégrateur que le Chatteau Fort (moveWithStick, dans input.js) :
+  // inertie et virage progressif. L'allure renvoyée pilote l'animation, si
+  // bien que les pattes ralentissent avec le chat au lieu de s'arrêter net.
+  const allure = moveWithStick(millHero, MILL_HERO_SPEED, MILL_BOUNDS);
 
   const v = millHero.visual;
   if(!v) return;
   v.position.set(millHero.x, 0, millHero.z);
   v.rotation.y = millHero.facing;
-  // pattes animées seulement quand il avance, et un rebond de marche léger
-  animateLegs(v.userData.legs, millFrame * 0.32, mag > 0.001 ? 0.55 : 0);
-  v.position.y = mag > 0.001 ? Math.abs(Math.sin(millFrame*0.32)) * 0.035 : 0;
+  animateLegs(v.userData.legs, millFrame * 0.32, allure * 0.55);
+  v.position.y = Math.abs(Math.sin(millFrame*0.32)) * 0.035 * allure;
 }
 
 // --- couper ----------------------------------------------------------------
